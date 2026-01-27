@@ -49,6 +49,30 @@ class FileItem: Identifiable, Hashable {
         }
     }
     
+    var language: String {
+        guard let ext = fileExtension?.lowercased() else { return "text" }
+        switch ext {
+        case "swift": return "swift"
+        case "py": return "python"
+        case "js": return "javascript"
+        case "ts", "tsx": return "typescript"
+        case "json": return "json"
+        case "md", "markdown": return "markdown"
+        case "html", "htm": return "html"
+        case "css", "scss", "sass": return "css"
+        case "rb": return "ruby"
+        case "rs": return "rust"
+        case "go": return "go"
+        case "c", "h": return "c"
+        case "cpp", "hpp", "cc": return "cpp"
+        case "java": return "java"
+        case "sh", "bash", "zsh": return "shell"
+        case "yaml", "yml": return "yaml"
+        case "xml": return "xml"
+        default: return "text"
+        }
+    }
+    
     var iconColor: SwiftUI.Color {
         if isDirectory {
             return .blue

@@ -251,6 +251,18 @@ class AgentExecutor {
             result = await executeDelegateToVision(call)
         case "take_screenshot":
             result = await executeTakeScreenshot(call)
+        // Web tools
+        case "web_search":
+            result = await executeWebSearch(call)
+        case "fetch_url":
+            result = await executeFetchUrl(call)
+        // Git tools
+        case "git_status":
+            result = await executeGitStatus(call)
+        case "git_diff":
+            result = await executeGitDiff(call)
+        case "git_commit":
+            result = await executeGitCommit(call)
         default:
             addStep(.error("Unknown tool: \(call.name)"))
             result = ToolResult(toolCallId: call.id, success: false, output: "Unknown tool: \(call.name)")
@@ -690,6 +702,245 @@ class AgentExecutor {
                     ))
                 }
             }
+        }
+    }
+    
+    // MARK: - Web Tool Implementations
+    
+    /// Search the web using DuckDuckGo
+    private func executeWebSearch(_ call: ToolCall) async -> ToolResult {
+        guard let query = call.getString("query") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing 'query' parameter")
+        }
+        
+        let maxResults = (call.arguments["max_results"] as? Int) ?? 5
+        
+        addStep(.tool(name: "web_search", input: query, output: "Searching the web..."))
+        
+        // URL encode the query
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://html.duckduckgo.com/html/?q=\(encoded)") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Invalid search query")
+        }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            guard let html = String(data: data, encoding: .utf8) else {
+                return ToolResult(toolCallId: call.id, success: false, output: "Failed to decode search results")
+            }
+            
+            let results = parseSearchResults(html, maxResults: maxResults)
+            
+            var output = "Search results for '\(query)':\n\n"
+            for (index, result) in results.enumerated() {
+                output += "\(index + 1). \(result.title)\n"
+                output += "   URL: \(result.url)\n"
+                output += "   \(result.snippet)\n\n"
+            }
+            
+            DispatchQueue.main.async {
+                self.updateLastToolStep(output: "Found \(results.count) results")
+            }
+            
+            return ToolResult(toolCallId: call.id, success: true, output: output)
+        } catch {
+            return ToolResult(toolCallId: call.id, success: false, output: "Search failed: \(error.localizedDescription)")
+        }
+    }
+    
+    private func parseSearchResults(_ html: String, maxResults: Int) -> [(title: String, url: String, snippet: String)] {
+        var results: [(String, String, String)] = []
+        
+        // Simple regex to extract DuckDuckGo results
+        let pattern = #"<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)</a>"#
+        let snippetPattern = #"<a[^>]*class="result__snippet"[^>]*>([^<]*)</a>"#
+        
+        guard let linkRegex = try? NSRegularExpression(pattern: pattern),
+              let snippetRegex = try? NSRegularExpression(pattern: snippetPattern) else {
+            return []
+        }
+        
+        let range = NSRange(html.startIndex..., in: html)
+        let linkMatches = linkRegex.matches(in: html, range: range)
+        let snippetMatches = snippetRegex.matches(in: html, range: range)
+        
+        for (index, match) in linkMatches.prefix(maxResults).enumerated() {
+            guard let urlRange = Range(match.range(at: 1), in: html),
+                  let titleRange = Range(match.range(at: 2), in: html) else { continue }
+            
+            var url = String(html[urlRange])
+            let title = String(html[titleRange])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "&amp;", with: "&")
+            
+            // DuckDuckGo wraps URLs
+            if url.contains("uddg="), let actualUrl = url.components(separatedBy: "uddg=").last?
+                .components(separatedBy: "&").first?
+                .removingPercentEncoding {
+                url = actualUrl
+            }
+            
+            guard url.hasPrefix("http") else { continue }
+            
+            var snippet = ""
+            if index < snippetMatches.count,
+               let snippetRange = Range(snippetMatches[index].range(at: 1), in: html) {
+                snippet = String(html[snippetRange])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .replacingOccurrences(of: "<b>", with: "")
+                    .replacingOccurrences(of: "</b>", with: "")
+            }
+            
+            results.append((title, url, snippet))
+        }
+        
+        return results
+    }
+    
+    /// Fetch content from a URL
+    private func executeFetchUrl(_ call: ToolCall) async -> ToolResult {
+        guard let urlString = call.getString("url"),
+              let url = URL(string: urlString) else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing or invalid 'url' parameter")
+        }
+        
+        let maxLength = (call.arguments["max_length"] as? Int) ?? 5000
+        
+        addStep(.tool(name: "fetch_url", input: urlString, output: "Fetching content..."))
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            guard var html = String(data: data, encoding: .utf8) else {
+                return ToolResult(toolCallId: call.id, success: false, output: "Failed to decode page content")
+            }
+            
+            // Extract text content
+            html = html.replacingOccurrences(of: #"<script[^>]*>[\s\S]*?</script>"#, with: "", options: .regularExpression)
+            html = html.replacingOccurrences(of: #"<style[^>]*>[\s\S]*?</style>"#, with: "", options: .regularExpression)
+            html = html.replacingOccurrences(of: #"<[^>]+>"#, with: " ", options: .regularExpression)
+            html = html.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            html = html.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Truncate if needed
+            if html.count > maxLength {
+                html = String(html.prefix(maxLength)) + "\n\n[Content truncated...]"
+            }
+            
+            DispatchQueue.main.async {
+                self.updateLastToolStep(output: "Fetched \(html.count) chars")
+            }
+            
+            return ToolResult(toolCallId: call.id, success: true, output: "Content from \(urlString):\n\n\(html)")
+        } catch {
+            return ToolResult(toolCallId: call.id, success: false, output: "Fetch failed: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Git Tool Implementations
+    
+    /// Get git status
+    private func executeGitStatus(_ call: ToolCall) async -> ToolResult {
+        guard let dir = workingDirectory else {
+            return ToolResult(toolCallId: call.id, success: false, output: "No working directory set")
+        }
+        
+        addStep(.tool(name: "git_status", input: "", output: "Getting git status..."))
+        
+        let result = runGitCommand(["status", "--porcelain", "-b"], in: dir)
+        
+        if result.isEmpty {
+            return ToolResult(toolCallId: call.id, success: true, output: "Working directory is clean")
+        }
+        
+        DispatchQueue.main.async {
+            self.updateLastToolStep(output: "Status retrieved")
+        }
+        
+        return ToolResult(toolCallId: call.id, success: true, output: "Git status:\n\n\(result)")
+    }
+    
+    /// Get git diff
+    private func executeGitDiff(_ call: ToolCall) async -> ToolResult {
+        guard let dir = workingDirectory else {
+            return ToolResult(toolCallId: call.id, success: false, output: "No working directory set")
+        }
+        
+        let file = call.getString("file")
+        let staged = (call.arguments["staged"] as? Bool) ?? false
+        
+        var args = ["diff"]
+        if staged { args.append("--cached") }
+        if let f = file { args.append(f) }
+        
+        addStep(.tool(name: "git_diff", input: file ?? "all", output: "Getting diff..."))
+        
+        let result = runGitCommand(args, in: dir)
+        
+        if result.isEmpty {
+            return ToolResult(toolCallId: call.id, success: true, output: "No changes to show")
+        }
+        
+        DispatchQueue.main.async {
+            self.updateLastToolStep(output: "Diff retrieved")
+        }
+        
+        return ToolResult(toolCallId: call.id, success: true, output: "Git diff:\n\n\(result)")
+    }
+    
+    /// Commit changes
+    private func executeGitCommit(_ call: ToolCall) async -> ToolResult {
+        guard let dir = workingDirectory else {
+            return ToolResult(toolCallId: call.id, success: false, output: "No working directory set")
+        }
+        
+        guard let message = call.getString("message") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing 'message' parameter")
+        }
+        
+        addStep(.tool(name: "git_commit", input: message, output: "Committing changes..."))
+        
+        // Stage files
+        if let files = call.arguments["files"] as? [String] {
+            for file in files {
+                _ = runGitCommand(["add", file], in: dir)
+            }
+        } else {
+            _ = runGitCommand(["add", "-A"], in: dir)
+        }
+        
+        // Commit
+        let result = runGitCommand(["commit", "-m", message], in: dir)
+        
+        if result.contains("error") || result.contains("fatal") {
+            return ToolResult(toolCallId: call.id, success: false, output: "Commit failed:\n\(result)")
+        }
+        
+        DispatchQueue.main.async {
+            self.updateLastToolStep(output: "Committed successfully")
+        }
+        
+        return ToolResult(toolCallId: call.id, success: true, output: "Commit successful:\n\(result)")
+    }
+    
+    /// Helper to run git commands
+    private func runGitCommand(_ args: [String], in directory: URL) -> String {
+        let process = Process()
+        let pipe = Pipe()
+        
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = args
+        process.currentDirectoryURL = directory
+        process.standardOutput = pipe
+        process.standardError = pipe
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        } catch {
+            return "Error: \(error.localizedDescription)"
         }
     }
 }

@@ -20,7 +20,14 @@ struct AgentTools {
         delegateToCoderTool,
         delegateToResearcherTool,
         delegateToVisionTool,
-        takeScreenshotTool
+        takeScreenshotTool,
+        // Web tools
+        webSearchTool,
+        fetchUrlTool,
+        // Git tools
+        gitStatusTool,
+        gitDiffTool,
+        gitCommitTool
     ]
     
     // MARK: - File Tools
@@ -309,6 +316,117 @@ struct AgentTools {
                     ]
                 ],
                 "required": []
+            ]
+        ]
+    ]
+    
+    // MARK: - Web Tools
+    
+    /// Search the web using DuckDuckGo
+    static let webSearchTool: [String: Any] = [
+        "type": "function",
+        "function": [
+            "name": "web_search",
+            "description": "Search the web for information using DuckDuckGo. Returns titles, URLs, and snippets of the top results. Use for finding documentation, tutorials, or current information.",
+            "parameters": [
+                "type": "object",
+                "properties": [
+                    "query": [
+                        "type": "string",
+                        "description": "The search query"
+                    ],
+                    "max_results": [
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default 5)"
+                    ]
+                ],
+                "required": ["query"]
+            ]
+        ]
+    ]
+    
+    /// Fetch content from a URL
+    static let fetchUrlTool: [String: Any] = [
+        "type": "function",
+        "function": [
+            "name": "fetch_url",
+            "description": "Fetch and extract text content from a web URL. Useful for reading documentation pages, articles, or any web content.",
+            "parameters": [
+                "type": "object",
+                "properties": [
+                    "url": [
+                        "type": "string",
+                        "description": "The URL to fetch"
+                    ],
+                    "max_length": [
+                        "type": "integer",
+                        "description": "Maximum characters to return (default 5000)"
+                    ]
+                ],
+                "required": ["url"]
+            ]
+        ]
+    ]
+    
+    // MARK: - Git Tools
+    
+    /// Get git status
+    static let gitStatusTool: [String: Any] = [
+        "type": "function",
+        "function": [
+            "name": "git_status",
+            "description": "Get the current git status including staged, unstaged, and untracked files, as well as branch information.",
+            "parameters": [
+                "type": "object",
+                "properties": [:],
+                "required": []
+            ]
+        ]
+    ]
+    
+    /// Get git diff for a file
+    static let gitDiffTool: [String: Any] = [
+        "type": "function",
+        "function": [
+            "name": "git_diff",
+            "description": "Get the git diff for a specific file or all changes. Shows what has changed since the last commit.",
+            "parameters": [
+                "type": "object",
+                "properties": [
+                    "file": [
+                        "type": "string",
+                        "description": "Optional file path to diff (omit for all changes)"
+                    ],
+                    "staged": [
+                        "type": "boolean",
+                        "description": "Show staged changes only (default false)"
+                    ]
+                ],
+                "required": []
+            ]
+        ]
+    ]
+    
+    /// Commit changes
+    static let gitCommitTool: [String: Any] = [
+        "type": "function",
+        "function": [
+            "name": "git_commit",
+            "description": "Stage and commit changes to git. Use after making changes that should be saved.",
+            "parameters": [
+                "type": "object",
+                "properties": [
+                    "message": [
+                        "type": "string",
+                        "description": "The commit message"
+                    ],
+                    "files": [
+                        "type": "array",
+                        "items": ["type": "string"],
+                        "description": "Optional list of files to stage (omit to stage all)"
+                    ]
+                ],
+                "required": ["message"]
             ]
         ]
     ]
