@@ -159,6 +159,7 @@ class AppState {
     
     // MARK: - Chat State
     var selectedModel: OllamaModel?
+    var lastUsedModel: OllamaModel? // Track last model for UI display
     var chatMessages: [ChatMessage] = []
     var isGenerating: Bool = false
     var mentionedFiles: [FileItem] = [] // For @file mentions
@@ -216,8 +217,8 @@ class AppState {
         self.intentRouter = IntentRouter()
         self.contextManager = ContextManager()
         
-        // Agent (uses contextManager internally)
-        self.agentExecutor = AgentExecutor(ollamaService: ollamaService, fileSystemService: fileSystemService)
+        // Agent - receives shared ContextManager (SINGLE SOURCE OF TRUTH)
+        self.agentExecutor = AgentExecutor(ollamaService: ollamaService, fileSystemService: fileSystemService, contextManager: contextManager)
         
         // Feature services
         self.inlineCompletionService = InlineCompletionService(ollamaService: ollamaService)
@@ -353,6 +354,9 @@ class AppState {
             )
         }
         
+        // Track for UI display
+        lastUsedModel = model
+        
         // 3. Build context using unified ContextManager
         var editorContextContent = editorContent
         for file in mentionedFiles {
@@ -462,4 +466,6 @@ class AppState {
         fileContentCache.clear()
         showSuccess("Caches cleared")
     }
+    
+    // runBenchmarks() is defined in Benchmarks.swift as an AppState extension
 }

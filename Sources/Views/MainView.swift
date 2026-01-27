@@ -105,11 +105,7 @@ struct MainView: View {
                 }
             }
             
-            if appState.showGoToLine {
-                DialogOverlay {
-                    GoToLineView(isPresented: $state.showGoToLine)
-                }
-            }
+            // REMOVED: Duplicate GoToLineView dialog (already defined on line 96-100)
             
             // Toast notifications (production UX)
             VStack {
@@ -624,7 +620,14 @@ struct GitSidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            DSSectionHeader(title: "SOURCE CONTROL") {
+            HStack {
+                Text("SOURCE CONTROL")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+                    .tracking(0.5)
+                
+                Spacer()
+                
                 if git.isLoading {
                     DSLoadingSpinner(size: 12)
                 } else {
@@ -633,6 +636,8 @@ struct GitSidebarView: View {
                     }
                 }
             }
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.vertical, DS.Spacing.sm)
             
             DSDivider()
             

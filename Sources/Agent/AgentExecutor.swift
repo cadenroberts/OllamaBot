@@ -8,8 +8,8 @@ class AgentExecutor {
     private let ollamaService: OllamaService
     private let fileSystemService: FileSystemService
     
-    // Context Management (comprehensive inter-agent context)
-    let contextManager = ContextManager()
+    // Context Management - SINGLE SOURCE from AppState (not duplicated)
+    private let contextManager: ContextManager
     
     // MARK: - Consistent Error Handling
     
@@ -42,9 +42,10 @@ class AgentExecutor {
     private let toolResultCache = LRUCache<String, String>(capacity: 100)
     private let executionQueue: DispatchQueue
     
-    init(ollamaService: OllamaService, fileSystemService: FileSystemService) {
+    init(ollamaService: OllamaService, fileSystemService: FileSystemService, contextManager: ContextManager) {
         self.ollamaService = ollamaService
         self.fileSystemService = fileSystemService
+        self.contextManager = contextManager // Shared from AppState - single source of truth
         
         // High-priority concurrent queue for tool execution
         self.executionQueue = DispatchQueue(
@@ -546,25 +547,7 @@ class AgentExecutor {
         }
     }
     
-    private func buildSystemMessage() -> [String: Any] {
-        // Compact system prompt - fewer tokens = faster inference
-        [
-            "role": "system",
-            "content": """
-            You are the ORCHESTRATOR (Qwen3). Plan and delegate.
-            
-            SPECIALISTS: delegate_to_coder (code), delegate_to_researcher (research), delegate_to_vision (images)
-            
-            WORKFLOW: think → gather info → delegate/execute → verify → complete
-            
-            TOOLS: read_file, write_file, edit_file, search_files, list_directory, run_command, ask_user, think, complete, delegate_to_coder, delegate_to_researcher, delegate_to_vision, take_screenshot
-            
-            RULES: Always think first. Delegate complex coding to coder model. Make small edits. Verify changes.
-            
-            CWD: \(workingDirectory?.path ?? ".")
-            """
-        ]
-    }
+    // REMOVED: buildSystemMessage() - now unified in ContextManager.buildOrchestratorContext()
     
     // MARK: - Multi-Model Delegation
     

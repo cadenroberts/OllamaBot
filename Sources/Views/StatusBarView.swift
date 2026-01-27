@@ -53,9 +53,9 @@ struct StatusBarView: View {
                 
                 statusDivider
                 
-                // Language
+                // Language (uses centralized ContextManager.languageName)
                 if let ext = file.fileExtension {
-                    Text(languageName(for: ext))
+                    Text(ContextManager.languageName(for: ext))
                         .font(DS.Typography.caption2)
                         .foregroundStyle(DS.Colors.secondaryText)
                     
@@ -135,24 +135,5 @@ struct StatusBarView: View {
         }
     }
     
-    private func languageName(for ext: String) -> String {
-        switch ext.lowercased() {
-        case "swift": return "Swift"
-        case "py": return "Python"
-        case "js": return "JavaScript"
-        case "ts": return "TypeScript"
-        case "tsx": return "TSX"
-        case "jsx": return "JSX"
-        case "json": return "JSON"
-        case "md": return "Markdown"
-        case "html": return "HTML"
-        case "css": return "CSS"
-        case "rs": return "Rust"
-        case "go": return "Go"
-        case "sh", "bash", "zsh": return "Shell"
-        case "yaml", "yml": return "YAML"
-        case "xml": return "XML"
-        default: return ext.uppercased()
-        }
-    }
+    // REMOVED: languageName() - now unified in ContextManager.languageName(for:)
 }
