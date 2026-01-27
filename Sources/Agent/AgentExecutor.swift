@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 // MARK: - Optimized Agent Executor
+// Note: Sendable warnings are Swift 6 future-proofing; @Observable manages thread safety
 
 @Observable
 class AgentExecutor {

@@ -156,7 +156,7 @@ class GitService {
     }
     
     func getFileDiff(file: String) -> FileDiff? {
-        guard let dir = workingDirectory else { return nil }
+        guard workingDirectory != nil else { return nil }
         
         let diff = getDiff(file: file)
         guard !diff.isEmpty else { return nil }
