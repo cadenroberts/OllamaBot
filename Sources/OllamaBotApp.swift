@@ -298,6 +298,7 @@ class AppState {
     let agentExecutor: AgentExecutor            // Single-task agent (Infinite Mode)
     let cycleAgentManager: CycleAgentManager    // Multi-agent orchestration (Cycle Mode)
     let obotService: OBotService                // Rules, bots, context, templates
+    let mentionService: MentionService          // @mention support for chat
     let fileIndexer = FileIndexer()
     let asyncFileIO = AsyncFileIO()
     let config = ConfigurationManager.shared
@@ -343,6 +344,15 @@ class AppState {
         // OBot: Rules, bots, context snippets, templates
         self.obotService = OBotService(
             fileSystemService: fileSystemService,
+            contextManager: contextManager
+        )
+        
+        // Mention Service: @file, @bot, @context, @web, etc.
+        self.mentionService = MentionService(
+            fileSystemService: fileSystemService,
+            obotService: obotService,
+            gitService: GitService(),
+            webSearchService: WebSearchService(),
             contextManager: contextManager
         )
         
