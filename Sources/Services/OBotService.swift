@@ -1167,11 +1167,4 @@ enum OBotError: LocalizedError {
 }
 
 // MARK: - ContextManager Extension
-
-extension ContextManager {
-    func setProjectRules(_ rules: ProjectRules) {
-        // Store rules for inclusion in context building
-        // This would be implemented in ContextManager
-        print("📋 Project rules loaded: \(rules.sections.count) sections")
-    }
-}
+// Note: setProjectRules is now implemented directly in ContextManager.swift

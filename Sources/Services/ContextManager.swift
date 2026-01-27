@@ -50,6 +50,33 @@ final class ContextManager {
     /// Error patterns for learning
     private var errorPatterns: [String: Int] = [:]
     
+    /// Project rules from .obotrules (OBot integration)
+    private(set) var projectRules: ProjectRules?
+    
+    // MARK: - OBot Rules Integration
+    
+    /// Set project rules from .obotrules file
+    func setProjectRules(_ rules: ProjectRules) {
+        self.projectRules = rules
+        print("📋 ContextManager: Project rules loaded (\(rules.sections.count) sections)")
+    }
+    
+    /// Clear project rules
+    func clearProjectRules() {
+        self.projectRules = nil
+    }
+    
+    /// Get rules content formatted for AI context
+    func getProjectRulesContext() -> String? {
+        guard let rules = projectRules else { return nil }
+        
+        var context = "=== PROJECT RULES (.obotrules) ===\n"
+        for section in rules.sections {
+            context += "\n## \(section.title)\n\(section.content)\n"
+        }
+        return context
+    }
+    
     // MARK: - Language Mapping (Centralized)
     
     static let languageNames: [String: String] = [
@@ -107,6 +134,12 @@ final class ContextManager {
         // 4. Project structure (if cached)
         if let cache = projectCache, tokenBudget > 200 {
             sections.append("=== PROJECT: \(cache.rootPath.split(separator: "/").last ?? "") ===\n\(cache.structure.prefix(500))")
+        }
+        
+        // 5. Project rules from .obotrules (if present)
+        if let rulesContext = getProjectRulesContext(), tokenBudget > 300 {
+            let compressed = compressCode(rulesContext, maxTokens: 500)
+            sections.insert(compressed, at: 0) // Rules go first
         }
         
         return sections.isEmpty ? nil : sections.joined(separator: "\n\n")

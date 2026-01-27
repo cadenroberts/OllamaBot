@@ -86,6 +86,7 @@ enum SidebarTab: String, CaseIterable, Identifiable {
 /// Secondary sidebar tabs (right side, like VS Code)
 enum SecondarySidebarTab: String, CaseIterable, Identifiable {
     case chat = "AI Chat"
+    case composer = "Composer"
     case agents = "Agents"
     case outline = "Outline"
     case timeline = "Timeline"
@@ -95,6 +96,7 @@ enum SecondarySidebarTab: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .chat: return "bubble.right"
+        case .composer: return "wand.and.stars"
         case .agents: return "cpu"
         case .outline: return "list.bullet.indent"
         case .timeline: return "clock"

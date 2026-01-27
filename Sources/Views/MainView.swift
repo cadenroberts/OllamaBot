@@ -205,6 +205,8 @@ struct MainView: View {
                 switch panels.secondarySidebarTab {
                 case .chat:
                     ChatView()
+                case .composer:
+                    ComposerView()
                 case .agents:
                     CycleAgentView()
                         .environment(appState.cycleAgentManager)

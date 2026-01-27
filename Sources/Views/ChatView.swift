@@ -7,6 +7,12 @@ struct ChatView: View {
     @State private var attachedImages: [Data] = []
     @State private var isDragOver = false
     @State private var showFilePicker = false
+    @State private var showMentionSuggestions = false
+    @State private var mentionSuggestions: [MentionService.MentionSuggestion] = []
+    @State private var parsedMentions: [MentionService.Mention] = []
+    @State private var selectedSuggestionIndex = 0
+    @State private var contextBreakdown: ContextBreakdown?
+    @State private var showContextBreakdown = false
     @FocusState private var isInputFocused: Bool
     
     var body: some View {
@@ -16,6 +22,9 @@ struct ChatView: View {
             messageList
             DSDivider()
             
+            // Context bar with mentions and token indicator
+            contextBar
+            
             if !appState.mentionedFiles.isEmpty {
                 mentionedFilesBar
             }
@@ -24,7 +33,17 @@ struct ChatView: View {
                 attachedImagesBar
             }
             
-            inputBar
+            // Input with mention autocomplete
+            ZStack(alignment: .bottom) {
+                inputBar
+                
+                // Mention autocomplete popup
+                if showMentionSuggestions && !mentionSuggestions.isEmpty {
+                    mentionAutocomplete
+                        .offset(y: -60)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
         }
         .onDrop(of: [.image], isTargeted: $isDragOver) { providers in
             handleImageDrop(providers)
@@ -32,6 +51,11 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showFilePicker) {
             FileMentionPicker(isPresented: $showFilePicker)
+        }
+        .onChange(of: inputText) { _, newValue in
+            updateMentionSuggestions(newValue)
+            updateParsedMentions(newValue)
+            updateContextBreakdown()
         }
     }
     
@@ -108,6 +132,96 @@ struct ChatView: View {
         .padding(.horizontal, DS.Spacing.sm)
     }
     
+    // MARK: - Context Bar
+    
+    private var contextBar: some View {
+        HStack(spacing: DS.Spacing.sm) {
+            // Parsed @mentions
+            if !parsedMentions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: DS.Spacing.xs) {
+                        ForEach(parsedMentions) { mention in
+                            MentionChipView(mention: mention) {
+                                removeMention(mention)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // Context token indicator
+            if let breakdown = contextBreakdown {
+                Button {
+                    showContextBreakdown.toggle()
+                } label: {
+                    ContextBadge(
+                        usedTokens: breakdown.totalTokens,
+                        maxTokens: breakdown.maxTokens
+                    )
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showContextBreakdown, arrowEdge: .top) {
+                    ContextBreakdownView(breakdown: breakdown)
+                }
+            }
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, DS.Spacing.sm)
+        .background(DS.Colors.secondaryBackground)
+    }
+    
+    // MARK: - Mention Autocomplete
+    
+    private var mentionAutocomplete: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(mentionSuggestions.prefix(8).enumerated()), id: \.element.id) { index, suggestion in
+                Button {
+                    insertMention(suggestion)
+                } label: {
+                    HStack(spacing: DS.Spacing.sm) {
+                        Image(systemName: suggestion.icon)
+                            .font(.caption)
+                            .frame(width: 20)
+                            .foregroundStyle(DS.Colors.accent)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(suggestion.displayName)
+                                .font(DS.Typography.callout)
+                            
+                            if let subtitle = suggestion.subtitle {
+                                Text(subtitle)
+                                    .font(DS.Typography.caption)
+                                    .foregroundStyle(DS.Colors.secondaryText)
+                                    .lineLimit(1)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Text(suggestion.fullText)
+                            .font(DS.Typography.mono(10))
+                            .foregroundStyle(DS.Colors.tertiaryText)
+                    }
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.vertical, DS.Spacing.sm)
+                    .background(index == selectedSuggestionIndex ? DS.Colors.accent.opacity(0.1) : Color.clear)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: 400)
+        .background(DS.Colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Colors.border, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.2), radius: 8, y: -4)
+        .padding(.horizontal, DS.Spacing.md)
+    }
+    
     // MARK: - Mentioned Files
     
     private var mentionedFilesBar: some View {
@@ -181,7 +295,7 @@ struct ChatView: View {
                 }
             }
             
-            // Text input
+            // Text input with keyboard navigation for mentions
             TextEditor(text: $inputText)
                 .font(DS.Typography.body)
                 .scrollContentBackground(.hidden)
@@ -190,6 +304,42 @@ struct ChatView: View {
                 .background(DS.Colors.tertiaryBackground)
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
                 .focused($isInputFocused)
+                .onKeyPress(.upArrow) {
+                    if showMentionSuggestions {
+                        selectedSuggestionIndex = max(0, selectedSuggestionIndex - 1)
+                        return .handled
+                    }
+                    return .ignored
+                }
+                .onKeyPress(.downArrow) {
+                    if showMentionSuggestions {
+                        selectedSuggestionIndex = min(mentionSuggestions.count - 1, selectedSuggestionIndex + 1)
+                        return .handled
+                    }
+                    return .ignored
+                }
+                .onKeyPress(.tab) {
+                    if showMentionSuggestions && !mentionSuggestions.isEmpty {
+                        insertMention(mentionSuggestions[selectedSuggestionIndex])
+                        return .handled
+                    }
+                    return .ignored
+                }
+                .onKeyPress(.return) {
+                    if showMentionSuggestions && !mentionSuggestions.isEmpty {
+                        insertMention(mentionSuggestions[selectedSuggestionIndex])
+                        return .handled
+                    }
+                    return .ignored
+                }
+                .onKeyPress(.escape) {
+                    if showMentionSuggestions {
+                        showMentionSuggestions = false
+                        mentionSuggestions = []
+                        return .handled
+                    }
+                    return .ignored
+                }
             
             // Send button
             Button(action: sendMessage) {
@@ -215,8 +365,86 @@ struct ChatView: View {
         let images = attachedImages
         inputText = ""
         attachedImages = []
+        parsedMentions = []
+        showMentionSuggestions = false
         
-        Task { await appState.sendMessage(message, images: images) }
+        // Resolve mentions and send with enhanced context
+        Task {
+            let (cleanText, mentionContext, _) = await appState.mentionService.resolveAllMentions(
+                in: message,
+                projectRoot: appState.rootFolder,
+                selectedText: appState.selectedText
+            )
+            
+            // Combine user message with mention context
+            let enhancedMessage = mentionContext.isEmpty ? cleanText : "\(cleanText)\n\n---\nContext:\n\(mentionContext)"
+            
+            await appState.sendMessage(enhancedMessage, images: images)
+        }
+    }
+    
+    // MARK: - Mention Handling
+    
+    private func updateMentionSuggestions(_ text: String) {
+        // Check for @ trigger
+        guard let lastAt = text.lastIndex(of: "@") else {
+            showMentionSuggestions = false
+            mentionSuggestions = []
+            return
+        }
+        
+        let afterAt = String(text[text.index(after: lastAt)...])
+        
+        // Don't show if there's a space after a complete mention
+        if afterAt.contains(" ") && !afterAt.contains(":") {
+            showMentionSuggestions = false
+            mentionSuggestions = []
+            return
+        }
+        
+        // Update suggestions from MentionService
+        appState.mentionService.updateSuggestions(
+            for: text,
+            cursorPosition: text.count,
+            projectRoot: appState.rootFolder
+        )
+        
+        mentionSuggestions = appState.mentionService.suggestions
+        showMentionSuggestions = appState.mentionService.isShowingSuggestions
+        selectedSuggestionIndex = 0
+    }
+    
+    private func updateParsedMentions(_ text: String) {
+        parsedMentions = appState.mentionService.parseMentions(in: text)
+    }
+    
+    private func insertMention(_ suggestion: MentionService.MentionSuggestion) {
+        // Find the @ position and replace with full mention
+        if let lastAt = inputText.lastIndex(of: "@") {
+            inputText = String(inputText[..<lastAt]) + suggestion.fullText + " "
+        }
+        
+        showMentionSuggestions = false
+        mentionSuggestions = []
+    }
+    
+    private func removeMention(_ mention: MentionService.Mention) {
+        // Remove the mention text from input
+        inputText = inputText.replacingOccurrences(of: mention.displayText, with: "")
+        updateParsedMentions(inputText)
+    }
+    
+    private func updateContextBreakdown() {
+        let memSettings = appState.modelTierManager.getMemorySettings()
+        
+        contextBreakdown = ContextBreakdown.calculate(
+            systemPrompt: "System prompt placeholder", // Would get from ContextManager
+            projectRules: appState.obotService.projectRules?.content,
+            conversationHistory: appState.chatMessages,
+            mentionContent: parsedMentions.isEmpty ? nil : "Mentions: \(parsedMentions.count)",
+            userInput: inputText,
+            maxTokens: memSettings.contextWindow
+        )
     }
     
     private func attachImage() {

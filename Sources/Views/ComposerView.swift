@@ -215,42 +215,202 @@ struct ComposerView: View {
         
         isGenerating = true
         
-        // This would integrate with the agent to generate multi-file changes
-        // For now, simulate with placeholder
         Task {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            
-            await MainActor.run {
-                // Placeholder changes
-                composerState.changes = [
-                    FileChange(
-                        id: UUID(),
-                        path: "Sources/Services/ExampleService.swift",
-                        changeType: FileChange.ChangeType.modified,
-                        originalContent: "// Original content",
-                        proposedContent: "// Modified content with error handling",
-                        hunks: [
-                            ComposerDiffHunk(
-                                startLine: 10,
-                                lines: [
-                                    ComposerDiffLine(type: .context, content: "func fetchData() {"),
-                                    ComposerDiffLine(type: .removed, content: "    let data = api.get()"),
-                                    ComposerDiffLine(type: .added, content: "    do {"),
-                                    ComposerDiffLine(type: .added, content: "        let data = try api.get()"),
-                                    ComposerDiffLine(type: .added, content: "    } catch {"),
-                                    ComposerDiffLine(type: .added, content: "        print(\"Error: \\(error)\")"),
-                                    ComposerDiffLine(type: .added, content: "    }"),
-                                    ComposerDiffLine(type: .context, content: "}")
-                                ]
-                            )
-                        ],
-                        status: FileChange.Status.pending
-                    )
+            do {
+                // Build context about the project
+                let projectContext = buildProjectContext()
+                
+                // Create the composer prompt
+                let composerPrompt = """
+                You are a code composer. The user wants to make changes across multiple files.
+                
+                PROJECT CONTEXT:
+                \(projectContext)
+                
+                USER REQUEST:
+                \(prompt)
+                
+                Analyze the codebase and propose specific file changes. For each file:
+                1. Specify the file path
+                2. Whether it's a new file, modification, or deletion
+                3. The complete new content for the file
+                
+                Format your response as:
+                
+                FILE: path/to/file.swift
+                ACTION: modify|create|delete
+                CONTENT:
+                ```swift
+                // Full file content here
+                ```
+                
+                ---
+                
+                Propose changes for all relevant files:
+                """
+                
+                let messages: [(String, String)] = [
+                    ("system", "You are an expert code composer that proposes multi-file changes."),
+                    ("user", composerPrompt)
                 ]
-                composerState.selectedChange = composerState.changes.first
-                isGenerating = false
+                
+                var fullResponse = ""
+                
+                // Stream the response
+                for try await chunk in appState.ollamaService.chat(
+                    model: .qwen3,
+                    messages: messages,
+                    context: nil,
+                    taskType: .coding
+                ) {
+                    fullResponse += chunk
+                }
+                
+                // Parse the response into file changes
+                let changes = parseComposerResponse(fullResponse)
+                
+                await MainActor.run {
+                    composerState.changes = changes
+                    composerState.selectedChange = changes.first
+                    isGenerating = false
+                }
+                
+            } catch {
+                await MainActor.run {
+                    isGenerating = false
+                    appState.showError("Composer failed: \(error.localizedDescription)")
+                }
             }
         }
+    }
+    
+    private func buildProjectContext() -> String {
+        guard let root = appState.rootFolder else {
+            return "No project open"
+        }
+        
+        var context = "Project: \(root.lastPathComponent)\n\n"
+        
+        // Add file structure
+        let files = appState.fileSystemService.getAllFiles(in: root)
+        let codeFiles = files.filter { isCodeFile($0.url) }
+        
+        context += "Files (\(codeFiles.count) code files):\n"
+        for file in codeFiles.prefix(50) {
+            let relativePath = file.url.path.replacingOccurrences(of: root.path + "/", with: "")
+            context += "  \(relativePath)\n"
+        }
+        
+        // Add current editor content if relevant
+        if let currentFile = appState.selectedFile {
+            let relativePath = currentFile.url.path.replacingOccurrences(of: root.path + "/", with: "")
+            context += "\nCurrently open: \(relativePath)\n"
+            if !appState.editorContent.isEmpty {
+                context += "Content preview:\n\(appState.editorContent.prefix(1000))...\n"
+            }
+        }
+        
+        return context
+    }
+    
+    private func isCodeFile(_ url: URL) -> Bool {
+        let codeExtensions: Set<String> = [
+            "swift", "ts", "tsx", "js", "jsx", "py", "rb", "go", "rs",
+            "java", "kt", "cpp", "c", "h", "cs", "php", "vue", "svelte"
+        ]
+        return codeExtensions.contains(url.pathExtension.lowercased())
+    }
+    
+    private func parseComposerResponse(_ response: String) -> [FileChange] {
+        var changes: [FileChange] = []
+        
+        // Split by file markers
+        let filePattern = #"FILE:\s*(.+)\nACTION:\s*(modify|create|delete)"#
+        let contentPattern = #"```[\w]*\n([\s\S]*?)```"#
+        
+        guard let fileRegex = try? NSRegularExpression(pattern: filePattern, options: .caseInsensitive),
+              let contentRegex = try? NSRegularExpression(pattern: contentPattern) else {
+            return changes
+        }
+        
+        let nsResponse = response as NSString
+        let fileMatches = fileRegex.matches(in: response, range: NSRange(location: 0, length: nsResponse.length))
+        
+        for (index, match) in fileMatches.enumerated() {
+            guard match.numberOfRanges >= 3 else { continue }
+            
+            let pathRange = match.range(at: 1)
+            let actionRange = match.range(at: 2)
+            
+            let path = nsResponse.substring(with: pathRange).trimmingCharacters(in: .whitespaces)
+            let actionStr = nsResponse.substring(with: actionRange).lowercased()
+            
+            // Find content for this file (between this match and next)
+            let searchStart = match.range.upperBound
+            let searchEnd = index + 1 < fileMatches.count ? fileMatches[index + 1].range.lowerBound : nsResponse.length
+            let searchRange = NSRange(location: searchStart, length: searchEnd - searchStart)
+            
+            var proposedContent = ""
+            if let contentMatch = contentRegex.firstMatch(in: response, range: searchRange),
+               contentMatch.numberOfRanges >= 2 {
+                proposedContent = nsResponse.substring(with: contentMatch.range(at: 1))
+            }
+            
+            // Get original content if file exists
+            var originalContent = ""
+            if let root = appState.rootFolder {
+                let fileURL = root.appendingPathComponent(path)
+                originalContent = appState.fileSystemService.readFile(at: fileURL) ?? ""
+            }
+            
+            // Generate diff hunks
+            let hunks = generateDiffHunks(original: originalContent, proposed: proposedContent)
+            
+            let changeType: FileChange.ChangeType
+            switch actionStr {
+            case "create": changeType = .created
+            case "delete": changeType = .deleted
+            default: changeType = .modified
+            }
+            
+            changes.append(FileChange(
+                id: UUID(),
+                path: path,
+                changeType: changeType,
+                originalContent: originalContent,
+                proposedContent: proposedContent,
+                hunks: hunks,
+                status: .pending
+            ))
+        }
+        
+        return changes
+    }
+    
+    private func generateDiffHunks(original: String, proposed: String) -> [ComposerDiffHunk] {
+        let originalLines = original.components(separatedBy: .newlines)
+        let proposedLines = proposed.components(separatedBy: .newlines)
+        
+        var lines: [ComposerDiffLine] = []
+        
+        // Simple diff: show removed then added (not optimal but functional)
+        if !originalLines.isEmpty && originalLines != [""] {
+            for line in originalLines.prefix(20) {
+                lines.append(ComposerDiffLine(type: .removed, content: line))
+            }
+            if originalLines.count > 20 {
+                lines.append(ComposerDiffLine(type: .context, content: "... (\(originalLines.count - 20) more lines)"))
+            }
+        }
+        
+        for line in proposedLines.prefix(50) {
+            lines.append(ComposerDiffLine(type: .added, content: line))
+        }
+        if proposedLines.count > 50 {
+            lines.append(ComposerDiffLine(type: .context, content: "... (\(proposedLines.count - 50) more lines)"))
+        }
+        
+        return [ComposerDiffHunk(startLine: 1, lines: lines)]
     }
     
     private func acceptChange(_ change: FileChange) {
