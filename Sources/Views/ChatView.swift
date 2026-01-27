@@ -57,12 +57,13 @@ struct ChatView: View {
         .background(DS.Colors.surface)
     }
     
-    // MARK: - Messages
+    // MARK: - Messages (Optimized)
     
     private var messageList: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: DS.Spacing.md) {
+                    // Use stable identity - MessageRow is Equatable for efficient diffing
                     ForEach(appState.chatMessages) { message in
                         MessageRow(message: message)
                             .id(message.id)
@@ -70,16 +71,28 @@ struct ChatView: View {
                     
                     if appState.isGenerating {
                         generatingIndicator
+                            .transition(.opacity.animation(DS.Animation.fast))
                     }
                 }
                 .padding(DS.Spacing.md)
             }
+            // Throttle scroll updates during generation
             .onChange(of: appState.chatMessages.count) { _, _ in
-                if let last = appState.chatMessages.last {
-                    withAnimation(DS.Animation.fast) {
-                        proxy.scrollTo(last.id, anchor: .bottom)
-                    }
+                scrollToBottom(proxy: proxy)
+            }
+            .onChange(of: appState.chatMessages.last?.content.count ?? 0) { oldCount, newCount in
+                // Only scroll on significant content changes (every ~200 chars)
+                if newCount - oldCount > 200 || !appState.isGenerating {
+                    scrollToBottom(proxy: proxy)
                 }
+            }
+        }
+    }
+    
+    private func scrollToBottom(proxy: ScrollViewProxy) {
+        if let last = appState.chatMessages.last {
+            withAnimation(DS.Animation.fast) {
+                proxy.scrollTo(last.id, anchor: .bottom)
             }
         }
     }
@@ -233,56 +246,72 @@ struct ChatView: View {
 
 // MARK: - Message Row
 
-struct MessageRow: View {
-    @Environment(AppState.self) private var appState
+// MARK: - Optimized Message Row
+// Performance: Parse content only when message.content changes
+
+struct MessageRow: View, Equatable {
     let message: ChatMessage
+    
+    // Equatable: Only re-render when content actually changes
+    static func == (lhs: MessageRow, rhs: MessageRow) -> Bool {
+        lhs.message.id == rhs.message.id &&
+        lhs.message.content == rhs.message.content
+    }
     
     var body: some View {
         HStack(alignment: .top, spacing: DS.Spacing.md) {
             if message.isUser { Spacer(minLength: 40) }
             
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: DS.Spacing.xs) {
-                // Header
-                HStack(spacing: DS.Spacing.xs) {
-                    if !message.isUser, let model = message.model {
-                        Image(systemName: model.icon)
-                            .foregroundStyle(model.color)
-                        Text(model.displayName)
-                            .foregroundStyle(DS.Colors.secondaryText)
-                    } else if message.isUser {
-                        Text("You")
-                            .foregroundStyle(DS.Colors.secondaryText)
-                    }
-                    
-                    Text(message.formattedTime)
-                        .foregroundStyle(DS.Colors.tertiaryText)
-                }
-                .font(DS.Typography.caption2)
+                // Header (lightweight, static)
+                messageHeader
                 
-                // Images
+                // Images (only if present)
                 if !message.images.isEmpty {
-                    HStack(spacing: DS.Spacing.sm) {
-                        ForEach(Array(message.images.enumerated()), id: \.offset) { _, data in
-                            if let img = NSImage(data: data) {
-                                Image(nsImage: img)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(maxHeight: 120)
-                                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-                            }
-                        }
-                    }
+                    imageGrid
                 }
                 
                 // Content
                 if message.isUser {
                     userBubble
                 } else {
-                    assistantContent
+                    AssistantContentView(content: message.content)
                 }
             }
             
             if !message.isUser { Spacer(minLength: 40) }
+        }
+    }
+    
+    private var messageHeader: some View {
+        HStack(spacing: DS.Spacing.xs) {
+            if !message.isUser, let model = message.model {
+                Image(systemName: model.icon)
+                    .foregroundStyle(model.color)
+                Text(model.displayName)
+                    .foregroundStyle(DS.Colors.secondaryText)
+            } else if message.isUser {
+                Text("You")
+                    .foregroundStyle(DS.Colors.secondaryText)
+            }
+            
+            Text(message.formattedTime)
+                .foregroundStyle(DS.Colors.tertiaryText)
+        }
+        .font(DS.Typography.caption2)
+    }
+    
+    private var imageGrid: some View {
+        HStack(spacing: DS.Spacing.sm) {
+            ForEach(Array(message.images.enumerated()), id: \.offset) { _, data in
+                if let img = NSImage(data: data) {
+                    Image(nsImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxHeight: 120)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                }
+            }
         }
     }
     
@@ -294,33 +323,46 @@ struct MessageRow: View {
             .foregroundStyle(.white)
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
     }
+}
+
+// Separate view for assistant content - isolates expensive parsing
+struct AssistantContentView: View, Equatable {
+    let content: String
     
-    private var assistantContent: some View {
+    // Cache parsed blocks to avoid re-parsing on every render
+    @State private var parsedBlocks: [ContentBlock] = []
+    @State private var lastParsedContent: String = ""
+    
+    static func == (lhs: AssistantContentView, rhs: AssistantContentView) -> Bool {
+        lhs.content == rhs.content
+    }
+    
+    var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            ForEach(Array(parseContent().enumerated()), id: \.offset) { _, block in
+            ForEach(Array(parsedBlocks.enumerated()), id: \.offset) { index, block in
                 switch block {
-                case .text(let content):
-                    Text(parseMarkdown(content))
-                        .textSelection(.enabled)
-                        .padding(DS.Spacing.md)
-                        .background(DS.Colors.secondaryBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+                case .text(let text):
+                    TextBlockView(text: text)
                     
                 case .code(let lang, let code):
                     CodeBlock(language: lang, code: code)
+                        .id("code-\(index)")
                 }
+            }
+        }
+        .onChange(of: content, initial: true) { _, newContent in
+            // Only re-parse if content actually changed
+            if newContent != lastParsedContent {
+                parsedBlocks = Self.parseContent(newContent)
+                lastParsedContent = newContent
             }
         }
     }
     
-    private enum ContentBlock {
-        case text(String)
-        case code(language: String, content: String)
-    }
-    
-    private func parseContent() -> [ContentBlock] {
+    // Static parsing function (no self reference = can be optimized by compiler)
+    private static func parseContent(_ text: String) -> [ContentBlock] {
         var blocks: [ContentBlock] = []
-        var remaining = message.content
+        var remaining = text
         
         while true {
             guard let start = remaining.range(of: "```") else {
@@ -352,10 +394,28 @@ struct MessageRow: View {
         
         return blocks
     }
+}
+
+// Lightweight text block with cached markdown parsing
+struct TextBlockView: View {
+    let text: String
     
-    private func parseMarkdown(_ text: String) -> AttributedString {
+    var body: some View {
+        Text(parsedMarkdown)
+            .textSelection(.enabled)
+            .padding(DS.Spacing.md)
+            .background(DS.Colors.secondaryBackground)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+    }
+    
+    private var parsedMarkdown: AttributedString {
         (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(text)
     }
+}
+
+enum ContentBlock {
+    case text(String)
+    case code(language: String, content: String)
 }
 
 // MARK: - Code Block

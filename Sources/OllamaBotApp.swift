@@ -360,6 +360,14 @@ class AppState {
         
         isGenerating = true
         
+        // PERFORMANCE FIX: Batch streaming updates to ~30fps
+        // Instead of updating state on every token, accumulate locally
+        // and update at fixed intervals
+        var buffer = ""
+        buffer.reserveCapacity(8192)
+        var lastUpdateTime = CACurrentMediaTime()
+        let updateInterval: CFTimeInterval = 0.033 // ~30fps
+        
         do {
             let stream = ollamaService.chat(
                 model: model,
@@ -369,8 +377,19 @@ class AppState {
             )
             
             for try await chunk in stream {
-                chatMessages[messageIndex].content += chunk
+                buffer.append(chunk)
+                
+                let now = CACurrentMediaTime()
+                if now - lastUpdateTime >= updateInterval {
+                    // Batch update: single state mutation per frame
+                    chatMessages[messageIndex].content = buffer
+                    lastUpdateTime = now
+                }
             }
+            
+            // Final update with complete content
+            chatMessages[messageIndex].content = buffer
+            
         } catch let error as OllamaError {
             chatMessages[messageIndex].content = "Error: \(error.localizedDescription)"
             showError(error.userMessage)
