@@ -272,21 +272,19 @@ OllamaBot/
 │   │   ├── FileItem.swift           # File tree model
 │   │   └── OllamaModel.swift        # Model enum + metadata
 │   ├── Services/
-│   │   ├── OllamaService.swift      # Ollama API client
-│   │   ├── ContextManager.swift     # 🆕 Comprehensive context management
+│   │   ├── OllamaService.swift      # Ollama API client + streaming
+│   │   ├── ContextManager.swift     # Comprehensive context management
 │   │   ├── IntentRouter.swift       # Model routing logic
-│   │   ├── ContextBuilder.swift     # Prompt construction
 │   │   ├── FileIndexer.swift        # Background search index
 │   │   ├── FileSystemService.swift  # File operations
-│   │   ├── ConfigurationService.swift
+│   │   ├── ConfigurationService.swift # Persistent settings
 │   │   ├── InlineCompletionService.swift  # Tab completions
 │   │   ├── GitService.swift         # Git integration
 │   │   ├── WebSearchService.swift   # DuckDuckGo search
 │   │   └── ChatHistoryService.swift # Persistent chat history
 │   ├── Utilities/
 │   │   ├── DesignSystem.swift       # UI components & tokens
-│   │   ├── PerformanceCore.swift    # Caches, async I/O
-│   │   ├── StreamingBuffer.swift    # 🆕 Frame-rate limited UI updates
+│   │   ├── PerformanceCore.swift    # LRU cache, async I/O, throttle/debounce
 │   │   ├── SyntaxHighlighter.swift  # Code highlighting
 │   │   └── Benchmarks.swift         # Performance testing
 │   └── Views/
