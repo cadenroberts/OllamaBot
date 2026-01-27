@@ -8,8 +8,17 @@ class AgentExecutor {
     private let ollamaService: OllamaService
     private let fileSystemService: FileSystemService
     
-    // Context Management (NEW - comprehensive inter-agent context)
+    // Context Management (comprehensive inter-agent context)
     let contextManager = ContextManager()
+    
+    // MARK: - Consistent Error Handling
+    
+    /// Record error for learning and return failure result
+    private func failWith(_ callId: String, tool: String, error: String, context: String) -> ToolResult {
+        contextManager.recordError(error, context: context)
+        contextManager.recordToolResult(tool, input: context, output: error, success: false)
+        return ToolResult(toolCallId: callId, success: false, output: error)
+    }
     
     // State
     var isRunning = false
@@ -345,7 +354,7 @@ class AgentExecutor {
             addStep(.tool(name: "write_file", input: path, output: "Wrote \(content.count) characters"))
             return ToolResult(toolCallId: call.id, success: true, output: "Successfully wrote to \(path)")
         } catch {
-            return ToolResult(toolCallId: call.id, success: false, output: "Write failed: \(error.localizedDescription)")
+            return failWith(call.id, tool: "write_file", error: "Write failed: \(error.localizedDescription)", context: path)
         }
     }
     
@@ -418,7 +427,7 @@ class AgentExecutor {
             addStep(.tool(name: "list_directory", input: path, output: "\(contents.count) items"))
             return ToolResult(toolCallId: call.id, success: true, output: output)
         } catch {
-            return ToolResult(toolCallId: call.id, success: false, output: "Error listing directory: \(error.localizedDescription)")
+            return failWith(call.id, tool: "list_directory", error: "Error listing directory: \(error.localizedDescription)", context: path)
         }
     }
     
@@ -614,8 +623,7 @@ class AgentExecutor {
             
             return ToolResult(toolCallId: call.id, success: true, output: response)
         } catch {
-            contextManager.recordError(error.localizedDescription, context: task)
-            return ToolResult(toolCallId: call.id, success: false, output: "Coder delegation failed: \(error.localizedDescription)")
+            return failWith(call.id, tool: "delegate_to_coder", error: "Coder delegation failed: \(error.localizedDescription)", context: task)
         }
     }
     
@@ -689,8 +697,7 @@ class AgentExecutor {
             
             return ToolResult(toolCallId: call.id, success: true, output: response)
         } catch {
-            contextManager.recordError(error.localizedDescription, context: query)
-            return ToolResult(toolCallId: call.id, success: false, output: "Research delegation failed: \(error.localizedDescription)")
+            return failWith(call.id, tool: "delegate_to_researcher", error: "Research delegation failed: \(error.localizedDescription)", context: query)
         }
     }
     
