@@ -1,15 +1,19 @@
 import Foundation
 
-// MARK: - Comprehensive Context Manager
+// MARK: - Unified Context Manager
 //
-// This is the brain of OllamaBot's context management.
-// It handles:
+// The single source of truth for ALL context management in OllamaBot.
+// Used by: Chat, Agent, Inline Completions, Git Operations
+//
+// Responsibilities:
 // 1. Token budget allocation across context types
 // 2. Semantic compression of large contexts
 // 3. Inter-agent context passing (orchestrator ↔ specialists)
 // 4. Conversation memory with intelligent pruning
 // 5. Project semantic cache
 // 6. Priority-based context inclusion
+// 7. Chat context building (replaces ContextBuilder)
+// 8. Language detection and file metadata
 
 @Observable
 final class ContextManager {
@@ -46,7 +50,111 @@ final class ContextManager {
     /// Error patterns for learning
     private var errorPatterns: [String: Int] = [:]
     
-    // MARK: - Public API
+    // MARK: - Language Mapping (Centralized)
+    
+    static let languageNames: [String: String] = [
+        "swift": "Swift", "py": "Python", "js": "JavaScript",
+        "ts": "TypeScript", "tsx": "TypeScript (React)", "jsx": "JavaScript (React)",
+        "rs": "Rust", "go": "Go", "rb": "Ruby", "java": "Java",
+        "kt": "Kotlin", "c": "C", "cpp": "C++", "cc": "C++", "cxx": "C++",
+        "h": "C/C++ Header", "cs": "C#", "php": "PHP",
+        "html": "HTML", "css": "CSS", "scss": "SCSS",
+        "json": "JSON", "yaml": "YAML", "yml": "YAML",
+        "xml": "XML", "md": "Markdown", "sh": "Shell", "bash": "Shell", "sql": "SQL"
+    ]
+    
+    static func languageName(for ext: String) -> String {
+        languageNames[ext.lowercased()] ?? "Plain Text"
+    }
+    
+    // MARK: - Chat Context (replaces ContextBuilder)
+    
+    /// Build context for chat messages - used by AppState.sendMessage()
+    func buildChatContext(
+        message: String,
+        editorContent: String?,
+        selectedText: String?,
+        openFiles: [FileItem],
+        currentFile: FileItem?
+    ) -> String? {
+        var sections: [String] = []
+        var tokenBudget = config.maxFileContext
+        
+        // 1. Selected text (highest priority)
+        if let selected = selectedText, !selected.isEmpty {
+            let trimmed = compressCode(selected, maxTokens: tokenBudget / 3)
+            sections.append("=== SELECTED CODE ===\n\(trimmed)")
+            tokenBudget -= estimateTokens(trimmed)
+        }
+        
+        // 2. Current file content
+        if let content = editorContent, !content.isEmpty, tokenBudget > 500 {
+            let fileName = currentFile?.name ?? "Current File"
+            let ext = currentFile?.url.pathExtension ?? ""
+            let lang = Self.languageName(for: ext)
+            
+            let compressed = compressCode(content, maxTokens: tokenBudget / 2)
+            sections.append("=== \(fileName) (\(lang)) ===\n\(compressed)")
+            tokenBudget -= estimateTokens(compressed)
+        }
+        
+        // 3. Open files list
+        if !openFiles.isEmpty, tokenBudget > 100 {
+            let fileList = openFiles.prefix(10).map { "• \($0.name)" }.joined(separator: "\n")
+            sections.append("=== OPEN FILES ===\n\(fileList)")
+        }
+        
+        // 4. Project structure (if cached)
+        if let cache = projectCache, tokenBudget > 200 {
+            sections.append("=== PROJECT: \(cache.rootPath.split(separator: "/").last ?? "") ===\n\(cache.structure.prefix(500))")
+        }
+        
+        return sections.isEmpty ? nil : sections.joined(separator: "\n\n")
+    }
+    
+    /// Build context for inline code completions
+    func buildCompletionContext(
+        code: String,
+        cursorPosition: Int,
+        language: String,
+        filePath: String?
+    ) -> String {
+        let prefix = String(code.prefix(cursorPosition))
+        let suffix = String(code.dropFirst(min(cursorPosition, code.count)))
+        
+        // Get surrounding lines
+        let prefixLines = prefix.components(separatedBy: .newlines).suffix(20)
+        let suffixLines = suffix.components(separatedBy: .newlines).prefix(5)
+        
+        return """
+        Language: \(Self.languageName(for: language))
+        File: \(filePath ?? "untitled")
+        
+        === Before Cursor ===
+        \(prefixLines.joined(separator: "\n"))
+        
+        === After Cursor ===
+        \(suffixLines.joined(separator: "\n"))
+        """
+    }
+    
+    /// Extract a snippet around a specific line (for error context, etc.)
+    func extractSnippet(from content: String, aroundLine line: Int, contextLines: Int = 10) -> String {
+        let lines = content.components(separatedBy: .newlines)
+        guard line > 0, line <= lines.count else { return "" }
+        
+        let start = max(0, line - contextLines - 1)
+        let end = min(lines.count, line + contextLines)
+        
+        var snippet = ""
+        for i in start..<end {
+            let marker = (i + 1 == line) ? ">>> " : "    "
+            snippet += "\(marker)\(i + 1): \(lines[i])\n"
+        }
+        return snippet
+    }
+    
+    // MARK: - Agent Context
     
     /// Build optimized context for the orchestrator agent
     func buildOrchestratorContext(

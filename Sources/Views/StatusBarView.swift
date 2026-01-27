@@ -13,13 +13,21 @@ struct StatusBarView: View {
     
     var body: some View {
         HStack(spacing: DS.Spacing.lg) {
-            // Left: Git branch & status
-            if appState.rootFolder != nil {
+            // Left: Git branch & status (uses GitService)
+            if appState.rootFolder != nil && appState.gitService.isGitRepo {
                 HStack(spacing: DS.Spacing.xs) {
                     Image(systemName: "arrow.triangle.branch")
                         .font(.caption2)
-                    Text("main")
+                    Text(appState.gitService.currentBranch.isEmpty ? "HEAD" : appState.gitService.currentBranch)
                         .font(DS.Typography.caption2)
+                    
+                    // Show count of changes
+                    if let status = appState.gitService.status,
+                       status.totalChanges > 0 {
+                        Text("•")
+                        Text("\(status.totalChanges)")
+                            .foregroundStyle(DS.Colors.warning)
+                    }
                 }
                 .foregroundStyle(DS.Colors.secondaryText)
                 

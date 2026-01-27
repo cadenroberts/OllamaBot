@@ -189,21 +189,19 @@ class AppState {
     // MARK: - Editor Settings (Observable)
     var editorFontSize: CGFloat = 13
     
-    // MARK: - Services
+    // MARK: - Services (All services are actually wired and used)
     let ollamaService: OllamaService
     let fileSystemService: FileSystemService
     let intentRouter: IntentRouter
-    let contextBuilder: ContextBuilder
+    let contextManager: ContextManager          // Unified context (replaces ContextBuilder)
     let agentExecutor: AgentExecutor
     let fileIndexer = FileIndexer()
     let asyncFileIO = AsyncFileIO()
     let config = ConfigurationManager.shared
-    
-    // NEW: Integrated services
     let inlineCompletionService: InlineCompletionService
-    let chatHistoryService = ChatHistoryService()
-    let gitService = GitService()
-    let webSearchService = WebSearchService()
+    let chatHistoryService: ChatHistoryService
+    let gitService: GitService
+    let webSearchService: WebSearchService
     
     // Performance caches
     private let fileContentCache = LRUCache<URL, String>(capacity: 50_000_000) // ~50MB
@@ -212,12 +210,20 @@ class AppState {
     private var memoryMonitor: MemoryPressureMonitor?
     
     init() {
+        // Core services
         self.ollamaService = OllamaService()
         self.fileSystemService = FileSystemService()
         self.intentRouter = IntentRouter()
-        self.contextBuilder = ContextBuilder()
+        self.contextManager = ContextManager()
+        
+        // Agent (uses contextManager internally)
         self.agentExecutor = AgentExecutor(ollamaService: ollamaService, fileSystemService: fileSystemService)
+        
+        // Feature services
         self.inlineCompletionService = InlineCompletionService(ollamaService: ollamaService)
+        self.chatHistoryService = ChatHistoryService()
+        self.gitService = GitService()
+        self.webSearchService = WebSearchService()
         
         // Monitor memory pressure and clear caches when needed
         self.memoryMonitor = MemoryPressureMonitor()
@@ -246,6 +252,10 @@ class AppState {
             Task(priority: .background) {
                 await fileIndexer.indexDirectory(url)
             }
+            
+            // Update project context cache
+            let files = fileSystemService.getAllFiles(in: url)
+            contextManager.updateProjectCache(root: url, files: files)
         }
     }
     
@@ -326,10 +336,12 @@ class AppState {
     
     @MainActor
     func sendMessage(_ content: String, images: [Data] = []) async {
+        // 1. Create and store user message
         let userMessage = ChatMessage(role: .user, content: content, images: images)
         chatMessages.append(userMessage)
+        chatHistoryService.addMessage(userMessage)
         
-        // Determine which model to use
+        // 2. Route to appropriate model
         let model: OllamaModel
         if let override = selectedModel {
             model = override
@@ -341,20 +353,20 @@ class AppState {
             )
         }
         
-        // Build context including mentioned files
-        var contextContent = editorContent
+        // 3. Build context using unified ContextManager
+        var editorContextContent = editorContent
         for file in mentionedFiles {
             if let fileContent = fileSystemService.readFile(at: file.url) {
-                contextContent += "\n\n// File: \(file.name)\n\(fileContent)"
+                editorContextContent += "\n\n// File: \(file.name)\n\(fileContent)"
             }
         }
         
-        let context = contextBuilder.buildContext(
+        let context = contextManager.buildChatContext(
             message: content,
-            editorContent: contextContent,
+            editorContent: editorContextContent,
             selectedText: selectedText,
             openFiles: openFiles + mentionedFiles,
-            fileSystemService: fileSystemService
+            currentFile: selectedFile
         )
         
         // Clear mentioned files after use
@@ -397,12 +409,17 @@ class AppState {
             // Final update with complete content
             chatMessages[messageIndex].content = buffer
             
+            // Save to persistent history
+            chatHistoryService.addMessage(chatMessages[messageIndex])
+            
         } catch let error as OllamaError {
             chatMessages[messageIndex].content = "Error: \(error.localizedDescription)"
             showError(error.userMessage)
+            contextManager.recordError(error.localizedDescription, context: content)
         } catch {
             chatMessages[messageIndex].content = "Error: \(error.localizedDescription)"
             showError("Failed to get AI response")
+            contextManager.recordError(error.localizedDescription, context: content)
         }
         
         isGenerating = false

@@ -613,64 +613,288 @@ struct SearchSidebarView: View {
     }
 }
 
-// MARK: - Git Sidebar View
+// MARK: - Git Sidebar View (Uses GitService)
 
 struct GitSidebarView: View {
     @Environment(AppState.self) private var appState
+    @State private var commitMessage = ""
+    
+    private var git: GitService { appState.gitService }
     
     var body: some View {
         VStack(spacing: 0) {
+            // Header
+            DSSectionHeader(title: "SOURCE CONTROL") {
+                if git.isLoading {
+                    DSLoadingSpinner(size: 12)
+                } else {
+                    DSIconButton(icon: "arrow.clockwise", size: 14) {
+                        git.refresh()
+                    }
+                }
+            }
+            
+            DSDivider()
+            
+            if !git.isGitRepo {
+                // Not a git repo
+                DSEmptyState(
+                    icon: "arrow.triangle.branch",
+                    title: "Not a Git Repository",
+                    message: "Open a folder with git initialized"
+                )
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                        // Branch info
+                        branchSection
+                        
+                        // Changes
+                        if let status = git.status {
+                            changesSection(status)
+                        }
+                        
+                        // Commit input
+                        commitSection
+                    }
+                    .padding(DS.Spacing.sm)
+                }
+            }
+        }
+        .onAppear {
+            git.setWorkingDirectory(appState.rootFolder)
+        }
+        .onChange(of: appState.rootFolder) { _, newValue in
+            git.setWorkingDirectory(newValue)
+        }
+    }
+    
+    private var branchSection: some View {
+        HStack(spacing: DS.Spacing.sm) {
+            Image(systemName: "arrow.triangle.branch")
+                .foregroundStyle(DS.Colors.accent)
+            Text(git.currentBranch.isEmpty ? "HEAD" : git.currentBranch)
+                .font(DS.Typography.callout.weight(.medium))
+            Spacer()
+        }
+        .padding(DS.Spacing.sm)
+        .background(DS.Colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+    }
+    
+    @ViewBuilder
+    private func changesSection(_ status: GitStatus) -> some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            // Staged changes
+            if !status.staged.isEmpty {
+                changeGroup(title: "Staged Changes", changes: status.staged, staged: true)
+            }
+            
+            // Unstaged changes
+            if !status.unstaged.isEmpty {
+                changeGroup(title: "Changes", changes: status.unstaged, staged: false)
+            }
+            
+            // Untracked
+            if !status.untracked.isEmpty {
+                untrackedGroup(title: "Untracked", files: status.untracked)
+            }
+        }
+    }
+    
+    private func changeGroup(title: String, changes: [GitFileChange], staged: Bool) -> some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
             HStack {
-                Text("SOURCE CONTROL")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                Text(title)
+                    .font(DS.Typography.caption.weight(.semibold))
+                    .foregroundStyle(DS.Colors.secondaryText)
                 Spacer()
+                Text("\(changes.count)")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.tertiaryText)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
             
-            Divider()
-            
-            VStack(spacing: 16) {
-                Image(systemName: "arrow.triangle.branch")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
-                Text("Git status")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            ForEach(changes) { change in
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: change.status.icon)
+                        .font(.caption2)
+                        .foregroundStyle(change.status.color)
+                    
+                    Text(change.filename.split(separator: "/").last.map(String.init) ?? change.filename)
+                        .font(DS.Typography.caption)
+                        .lineLimit(1)
+                    
+                    Spacer()
+                    
+                    // Stage/unstage button
+                    DSIconButton(icon: staged ? "minus" : "plus", size: 12) {
+                        if staged {
+                            git.unstage(file: change.filename)
+                        } else {
+                            git.stage(file: change.filename)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+    
+    private func untrackedGroup(title: String, files: [String]) -> some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            HStack {
+                Text(title)
+                    .font(DS.Typography.caption.weight(.semibold))
+                    .foregroundStyle(DS.Colors.secondaryText)
+                Spacer()
+                Text("\(files.count)")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+            
+            ForEach(files, id: \.self) { file in
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.caption2)
+                        .foregroundStyle(DS.Colors.tertiaryText)
+                    
+                    Text(file.split(separator: "/").last.map(String.init) ?? file)
+                        .font(DS.Typography.caption)
+                        .lineLimit(1)
+                    
+                    Spacer()
+                    
+                    DSIconButton(icon: "plus", size: 12) {
+                        git.stage(file: file)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+    
+    private var commitSection: some View {
+        VStack(spacing: DS.Spacing.sm) {
+            TextField("Commit message...", text: $commitMessage, axis: .vertical)
+                .font(DS.Typography.caption)
+                .textFieldStyle(.plain)
+                .padding(DS.Spacing.sm)
+                .background(DS.Colors.tertiaryBackground)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                .lineLimit(3...5)
+            
+            HStack {
+                DSButton("Stage All", style: .secondary, size: .sm) {
+                    git.stageAll()
+                }
+                
+                DSButton("Commit", style: .primary, size: .sm) {
+                    guard !commitMessage.isEmpty else { return }
+                    _ = git.commit(message: commitMessage)
+                    commitMessage = ""
+                }
+                .disabled(commitMessage.isEmpty || git.status?.staged.isEmpty == true)
+            }
         }
     }
 }
 
-// MARK: - Git Status View
+// MARK: - Git Status View (Dialog)
 
 struct GitStatusView: View {
     @Environment(AppState.self) private var appState
     @Binding var isPresented: Bool
+    @State private var diffContent = ""
+    
+    private var git: GitService { appState.gitService }
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
+            // Header
             HStack {
-                Text("Git Status")
-                    .font(.headline)
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: "arrow.triangle.branch")
+                        .foregroundStyle(DS.Colors.accent)
+                    Text(git.currentBranch)
+                        .font(DS.Typography.headline)
+                }
+                
                 Spacer()
-                Button("Close") {
+                
+                DSIconButton(icon: "xmark", size: 16) {
                     isPresented = false
                 }
-                .buttonStyle(.bordered)
             }
+            .padding(DS.Spacing.md)
+            .background(DS.Colors.surface)
             
-            Text("Git integration coming soon...")
-                .foregroundStyle(.secondary)
+            DSDivider()
             
-            Spacer()
+            // Content
+            HStack(spacing: 0) {
+                // File list
+                VStack(alignment: .leading, spacing: 0) {
+                    if let status = git.status {
+                        List {
+                            Section("Staged (\(status.staged.count))") {
+                                ForEach(status.staged) { change in
+                                    fileRow(change.filename, status: change.status, staged: true)
+                                }
+                            }
+                            
+                            Section("Modified (\(status.unstaged.count))") {
+                                ForEach(status.unstaged) { change in
+                                    fileRow(change.filename, status: change.status, staged: false)
+                                }
+                            }
+                            
+                            Section("Untracked (\(status.untracked.count))") {
+                                ForEach(status.untracked, id: \.self) { file in
+                                    fileRow(file, status: .untracked, staged: false)
+                                }
+                            }
+                        }
+                        .listStyle(.sidebar)
+                    }
+                }
+                .frame(width: 200)
+                
+                DSDivider()
+                
+                // Diff view
+                ScrollView {
+                    Text(diffContent.isEmpty ? "Select a file to view diff" : diffContent)
+                        .font(DS.Typography.mono(11))
+                        .foregroundStyle(diffContent.isEmpty ? DS.Colors.tertiaryText : DS.Colors.text)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(DS.Spacing.md)
+                }
+                .background(DS.Colors.codeBackground)
+            }
         }
-        .padding()
-        .frame(width: 500, height: 400)
-            .background(DS.Colors.background)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(radius: 20)
+        .frame(width: 700, height: 500)
+        .background(DS.Colors.background)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+        .shadow(color: DS.Shadow.lg, radius: 20)
+    }
+    
+    private func fileRow(_ file: String, status: GitChangeStatus, staged: Bool) -> some View {
+        HStack {
+            Image(systemName: status.icon)
+                .font(.caption2)
+                .foregroundStyle(status.color)
+            
+            Text(file.split(separator: "/").last.map(String.init) ?? file)
+                .font(DS.Typography.caption)
+                .lineLimit(1)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            loadDiff(for: file)
+        }
+    }
+    
+    private func loadDiff(for file: String) {
+        diffContent = git.getDiff(file: file)
     }
 }

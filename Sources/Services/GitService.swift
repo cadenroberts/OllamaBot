@@ -354,6 +354,10 @@ struct GitStatus {
     
     var stagedCount: Int { staged.count }
     var unstagedCount: Int { unstaged.count + untracked.count }
+    var totalChanges: Int { staged.count + unstaged.count + untracked.count }
+    
+    // Convenience accessors for sidebar view (as filenames)
+    var modified: [String] { unstaged.map(\.filename) }
 }
 
 struct GitFileChange: Identifiable {
