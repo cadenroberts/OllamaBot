@@ -15,11 +15,12 @@ final class ModelTierManager {
     // MARK: - Model Tiers
     
     enum ModelTier: String, CaseIterable, Comparable {
-        case minimal = "Minimal (3B)"         // 8GB RAM - EMERGENCY ONLY
-        case compact = "Compact (8B)"         // 16GB RAM
+        case minimal = "Minimal (1.5B)"       // 8GB RAM - EMERGENCY ONLY
+        case compact = "Compact (7B)"         // 16GB RAM
         case balanced = "Balanced (14B)"      // 24GB RAM
         case performance = "Performance (32B)" // 32GB RAM
-        case parallel = "Parallel (32B×4)"    // 64GB+ RAM
+        case advanced = "Advanced (70B)"      // 64GB RAM
+        case maximum = "Maximum (70B+)"       // 128GB RAM
         
         var minRAM: Int {
             switch self {
@@ -27,27 +28,30 @@ final class ModelTierManager {
             case .compact: return 16
             case .balanced: return 24
             case .performance: return 32
-            case .parallel: return 64
+            case .advanced: return 64
+            case .maximum: return 128
             }
         }
         
         var description: String {
             switch self {
             case .minimal:
-                return "⚠️ EMERGENCY ONLY: 3B models with severely limited capability. Not for actual development."
+                return "⚠️ EMERGENCY ONLY: 1.5B models with severely limited capability."
             case .compact:
-                return "Limited: 8B models. Reduced reasoning but usable for simpler tasks."
+                return "Limited: 7B models. Functional for simpler tasks."
             case .balanced:
                 return "Good: 14B models for better quality while staying responsive."
             case .performance:
-                return "Best: Full 32B models for state-of-the-art quality."
-            case .parallel:
-                return "Maximum: 32B models with parallel execution capability."
+                return "Recommended: Full 32B models for excellent quality."
+            case .advanced:
+                return "Professional: 70B models for state-of-the-art capability."
+            case .maximum:
+                return "Ultimate: Multiple 70B models + largest available."
             }
         }
         
         var isRecommended: Bool {
-            self == .performance || self == .parallel
+            self == .performance || self == .advanced || self == .maximum
         }
         
         var warningLevel: WarningLevel {
@@ -55,7 +59,7 @@ final class ModelTierManager {
             case .minimal: return .critical
             case .compact: return .warning
             case .balanced: return .caution
-            case .performance, .parallel: return .none
+            case .performance, .advanced, .maximum: return .none
             }
         }
         
@@ -114,16 +118,24 @@ final class ModelTierManager {
             ollamaTag: "qwen3:32b",
             sizeGB: 20.0,
             parameters: "32B",
-            quality: 10,
+            quality: 8,
             speed: 5
         ),
-        .parallel: ModelVariant(
-            name: "Qwen3 32B",
-            ollamaTag: "qwen3:32b",
-            sizeGB: 20.0,
-            parameters: "32B",
+        .advanced: ModelVariant(
+            name: "Qwen2.5 72B",
+            ollamaTag: "qwen2.5:72b",
+            sizeGB: 42.0,
+            parameters: "72B",
+            quality: 9,
+            speed: 3
+        ),
+        .maximum: ModelVariant(
+            name: "Llama 3.1 70B",
+            ollamaTag: "llama3.1:70b",
+            sizeGB: 40.0,
+            parameters: "70B",
             quality: 10,
-            speed: 5
+            speed: 3
         )
     ]
     
@@ -157,16 +169,24 @@ final class ModelTierManager {
             ollamaTag: "qwen2.5-coder:32b",
             sizeGB: 20.0,
             parameters: "32B",
-            quality: 10,
+            quality: 9,
             speed: 5
         ),
-        .parallel: ModelVariant(
-            name: "Qwen2.5-Coder 32B",
-            ollamaTag: "qwen2.5-coder:32b",
+        .advanced: ModelVariant(
+            name: "DeepSeek-Coder 33B",
+            ollamaTag: "deepseek-coder:33b",
             sizeGB: 20.0,
-            parameters: "32B",
-            quality: 10,
-            speed: 5
+            parameters: "33B",
+            quality: 9,
+            speed: 4
+        ),
+        .maximum: ModelVariant(
+            name: "DeepSeek-Coder-V2 236B",
+            ollamaTag: "deepseek-coder-v2:236b",
+            sizeGB: 80.0,
+            parameters: "236B",
+            quality: 10,  // State of the art MoE coder
+            speed: 2
         )
     ]
     
@@ -200,16 +220,24 @@ final class ModelTierManager {
             ollamaTag: "command-r:35b",
             sizeGB: 20.0,
             parameters: "35B",
-            quality: 10,
+            quality: 8,
             speed: 5
         ),
-        .parallel: ModelVariant(
-            name: "Command-R 35B",
-            ollamaTag: "command-r:35b",
-            sizeGB: 20.0,
-            parameters: "35B",
-            quality: 10,
-            speed: 5
+        .advanced: ModelVariant(
+            name: "Command-R Plus 104B",
+            ollamaTag: "command-r-plus:104b",
+            sizeGB: 64.0,
+            parameters: "104B",
+            quality: 10,  // Cohere's flagship
+            speed: 2
+        ),
+        .maximum: ModelVariant(
+            name: "Qwen2.5 72B",
+            ollamaTag: "qwen2.5:72b",
+            sizeGB: 42.0,
+            parameters: "72B",
+            quality: 9,
+            speed: 3
         )
     ]
     
@@ -243,16 +271,24 @@ final class ModelTierManager {
             ollamaTag: "qwen3-vl:32b",
             sizeGB: 20.0,
             parameters: "32B",
-            quality: 10,
+            quality: 9,
             speed: 5
         ),
-        .parallel: ModelVariant(
-            name: "Qwen3-VL 32B",
-            ollamaTag: "qwen3-vl:32b",
+        .advanced: ModelVariant(
+            name: "LLaVA 34B",
+            ollamaTag: "llava:34b",
             sizeGB: 20.0,
-            parameters: "32B",
-            quality: 10,
-            speed: 5
+            parameters: "34B",
+            quality: 9,
+            speed: 4
+        ),
+        .maximum: ModelVariant(
+            name: "LLaVA 34B",
+            ollamaTag: "llava:34b",
+            sizeGB: 20.0,
+            parameters: "34B",
+            quality: 9,
+            speed: 4
         )
     ]
     
@@ -291,16 +327,17 @@ final class ModelTierManager {
     
     var maxConcurrentModels: Int {
         switch effectiveTier {
-        case .minimal: return 1  // Single 3B model only
-        case .compact: return 2  // Can run 2x 8B models
-        case .balanced: return 1 // Single 14B at a time
+        case .minimal: return 1    // Single 1.5B model only
+        case .compact: return 2    // Can run 2x 7B models
+        case .balanced: return 1   // Single 14B at a time
         case .performance: return 1 // Single 32B at a time
-        case .parallel: return 4 // All 32B models if needed
+        case .advanced: return 2   // Can run 2x 32B or 1x 70B
+        case .maximum: return 4    // Multiple 70B models
         }
     }
     
     var canRunParallel: Bool {
-        effectiveTier == .parallel
+        effectiveTier == .advanced || effectiveTier == .maximum
     }
     
     // MARK: - Configuration File
@@ -364,9 +401,11 @@ final class ModelTierManager {
         let ramBytes = ProcessInfo.processInfo.physicalMemory
         self.systemRAM = Int(ramBytes / 1_073_741_824)
         
-        // Determine recommended tier (always recommend 32GB+ for full experience)
-        if systemRAM >= 64 {
-            self.recommendedTier = .parallel
+        // Determine recommended tier based on RAM
+        if systemRAM >= 128 {
+            self.recommendedTier = .maximum
+        } else if systemRAM >= 64 {
+            self.recommendedTier = .advanced
         } else if systemRAM >= 32 {
             self.recommendedTier = .performance
         } else if systemRAM >= 24 {
@@ -413,6 +452,10 @@ final class ModelTierManager {
             selectedTier = .balanced
         case "performance":
             selectedTier = .performance
+        case "advanced":
+            selectedTier = .advanced
+        case "maximum":
+            selectedTier = .maximum
         default:
             break
         }
@@ -534,11 +577,19 @@ final class ModelTierManager {
                 numGPU: 99,
                 numThread: 8
             )
-        case .parallel:
+        case .advanced:
             return MemorySettings(
                 contextWindow: 32768,
                 maxTokens: 16384,
-                keepAlive: "60m",
+                keepAlive: "60m",  // Keep 70B models warm
+                numGPU: 99,
+                numThread: 12
+            )
+        case .maximum:
+            return MemorySettings(
+                contextWindow: 65536,  // Maximum context for largest models
+                maxTokens: 32768,
+                keepAlive: "120m",  // Keep models warm for extended sessions
                 numGPU: 99,
                 numThread: 16
             )
@@ -558,8 +609,10 @@ final class ModelTierManager {
             return "specialist"
         case .performance:
             return "adaptive"
-        case .parallel:
-            return "parallel"
+        case .advanced:
+            return "parallel"   // Can run multiple models
+        case .maximum:
+            return "parallel"   // Full parallel capability
         }
     }
     
@@ -568,15 +621,15 @@ final class ModelTierManager {
         switch effectiveTier {
         case .minimal:
             return PerformanceExpectations(
-                tokensPerSecond: "30-50",
-                modelSwitchTime: "5-10s",
+                tokensPerSecond: "40-60",
+                modelSwitchTime: "3-5s",
                 quality: "⚠️ SEVERELY LIMITED - Not for production use",
                 recommendation: "Testing/demo only. Upgrade to 32GB+ Mac for real development."
             )
         case .compact:
             return PerformanceExpectations(
-                tokensPerSecond: "25-35",
-                modelSwitchTime: "10-15s",
+                tokensPerSecond: "25-40",
+                modelSwitchTime: "8-12s",
                 quality: "Limited (suitable for simpler tasks)",
                 recommendation: "Consider upgrading for better capability"
             )
@@ -591,15 +644,22 @@ final class ModelTierManager {
             return PerformanceExpectations(
                 tokensPerSecond: "8-15",
                 modelSwitchTime: "30-60s",
-                quality: "Excellent (best reasoning capability)",
-                recommendation: "Best for complex, nuanced tasks"
+                quality: "Excellent (professional-grade)",
+                recommendation: "Recommended for serious development work"
             )
-        case .parallel:
+        case .advanced:
             return PerformanceExpectations(
-                tokensPerSecond: "8-15 per model",
-                modelSwitchTime: "30-60s (but can overlap)",
-                quality: "Excellent with parallelism",
-                recommendation: "Maximum throughput for heavy workloads"
+                tokensPerSecond: "5-10",
+                modelSwitchTime: "60-90s",
+                quality: "State-of-the-art (70B models)",
+                recommendation: "Professional-grade for complex tasks"
+            )
+        case .maximum:
+            return PerformanceExpectations(
+                tokensPerSecond: "3-8 (but parallel)",
+                modelSwitchTime: "60-120s (but can overlap)",
+                quality: "Ultimate (largest models + parallel)",
+                recommendation: "Maximum capability for demanding workloads"
             )
         }
     }

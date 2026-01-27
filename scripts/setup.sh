@@ -64,7 +64,10 @@ BALANCED_4_NAME="qwen2-vl:14b"
 BALANCED_4_SIZE=9
 BALANCED_TOTAL=36
 
+# ═══════════════════════════════════════════════════════════════════════════════
 # Tier: PERFORMANCE (32GB RAM) - 32B models  
+# Best single-model operation with full 32B capability
+# ═══════════════════════════════════════════════════════════════════════════════
 PERF_1_NAME="qwen3:32b"
 PERF_1_SIZE=20
 PERF_2_NAME="command-r:35b"
@@ -74,6 +77,40 @@ PERF_3_SIZE=20
 PERF_4_NAME="qwen3-vl:32b"
 PERF_4_SIZE=20
 PERF_TOTAL=80
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tier: ADVANCED (64GB RAM) - 70B models + parallel 32B
+# Can run 70B models OR multiple 32B models in parallel
+# macOS needs ~4-6GB, leaving ~58-60GB for models
+# 70B models need ~40GB RAM, so comfortable single-model operation
+# OR can run 2-3 32B models simultaneously
+# ═══════════════════════════════════════════════════════════════════════════════
+ADVANCED_1_NAME="qwen2.5:72b"           # Best 70B-class orchestrator (40GB loaded)
+ADVANCED_1_SIZE=42
+ADVANCED_2_NAME="command-r-plus:104b"   # Cohere's flagship research model (60GB loaded)
+ADVANCED_2_SIZE=64
+ADVANCED_3_NAME="deepseek-coder:33b"    # Excellent large coder (20GB loaded)
+ADVANCED_3_SIZE=20
+ADVANCED_4_NAME="llava:34b"             # Large vision model (20GB loaded)
+ADVANCED_4_SIZE=20
+ADVANCED_TOTAL=146
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tier: MAXIMUM (128GB RAM) - Largest models available
+# Can run the absolute largest models with room for parallel operation
+# macOS needs ~4-6GB, leaving ~122-124GB for models
+# Can run Llama 3.1 70B + other models simultaneously
+# Or single massive models like Llama 3.1 405B (quantized)
+# ═══════════════════════════════════════════════════════════════════════════════
+MAXIMUM_1_NAME="llama3.1:70b"            # Meta's flagship - excellent reasoning (40GB loaded)
+MAXIMUM_1_SIZE=40
+MAXIMUM_2_NAME="qwen2.5:72b"             # Alibaba's best - strong orchestration (40GB loaded)
+MAXIMUM_2_SIZE=42
+MAXIMUM_3_NAME="deepseek-coder-v2:236b"  # DeepSeek's MoE coder - state of the art (80GB loaded)
+MAXIMUM_3_SIZE=80
+MAXIMUM_4_NAME="llava:34b"               # Best available vision (20GB loaded)
+MAXIMUM_4_SIZE=20
+MAXIMUM_TOTAL=182
 
 # Model roles (same across tiers)
 MODEL_1_ROLE="🧠 Orchestrator"
@@ -92,20 +129,26 @@ SELECTED_TIER=""
 get_model_name() {
     local idx=$1
     case "$SELECTED_TIER" in
-        minimal)  eval "echo \$MINIMAL_${idx}_NAME" ;;
-        compact)  eval "echo \$COMPACT_${idx}_NAME" ;;
-        balanced) eval "echo \$BALANCED_${idx}_NAME" ;;
-        *)        eval "echo \$PERF_${idx}_NAME" ;;
+        minimal)   eval "echo \$MINIMAL_${idx}_NAME" ;;
+        compact)   eval "echo \$COMPACT_${idx}_NAME" ;;
+        balanced)  eval "echo \$BALANCED_${idx}_NAME" ;;
+        performance) eval "echo \$PERF_${idx}_NAME" ;;
+        advanced)  eval "echo \$ADVANCED_${idx}_NAME" ;;
+        maximum)   eval "echo \$MAXIMUM_${idx}_NAME" ;;
+        *)         eval "echo \$PERF_${idx}_NAME" ;;
     esac
 }
 
 get_model_size() {
     local idx=$1
     case "$SELECTED_TIER" in
-        minimal)  eval "echo \$MINIMAL_${idx}_SIZE" ;;
-        compact)  eval "echo \$COMPACT_${idx}_SIZE" ;;
-        balanced) eval "echo \$BALANCED_${idx}_SIZE" ;;
-        *)        eval "echo \$PERF_${idx}_SIZE" ;;
+        minimal)   eval "echo \$MINIMAL_${idx}_SIZE" ;;
+        compact)   eval "echo \$COMPACT_${idx}_SIZE" ;;
+        balanced)  eval "echo \$BALANCED_${idx}_SIZE" ;;
+        performance) eval "echo \$PERF_${idx}_SIZE" ;;
+        advanced)  eval "echo \$ADVANCED_${idx}_SIZE" ;;
+        maximum)   eval "echo \$MAXIMUM_${idx}_SIZE" ;;
+        *)         eval "echo \$PERF_${idx}_SIZE" ;;
     esac
 }
 
@@ -114,26 +157,31 @@ get_model_desc() { eval "echo \$MODEL_${1}_DESC"; }
 
 get_tier_total() {
     case "$SELECTED_TIER" in
-        minimal)  echo "$MINIMAL_TOTAL" ;;
-        compact)  echo "$COMPACT_TOTAL" ;;
-        balanced) echo "$BALANCED_TOTAL" ;;
-        *)        echo "$PERF_TOTAL" ;;
+        minimal)     echo "$MINIMAL_TOTAL" ;;
+        compact)     echo "$COMPACT_TOTAL" ;;
+        balanced)    echo "$BALANCED_TOTAL" ;;
+        performance) echo "$PERF_TOTAL" ;;
+        advanced)    echo "$ADVANCED_TOTAL" ;;
+        maximum)     echo "$MAXIMUM_TOTAL" ;;
+        *)           echo "$PERF_TOTAL" ;;
     esac
 }
 
 # Determine recommended tier based on RAM
 get_recommended_tier() {
     local ram=$1
-    if [ "$ram" -ge 64 ]; then
-        echo "performance"  # Could do parallel but same models
+    if [ "$ram" -ge 128 ]; then
+        echo "maximum"       # 128GB+ - largest models
+    elif [ "$ram" -ge 64 ]; then
+        echo "advanced"      # 64GB+ - 70B models
     elif [ "$ram" -ge 32 ]; then
-        echo "performance"
+        echo "performance"   # 32GB - 32B models
     elif [ "$ram" -ge 24 ]; then
-        echo "balanced"
+        echo "balanced"      # 24GB - 14B models
     elif [ "$ram" -ge 16 ]; then
-        echo "compact"
+        echo "compact"       # 16GB - 7B models
     else
-        echo "minimal"
+        echo "minimal"       # 8GB - 1.5B models
     fi
 }
 
@@ -628,86 +676,140 @@ select_tier() {
     echo
     
     # Tier comparison table
-    printf "  ${GRAY}┌───────────────────┬─────────┬─────────┬─────────┬──────────┐${NC}\n"
-    printf "  ${GRAY}│${NC} ${WHITE}%-17s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-8s${NC} ${GRAY}│${NC}\n" \
+    printf "  ${GRAY}┌────────────────────┬─────────┬─────────┬─────────┬──────────┐${NC}\n"
+    printf "  ${GRAY}│${NC} ${WHITE}%-18s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-8s${NC} ${GRAY}│${NC}\n" \
         "Tier" "RAM" "Quality" "Speed" "Disk"
-    printf "  ${GRAY}├───────────────────┼─────────┼─────────┼─────────┼──────────┤${NC}\n"
+    printf "  ${GRAY}├────────────────────┼─────────┼─────────┼─────────┼──────────┤${NC}\n"
     
-    # Performance tier (RECOMMENDED - show first)
+    # Maximum tier (128GB+)
+    if [ "$ram" -ge 128 ]; then
+        printf "  ${GRAY}│${NC} ${PURPLE}1)${NC} Maximum (70B+)   ${GRAY}│${NC} 128GB+  ${GRAY}│${NC} ████████ ${GRAY}│${NC} ██░░░░░ ${GRAY}│${NC} ~182GB  ${GRAY}│${NC} ${PURPLE}← ULTIMATE${NC}\n"
+    else
+        printf "  ${GRAY}│${NC} ${DIM}1) Maximum (70B+)${NC}   ${GRAY}│${NC} ${RED}128GB+${NC}  ${GRAY}│${NC} ████████ ${GRAY}│${NC} ██░░░░░ ${GRAY}│${NC} ~182GB  ${GRAY}│${NC}\n"
+    fi
+    
+    # Advanced tier (64GB)
+    if [ "$ram" -ge 64 ]; then
+        local adv_rec=""
+        if [ "$ram" -lt 128 ]; then adv_rec=" ${GREEN}← RECOMMENDED${NC}"; fi
+        printf "  ${GRAY}│${NC} ${CYAN}2)${NC} Advanced (70B)   ${GRAY}│${NC} 64GB+   ${GRAY}│${NC} ███████░ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~146GB  ${GRAY}│${NC}$adv_rec\n"
+    else
+        printf "  ${GRAY}│${NC} ${DIM}2) Advanced (70B)${NC}   ${GRAY}│${NC} ${RED}64GB+${NC}   ${GRAY}│${NC} ███████░ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~146GB  ${GRAY}│${NC}\n"
+    fi
+    
+    # Performance tier (32GB)
     if [ "$ram" -ge 32 ]; then
-        printf "  ${GRAY}│${NC} ${GREEN}1)${NC} Perform. (32B)  ${GRAY}│${NC} 32GB+   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC} ${GREEN}← RECOMMENDED${NC}\n"
+        local perf_rec=""
+        if [ "$ram" -ge 32 ] && [ "$ram" -lt 64 ]; then perf_rec=" ${GREEN}← RECOMMENDED${NC}"; fi
+        printf "  ${GRAY}│${NC} ${GREEN}3)${NC} Perform. (32B)   ${GRAY}│${NC} 32GB+   ${GRAY}│${NC} ██████░░ ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC}$perf_rec\n"
     else
-        printf "  ${GRAY}│${NC} ${DIM}1) Perform. (32B)${NC}  ${GRAY}│${NC} ${RED}32GB+${NC}   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC} ${RED}(need more RAM)${NC}\n"
+        printf "  ${GRAY}│${NC} ${DIM}3) Perform. (32B)${NC}   ${GRAY}│${NC} ${RED}32GB+${NC}   ${GRAY}│${NC} ██████░░ ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC}\n"
     fi
     
-    # Balanced tier
+    # Balanced tier (24GB)
     if [ "$ram" -ge 24 ]; then
-        printf "  ${GRAY}│${NC} ${CYAN}2)${NC} Balanced (14B)  ${GRAY}│${NC} 24GB+   ${GRAY}│${NC} █████░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
+        printf "  ${GRAY}│${NC} ${BLUE}4)${NC} Balanced (14B)   ${GRAY}│${NC} 24GB+   ${GRAY}│${NC} █████░░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
     else
-        printf "  ${GRAY}│${NC} ${DIM}2) Balanced (14B)${NC}  ${GRAY}│${NC} ${RED}24GB+${NC}   ${GRAY}│${NC} █████░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
+        printf "  ${GRAY}│${NC} ${DIM}4) Balanced (14B)${NC}   ${GRAY}│${NC} ${RED}24GB+${NC}   ${GRAY}│${NC} █████░░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
     fi
     
-    # Compact tier
+    # Compact tier (16GB)
     if [ "$ram" -ge 16 ]; then
-        printf "  ${GRAY}│${NC} ${YELLOW}3)${NC} Compact (8B)    ${GRAY}│${NC} 16GB+   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ██████░ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC} ${YELLOW}(limited)${NC}\n"
+        printf "  ${GRAY}│${NC} ${YELLOW}5)${NC} Compact (7B)     ${GRAY}│${NC} 16GB+   ${GRAY}│${NC} ████░░░░ ${GRAY}│${NC} ██████░ ${GRAY}│${NC} ~18GB   ${GRAY}│${NC} ${YELLOW}(limited)${NC}\n"
     else
-        printf "  ${GRAY}│${NC} ${DIM}3) Compact (8B)${NC}    ${GRAY}│${NC} ${RED}16GB+${NC}   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ██████░ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC}\n"
+        printf "  ${GRAY}│${NC} ${DIM}5) Compact (7B)${NC}     ${GRAY}│${NC} ${RED}16GB+${NC}   ${GRAY}│${NC} ████░░░░ ${GRAY}│${NC} ██████░ ${GRAY}│${NC} ~18GB   ${GRAY}│${NC}\n"
     fi
     
-    # Minimal tier (EMERGENCY ONLY)
+    # Minimal tier (8GB)
     if [ "$ram" -ge 8 ]; then
-        printf "  ${GRAY}│${NC} ${RED}4)${NC} Minimal (3B)    ${GRAY}│${NC} 8GB+    ${GRAY}│${NC} ██░░░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~10GB   ${GRAY}│${NC} ${RED}(EMERGENCY)${NC}\n"
+        printf "  ${GRAY}│${NC} ${RED}6)${NC} Minimal (1.5B)   ${GRAY}│${NC} 8GB+    ${GRAY}│${NC} ██░░░░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~5GB    ${GRAY}│${NC} ${RED}(EMERGENCY)${NC}\n"
     else
-        printf "  ${GRAY}│${NC} ${DIM}4) Minimal (3B)${NC}    ${GRAY}│${NC} ${RED}8GB+${NC}    ${GRAY}│${NC} ██░░░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~10GB   ${GRAY}│${NC}\n"
+        printf "  ${GRAY}│${NC} ${DIM}6) Minimal (1.5B)${NC}   ${GRAY}│${NC} ${RED}8GB+${NC}    ${GRAY}│${NC} ██░░░░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~5GB    ${GRAY}│${NC}\n"
     fi
     
-    printf "  ${GRAY}└───────────────────┴─────────┴─────────┴─────────┴──────────┘${NC}\n"
+    printf "  ${GRAY}└────────────────────┴─────────┴─────────┴─────────┴──────────┘${NC}\n"
     
     echo
     print_color "$WHITE" "  Tier Details:"
     echo
-    print_color "$GREEN" "  1) Performance (32B) - BEST EXPERIENCE"
-    print_color "$GRAY" "     • State-of-the-art reasoning and code generation"
-    print_color "$GRAY" "     • Full multi-model orchestration capability"
-    print_color "$GRAY" "     • Recommended for serious development work"
+    print_color "$PURPLE" "  1) Maximum (70B+) - ULTIMATE POWER"
+    print_color "$GRAY" "     • Llama 3.1 70B + Qwen2.5 72B simultaneously"
+    print_color "$GRAY" "     • DeepSeek-Coder-V2 236B (MoE) - state of the art"
+    print_color "$GRAY" "     • Parallel multi-model execution"
+    print_color "$GRAY" "     • For Mac Studio / Mac Pro users"
     echo
-    print_color "$CYAN" "  2) Balanced (14B)"
-    print_color "$GRAY" "     • Good quality for most tasks"
-    print_color "$GRAY" "     • Faster inference than 32B"
-    print_color "$GRAY" "     • Compromise between speed and capability"
+    print_color "$CYAN" "  2) Advanced (70B) - PROFESSIONAL"
+    print_color "$GRAY" "     • Qwen2.5 72B - flagship orchestration"
+    print_color "$GRAY" "     • Command-R Plus 104B - deep research"
+    print_color "$GRAY" "     • DeepSeek-Coder 33B - excellent coding"
+    print_color "$GRAY" "     • For serious professional work"
     echo
-    print_color "$YELLOW" "  3) Compact (8B) - LIMITED"
-    print_color "$GRAY" "     • Reduced reasoning capability"
-    print_color "$GRAY" "     • Suitable for simpler tasks"
-    print_color "$GRAY" "     • Use if RAM is limited"
+    print_color "$GREEN" "  3) Performance (32B) - RECOMMENDED"
+    print_color "$GRAY" "     • Best balance of quality and speed"
+    print_color "$GRAY" "     • Full multi-model orchestration"
+    print_color "$GRAY" "     • Ideal for most developers"
     echo
-    print_color "$RED" "  4) Minimal (3B) - EMERGENCY/DEMO ONLY"
-    print_color "$GRAY" "     • ${RED}Severely limited capability${NC}"
-    print_color "$GRAY" "     • ${RED}Poor code quality${NC}"
-    print_color "$GRAY" "     • ${RED}For testing/demo purposes only${NC}"
-    print_color "$GRAY" "     • ${RED}NOT suitable for actual development${NC}"
+    print_color "$BLUE" "  4) Balanced (14B)"
+    print_color "$GRAY" "     • Good quality, faster inference"
+    print_color "$GRAY" "     • Suitable for many tasks"
+    echo
+    print_color "$YELLOW" "  5) Compact (7B) - LIMITED"
+    print_color "$GRAY" "     • Reduced capability"
+    print_color "$GRAY" "     • For constrained systems"
+    echo
+    print_color "$RED" "  6) Minimal (1.5B) - EMERGENCY ONLY"
+    print_color "$GRAY" "     • ${RED}Very limited - testing/demo only${NC}"
     echo
     
     # Determine default based on RAM
-    local default_num="4"  # Minimal fallback
-    if [ "$ram" -ge 32 ]; then 
-        default_num="1"  # Performance is default for 32GB+
+    local default_num="6"  # Minimal fallback
+    if [ "$ram" -ge 128 ]; then 
+        default_num="1"  # Maximum for 128GB+
+    elif [ "$ram" -ge 64 ]; then 
+        default_num="2"  # Advanced for 64GB+
+    elif [ "$ram" -ge 32 ]; then 
+        default_num="3"  # Performance for 32GB+
     elif [ "$ram" -ge 24 ]; then 
-        default_num="2"  # Balanced for 24GB
+        default_num="4"  # Balanced for 24GB
     elif [ "$ram" -ge 16 ]; then
-        default_num="3"  # Compact for 16GB
+        default_num="5"  # Compact for 16GB
     fi
     
     while true; do
-        read -p "  Select tier [1/2/3/4] (default: $default_num): " -r tier_choice
+        read -p "  Select tier [1-6] (default: $default_num): " -r tier_choice
         tier_choice="${tier_choice:-$default_num}"
         
         case "$tier_choice" in
             1)
+                if [ "$ram" -lt 128 ]; then
+                    print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Maximum tier needs 128GB+."
+                    print_color "$RED" "  This will cause severe disk swapping."
+                    print_color "$YELLOW" "  Are you absolutely sure? [y/N]"
+                    read -r force
+                    if [ "$force" != "y" ] && [ "$force" != "Y" ]; then
+                        continue
+                    fi
+                fi
+                SELECTED_TIER="maximum"
+                break
+                ;;
+            2)
+                if [ "$ram" -lt 64 ]; then
+                    print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Advanced tier needs 64GB+."
+                    print_color "$RED" "  70B models will swap heavily."
+                    print_color "$YELLOW" "  Are you absolutely sure? [y/N]"
+                    read -r force
+                    if [ "$force" != "y" ] && [ "$force" != "Y" ]; then
+                        continue
+                    fi
+                fi
+                SELECTED_TIER="advanced"
+                break
+                ;;
+            3)
                 if [ "$ram" -lt 32 ]; then
                     print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Performance tier needs 32GB+."
-                    print_color "$RED" "  This will cause severe disk swapping and very slow performance."
-                    print_color "$YELLOW" "  Are you absolutely sure? [y/N]"
+                    print_color "$YELLOW" "  Models may run slowly. Continue anyway? [y/N]"
                     read -r force
                     if [ "$force" != "y" ] && [ "$force" != "Y" ]; then
                         continue
@@ -716,7 +818,7 @@ select_tier() {
                 SELECTED_TIER="performance"
                 break
                 ;;
-            2)
+            4)
                 if [ "$ram" -lt 24 ]; then
                     print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Balanced tier needs 24GB+."
                     print_color "$YELLOW" "  Models may run slowly. Continue anyway? [y/N]"
@@ -728,7 +830,7 @@ select_tier() {
                 SELECTED_TIER="balanced"
                 break
                 ;;
-            3)
+            5)
                 if [ "$ram" -lt 16 ]; then
                     print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Compact tier needs 16GB+."
                     print_color "$YELLOW" "  Models may run slowly. Continue anyway? [y/N]"
@@ -740,14 +842,13 @@ select_tier() {
                 SELECTED_TIER="compact"
                 break
                 ;;
-            4)
+            6)
                 if [ "$ram" -lt 8 ]; then
                     print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Even Minimal tier needs 8GB+."
                     print_color "$RED" "  OllamaBot cannot run on this system."
                     exit 1
                 fi
                 print_color "$RED" "  ⚠ WARNING: Minimal tier provides severely limited functionality."
-                print_color "$RED" "  This is only suitable for testing/demo purposes."
                 print_color "$YELLOW" "  Continue with Minimal tier? [y/N]"
                 read -r force
                 if [ "$force" != "y" ] && [ "$force" != "Y" ]; then
@@ -757,7 +858,7 @@ select_tier() {
                 break
                 ;;
             *)
-                print_color "$YELLOW" "  Invalid choice. Please enter 1, 2, 3, or 4."
+                print_color "$YELLOW" "  Invalid choice. Please enter 1-6."
                 ;;
         esac
     done
