@@ -66,22 +66,74 @@ struct OllamaBotApp: App {
             }
             
             CommandMenu("View") {
-                Button("Toggle Sidebar") {
-                    appState.showSidebar.toggle()
+                // Panel toggles
+                Button("Toggle Primary Sidebar") {
+                    PanelState.shared.togglePrimarySidebar()
                 }
                 .keyboardShortcut("b", modifiers: [.command])
                 
-                Button("Toggle Terminal") {
-                    appState.showTerminal.toggle()
+                Button("Toggle Secondary Sidebar") {
+                    PanelState.shared.toggleSecondarySidebar()
+                }
+                .keyboardShortcut("b", modifiers: [.command, .option])
+                
+                Button("Toggle Panel") {
+                    PanelState.shared.toggleBottomPanel()
                 }
                 .keyboardShortcut("`", modifiers: [.control])
                 
-                Button("Toggle Chat Panel") {
-                    appState.showChatPanel.toggle()
+                Divider()
+                
+                // Panel tabs
+                Menu("Show Panel") {
+                    Button("Terminal") {
+                        PanelState.shared.showTerminal()
+                    }
+                    .keyboardShortcut("`", modifiers: [.control, .shift])
+                    
+                    Button("Problems") {
+                        PanelState.shared.showProblems()
+                    }
+                    .keyboardShortcut("m", modifiers: [.command, .shift])
+                    
+                    Button("Output") {
+                        PanelState.shared.setBottomPanelTab(.output)
+                    }
                 }
                 
                 Divider()
                 
+                // Editor layout
+                Menu("Editor Layout") {
+                    Button("Single") {
+                        PanelState.shared.setEditorLayout(.single)
+                    }
+                    
+                    Button("Split Vertical") {
+                        PanelState.shared.setEditorLayout(.splitVertical)
+                    }
+                    .keyboardShortcut("\\", modifiers: [.command])
+                    
+                    Button("Split Horizontal") {
+                        PanelState.shared.setEditorLayout(.splitHorizontal)
+                    }
+                    
+                    Button("Grid (2x2)") {
+                        PanelState.shared.setEditorLayout(.grid)
+                    }
+                }
+                
+                Divider()
+                
+                // Zen mode
+                Button("Zen Mode") {
+                    PanelState.shared.toggleZenMode()
+                }
+                .keyboardShortcut("k", modifiers: [.command])
+                
+                Divider()
+                
+                // Font size
                 Button("Increase Font Size") {
                     appState.editorFontSize = min(32, appState.editorFontSize + 1)
                 }
@@ -91,6 +143,24 @@ struct OllamaBotApp: App {
                     appState.editorFontSize = max(8, appState.editorFontSize - 1)
                 }
                 .keyboardShortcut("-", modifiers: [.command])
+                
+                Divider()
+                
+                // View options
+                Toggle("Show Breadcrumbs", isOn: Binding(
+                    get: { PanelState.shared.showBreadcrumbs },
+                    set: { PanelState.shared.showBreadcrumbs = $0; PanelState.shared.saveState() }
+                ))
+                
+                Toggle("Show Minimap", isOn: Binding(
+                    get: { PanelState.shared.showMinimap },
+                    set: { PanelState.shared.showMinimap = $0; PanelState.shared.saveState() }
+                ))
+                
+                Toggle("Show Status Bar", isOn: Binding(
+                    get: { PanelState.shared.showStatusBar },
+                    set: { PanelState.shared.showStatusBar = $0; PanelState.shared.saveState() }
+                ))
             }
             
             CommandMenu("AI") {
@@ -164,11 +234,29 @@ class AppState {
     var isGenerating: Bool = false
     var mentionedFiles: [FileItem] = [] // For @file mentions
     
-    // MARK: - UI State - Panels
+    // MARK: - UI State - Panels (delegated to PanelState for persistence)
     var showInfiniteMode: Bool = false
-    var showSidebar: Bool = true
-    var showChatPanel: Bool = true
-    var showTerminal: Bool = false
+    
+    // Legacy compatibility - delegate to PanelState
+    var showSidebar: Bool {
+        get { PanelState.shared.showPrimarySidebar }
+        set { PanelState.shared.showPrimarySidebar = newValue; PanelState.shared.saveState() }
+    }
+    var showChatPanel: Bool {
+        get { PanelState.shared.showSecondarySidebar }
+        set { PanelState.shared.showSecondarySidebar = newValue; PanelState.shared.saveState() }
+    }
+    var showTerminal: Bool {
+        get { PanelState.shared.showBottomPanel && PanelState.shared.bottomPanelTab == .terminal }
+        set { 
+            if newValue {
+                PanelState.shared.showTerminal()
+            } else {
+                PanelState.shared.showBottomPanel = false
+            }
+            PanelState.shared.saveState()
+        }
+    }
     
     // MARK: - UI State - Dialogs
     var showCommandPalette: Bool = false

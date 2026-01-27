@@ -204,25 +204,71 @@ run_diagnostics() {
     
     # Apple Silicon
     if is_apple_silicon; then
-        local cpu
-        cpu=$(get_cpu_info)
-        print_status "$CHECK" "$GREEN" "Architecture: Apple Silicon"
+        local chip_info
+        chip_info=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo "Apple Silicon")
+        # Detect specific chip variant
+        local chip_variant=""
+        if echo "$chip_info" | grep -q "M1"; then
+            chip_variant="M1"
+        elif echo "$chip_info" | grep -q "M2"; then
+            chip_variant="M2"
+        elif echo "$chip_info" | grep -q "M3"; then
+            chip_variant="M3"
+        elif echo "$chip_info" | grep -q "M4"; then
+            chip_variant="M4"
+        else
+            chip_variant="Apple Silicon"
+        fi
+        
+        # Check for Pro/Max/Ultra variants
+        local gpu_cores
+        gpu_cores=$(system_profiler SPDisplaysDataType 2>/dev/null | grep -i "Total Number of Cores" | head -1 | awk '{print $NF}')
+        local chip_tier=""
+        if [ -n "$gpu_cores" ]; then
+            if [ "$gpu_cores" -ge 30 ]; then
+                chip_tier=" Ultra"
+            elif [ "$gpu_cores" -ge 24 ]; then
+                chip_tier=" Max"
+            elif [ "$gpu_cores" -ge 14 ]; then
+                chip_tier=" Pro"
+            fi
+        fi
+        
+        print_status "$CHECK" "$GREEN" "Architecture: ${chip_variant}${chip_tier} (optimal for local AI)"
     else
-        print_status "$CROSS" "$RED" "Architecture: Intel (Apple Silicon recommended)"
-        warnings="${warnings}Intel Macs have reduced performance with large models\n"
+        print_status "$CROSS" "$RED" "Architecture: Intel (Apple Silicon strongly recommended)"
+        warnings="${warnings}Intel Macs have significantly reduced performance with 32B models\n"
     fi
     
-    # RAM
+    # RAM - with specific recommendations
     local ram
     ram=$(get_ram_gb)
-    if [ "$ram" -ge "$RECOMMENDED_RAM_GB" ]; then
-        print_status "$CHECK" "$GREEN" "Memory: ${ram}GB (excellent for 32B models)"
+    local model_recommendation=""
+    
+    if [ "$ram" -ge 128 ]; then
+        print_status "$CHECK" "$GREEN" "Memory: ${ram}GB (can run multiple 32B models simultaneously)"
+        model_recommendation="all models with room to spare"
+    elif [ "$ram" -ge 64 ]; then
+        print_status "$CHECK" "$GREEN" "Memory: ${ram}GB (excellent for all 32B models)"
+        model_recommendation="all models comfortably"
+    elif [ "$ram" -ge "$RECOMMENDED_RAM_GB" ]; then
+        print_status "$CHECK" "$GREEN" "Memory: ${ram}GB (good for 32B models)"
+        model_recommendation="32B models (one at a time)"
+    elif [ "$ram" -ge 24 ]; then
+        print_status "$BULLET" "$YELLOW" "Memory: ${ram}GB (tight for 32B, consider 8B)"
+        warnings="${warnings}24GB RAM - 32B models may be slow, recommend qwen3:8b variants\n"
+        model_recommendation="8B-14B models recommended"
     elif [ "$ram" -ge "$MIN_RAM_GB" ]; then
-        print_status "$BULLET" "$YELLOW" "Memory: ${ram}GB (minimum met, 32GB recommended)"
-        warnings="${warnings}With ${ram}GB RAM, consider smaller models\n"
+        print_status "$BULLET" "$YELLOW" "Memory: ${ram}GB (minimum met)"
+        warnings="${warnings}16GB RAM - use smaller model variants (qwen3:8b)\n"
+        model_recommendation="8B models only"
     else
         print_status "$CROSS" "$RED" "Memory: ${ram}GB (minimum ${MIN_RAM_GB}GB required)"
         all_pass=0
+    fi
+    
+    if [ -n "$model_recommendation" ]; then
+        print_color "$GRAY" "    Recommended: $model_recommendation"
     fi
     
     # Disk Space
@@ -255,6 +301,26 @@ run_diagnostics() {
         print_status "$BULLET" "$YELLOW" "Ollama Service: Not running (will start)"
     fi
     
+    # GPU / Neural Engine info (critical for AI inference)
+    echo
+    print_color "$WHITE" "  AI Acceleration:"
+    if is_apple_silicon; then
+        # Get GPU cores
+        local gpu_cores
+        gpu_cores=$(system_profiler SPDisplaysDataType 2>/dev/null | grep -i "Total Number of Cores" | head -1 | awk '{print $NF}')
+        if [ -n "$gpu_cores" ]; then
+            print_color "$GRAY" "    GPU Cores: $gpu_cores"
+        fi
+        
+        # Neural Engine (all Apple Silicon has it)
+        print_color "$GRAY" "    Neural Engine: Available (16-core)"
+        print_color "$GRAY" "    Metal Support: Yes (optimized for Ollama)"
+    else
+        print_color "$YELLOW" "    Metal GPU: Limited support on Intel"
+        print_color "$YELLOW" "    Neural Engine: Not available"
+        warnings="${warnings}No Neural Engine - inference will be significantly slower\n"
+    fi
+    
     # Network Speed
     echo
     print_color "$WHITE" "  Network:"
@@ -263,8 +329,16 @@ run_diagnostics() {
     speed=$(test_download_speed)
     if [ "$speed" != "0" ] && [ "$speed" -gt 10 ]; then
         print_color "$GREEN" "${speed} Mbps $CHECK"
+        
+        # Estimate download times
+        local est_time_20gb=$((20 * 1024 * 8 / speed / 60))  # minutes
+        if [ "$est_time_20gb" -gt 0 ]; then
+            print_color "$GRAY" "    Est. time per 20GB model: ~${est_time_20gb} minutes"
+        fi
     elif [ "$speed" != "0" ]; then
         print_color "$YELLOW" "${speed} Mbps (slow connection)"
+        local est_time_20gb=$((20 * 1024 * 8 / speed / 60))
+        print_color "$YELLOW" "    Est. time per 20GB model: ~${est_time_20gb} minutes"
     else
         print_color "$GRAY" "Could not test"
     fi

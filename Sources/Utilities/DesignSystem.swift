@@ -866,10 +866,19 @@ struct DSModelBadge: View {
 
 // MARK: - Section Header
 
-struct DSSectionHeader: View {
+struct DSSectionHeader<TrailingContent: View>: View {
     let title: String
-    var action: (() -> Void)?
-    var actionIcon: String = "plus"
+    let trailingContent: TrailingContent
+    
+    init(title: String) where TrailingContent == EmptyView {
+        self.title = title
+        self.trailingContent = EmptyView()
+    }
+    
+    init(title: String, @ViewBuilder trailing: () -> TrailingContent) {
+        self.title = title
+        self.trailingContent = trailing()
+    }
     
     var body: some View {
         HStack {
@@ -880,11 +889,7 @@ struct DSSectionHeader: View {
             
             Spacer()
             
-            if let action = action {
-                DSIconButton(icon: actionIcon, size: 20, color: DS.Colors.tertiaryText) {
-                    action()
-                }
-            }
+            trailingContent
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.sm)

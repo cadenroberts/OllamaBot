@@ -1,10 +1,11 @@
 import SwiftUI
 
+// MARK: - Main View
+// Professional IDE layout matching VS Code/Cursor/Windsurf
+
 struct MainView: View {
     @Environment(AppState.self) private var appState
-    @State private var sidebarWidth: CGFloat = 260
-    @State private var chatWidth: CGFloat = 380
-    @State private var terminalHeight: CGFloat = 200
+    @State private var panels = PanelState.shared
     
     var body: some View {
         @Bindable var state = appState
@@ -14,106 +15,347 @@ struct MainView: View {
             DS.Colors.background.ignoresSafeArea()
             
             VStack(spacing: 0) {
-            HSplitView {
-                // Sidebar
-                if appState.showSidebar {
-                    SidebarView()
-                        .frame(minWidth: 200, idealWidth: sidebarWidth, maxWidth: 400)
-                }
+                // Main content area
+                mainContentArea
                 
-                // Main Editor Area
-                VSplitView {
-                    // Editor or Infinite Mode
-                    VStack(spacing: 0) {
-                        // Tab bar
-                        TabBarView()
-                        
-                        // Breadcrumbs
-                        if appState.config.showBreadcrumbs {
-                            BreadcrumbsView()
-                        }
-                        
-                        // Find bar
-                        if appState.showFindInFile || appState.showFindReplace {
-                            FindBarView(isPresented: $state.showFindInFile)
-                        }
-                        
-                        // Main content
-                        if appState.showInfiniteMode {
-                            AgentView()
-                        } else {
-                            EditorView()
-                        }
-                    }
-                    .frame(minWidth: 400)
-                    
-                    // Terminal
-                    if appState.showTerminal {
-                        TerminalView()
-                            .frame(minHeight: 100, idealHeight: terminalHeight, maxHeight: 400)
-                    }
-                }
-                
-                // Chat Panel
-                if appState.showChatPanel {
-                    ChatView()
-                        .frame(minWidth: 320, idealWidth: chatWidth, maxWidth: 600)
+                // Status Bar
+                if panels.showStatusBar && !panels.zenMode {
+                    StatusBarView()
                 }
             }
-            
-            // Status Bar
-            if appState.config.showStatusBar {
-                StatusBarView()
-            }
-            } // VStack
-            .toolbar(content: {
-                MainToolbarContent(appState: state)
-            })
+            .toolbar { MainToolbarContent(appState: state, panels: panels) }
             .navigationTitle(appState.rootFolder?.lastPathComponent ?? "OllamaBot")
-            .onAppear {
-                sidebarWidth = appState.config.sidebarWidth
-            }
             
             // Overlay Dialogs
-            if appState.showCommandPalette {
-                DialogOverlay {
-                    CommandPaletteView(isPresented: $state.showCommandPalette)
-                }
-            }
+            overlayDialogs
             
-            if appState.showQuickOpen {
-                DialogOverlay {
-                    QuickOpenView(isPresented: $state.showQuickOpen)
-                }
-            }
-            
-            if appState.showGlobalSearch {
-                DialogOverlay {
-                    GlobalSearchView(isPresented: $state.showGlobalSearch)
-                }
-            }
-            
-            if appState.showGoToLine {
-                DialogOverlay {
-                    GoToLineView(isPresented: $state.showGoToLine)
-                }
-            }
-            
-            if appState.showGitStatus {
-                DialogOverlay {
-                    GitStatusView(isPresented: $state.showGitStatus)
-                }
-            }
-            
-            // REMOVED: Duplicate GoToLineView dialog (already defined on line 96-100)
-            
-            // Toast notifications (production UX)
+            // Toast notifications
             VStack {
                 DSToastContainer(toasts: $state.toasts)
                 Spacer()
             }
         }
         .preferredColorScheme(colorScheme)
+        .onDisappear {
+            panels.saveState()
+        }
+    }
+    
+    // MARK: - Main Content Area
+    
+    @ViewBuilder
+    private var mainContentArea: some View {
+        HStack(spacing: 0) {
+            // Activity Bar (left edge) - if sidebar is on left
+            if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
+                ActivityBarView(panels: panels)
+                    .environment(appState)
+            }
+            
+            // Primary Sidebar (left)
+            if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
+                primarySidebar
+                PanelResizer(
+                    axis: .vertical,
+                    size: $panels.primarySidebarWidth,
+                    minSize: PanelState.minSidebarWidth,
+                    maxSize: PanelState.maxSidebarWidth
+                ) {
+                    panels.saveState()
+                }
+            }
+            
+            // Editor + Bottom Panel Area
+            editorArea
+            
+            // Primary Sidebar (right position)
+            if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
+                PanelResizer(
+                    axis: .vertical,
+                    size: $panels.primarySidebarWidth,
+                    minSize: PanelState.minSidebarWidth,
+                    maxSize: PanelState.maxSidebarWidth
+                ) {
+                    panels.saveState()
+                }
+                primarySidebar
+            }
+            
+            // Secondary Sidebar (always right, for chat)
+            if panels.showSecondarySidebar && !panels.zenMode {
+                PanelResizer(
+                    axis: .vertical,
+                    size: $panels.secondarySidebarWidth,
+                    minSize: PanelState.minSidebarWidth,
+                    maxSize: PanelState.maxSidebarWidth
+                ) {
+                    panels.saveState()
+                }
+                secondarySidebar
+            }
+            
+            // Activity Bar (right edge) - if sidebar is on right
+            if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
+                ActivityBarView(panels: panels)
+                    .environment(appState)
+            }
+        }
+    }
+    
+    // MARK: - Primary Sidebar
+    
+    private var primarySidebar: some View {
+        VStack(spacing: 0) {
+            // Activity bar at top (if configured)
+            if panels.activityBarPosition == .top {
+                activityBarTop
+            }
+            
+            // Sidebar content
+            Group {
+                switch panels.primarySidebarTab {
+                case .explorer:
+                    FileTreeView()
+                case .search:
+                    SearchSidebarView()
+                case .sourceControl:
+                    GitSidebarView()
+                case .outline:
+                    OutlineView()
+                case .extensions:
+                    ExtensionsSidebarView()
+                }
+            }
+        }
+        .frame(width: panels.primarySidebarWidth)
+        .background(DS.Colors.secondaryBackground)
+    }
+    
+    private var activityBarTop: some View {
+        HStack(spacing: 0) {
+            ForEach(SidebarTab.allCases) { tab in
+                Button(action: { panels.setPrimarySidebarTab(tab) }) {
+                    Image(systemName: tab.icon)
+                        .font(.caption)
+                        .foregroundStyle(
+                            panels.primarySidebarTab == tab
+                                ? DS.Colors.accent
+                                : DS.Colors.secondaryText
+                        )
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, DS.Spacing.sm)
+                        .background(
+                            panels.primarySidebarTab == tab
+                                ? DS.Colors.accent.opacity(0.15)
+                                : Color.clear
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(DS.Colors.surface)
+    }
+    
+    // MARK: - Secondary Sidebar (Chat/Outline)
+    
+    private var secondarySidebar: some View {
+        VStack(spacing: 0) {
+            // Tab bar
+            HStack(spacing: 0) {
+                ForEach(SecondarySidebarTab.allCases) { tab in
+                    Button(action: { panels.setSecondarySidebarTab(tab) }) {
+                        HStack(spacing: DS.Spacing.xs) {
+                            Image(systemName: tab.icon)
+                                .font(.caption)
+                            Text(tab.rawValue)
+                                .font(DS.Typography.caption)
+                        }
+                        .foregroundStyle(
+                            panels.secondarySidebarTab == tab
+                                ? DS.Colors.text
+                                : DS.Colors.secondaryText
+                        )
+                        .padding(.horizontal, DS.Spacing.sm)
+                        .padding(.vertical, DS.Spacing.sm)
+                        .background(
+                            panels.secondarySidebarTab == tab
+                                ? DS.Colors.background
+                                : Color.clear
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+                
+                DSIconButton(icon: "xmark", size: 12) {
+                    panels.toggleSecondarySidebar()
+                }
+                .padding(.trailing, DS.Spacing.sm)
+            }
+            .background(DS.Colors.surface)
+            
+            DSDivider()
+            
+            // Content
+            Group {
+                switch panels.secondarySidebarTab {
+                case .chat:
+                    ChatView()
+                case .outline:
+                    OutlineView()
+                case .timeline:
+                    TimelineView()
+                }
+            }
+        }
+        .frame(width: panels.secondarySidebarWidth)
+        .background(DS.Colors.secondaryBackground)
+    }
+    
+    // MARK: - Editor Area
+    
+    private var editorArea: some View {
+        VStack(spacing: 0) {
+            // Tab bar
+            if panels.showTabBar && !panels.zenMode {
+                TabBarView()
+            }
+            
+            // Breadcrumbs
+            if panels.showBreadcrumbs && !panels.zenMode {
+                BreadcrumbsView()
+            }
+            
+            // Find bar
+            if appState.showFindInFile || appState.showFindReplace {
+                @Bindable var state = appState
+                FindBarView(isPresented: $state.showFindInFile)
+            }
+            
+            // Editor + Bottom Panel
+            if panels.bottomPanelMaximized && panels.showBottomPanel {
+                // Maximized bottom panel takes full space
+                bottomPanel
+            } else {
+                VSplitView {
+                    // Main editor content
+                    editorContent
+                        .frame(minHeight: 200)
+                    
+                    // Bottom Panel
+                    if panels.showBottomPanel && !panels.zenMode {
+                        bottomPanel
+                            .frame(
+                                minHeight: PanelState.minPanelHeight,
+                                idealHeight: panels.bottomPanelHeight,
+                                maxHeight: PanelState.maxPanelHeight
+                            )
+                    }
+                }
+            }
+        }
+        .frame(minWidth: 400)
+    }
+    
+    @ViewBuilder
+    private var editorContent: some View {
+        if appState.showInfiniteMode {
+            AgentView()
+        } else {
+            switch panels.editorLayout {
+            case .single:
+                EditorView()
+            case .splitVertical:
+                HSplitView {
+                    EditorView()
+                    EditorView() // Second editor (would need separate state)
+                }
+            case .splitHorizontal:
+                VSplitView {
+                    EditorView()
+                    EditorView()
+                }
+            case .grid:
+                VStack(spacing: 1) {
+                    HSplitView {
+                        EditorView()
+                        EditorView()
+                    }
+                    HSplitView {
+                        EditorView()
+                        EditorView()
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Bottom Panel
+    
+    private var bottomPanel: some View {
+        VStack(spacing: 0) {
+            // Tab bar
+            BottomPanelTabBar(
+                selectedTab: $panels.bottomPanelTab,
+                isMaximized: panels.bottomPanelMaximized,
+                onMaximize: { panels.toggleMaximizeBottomPanel() },
+                onClose: { panels.toggleBottomPanel() }
+            )
+            
+            DSDivider()
+            
+            // Content
+            Group {
+                switch panels.bottomPanelTab {
+                case .terminal:
+                    TerminalView()
+                case .problems:
+                    ProblemsPanel()
+                case .output:
+                    OutputView()
+                case .debugConsole:
+                    DebugConsoleView()
+                }
+            }
+        }
+        .background(DS.Colors.secondaryBackground)
+    }
+    
+    // MARK: - Overlay Dialogs
+    
+    @ViewBuilder
+    private var overlayDialogs: some View {
+        @Bindable var state = appState
+        
+        if appState.showCommandPalette {
+            DialogOverlay {
+                CommandPaletteView(isPresented: $state.showCommandPalette)
+            }
+        }
+        
+        if appState.showQuickOpen {
+            DialogOverlay {
+                QuickOpenView(isPresented: $state.showQuickOpen)
+            }
+        }
+        
+        if appState.showGlobalSearch {
+            DialogOverlay {
+                GlobalSearchView(isPresented: $state.showGlobalSearch)
+            }
+        }
+        
+        if appState.showGoToLine {
+            DialogOverlay {
+                GoToLineView(isPresented: $state.showGoToLine)
+            }
+        }
+        
+        if appState.showGitStatus {
+            DialogOverlay {
+                GitStatusView(isPresented: $state.showGitStatus)
+            }
+        }
     }
     
     private var colorScheme: ColorScheme? {
@@ -129,16 +371,18 @@ struct MainView: View {
 
 struct MainToolbarContent: ToolbarContent {
     @Bindable var appState: AppState
+    var panels: PanelState
     
     var body: some ToolbarContent {
+        // Left side - sidebar toggles
         ToolbarItem(placement: .navigation) {
-            Button(action: { appState.showSidebar.toggle() }) {
-                Image(systemName: "sidebar.left")
+            Button(action: { panels.togglePrimarySidebar() }) {
+                Image(systemName: panels.primarySidebarPosition == .left ? "sidebar.left" : "sidebar.right")
             }
             .help("Toggle Sidebar (⌘B)")
         }
         
-        // Connection status indicator
+        // Connection status
         ToolbarItem(placement: .navigation) {
             DSConnectionStatus(
                 isConnected: appState.ollamaService.isConnected,
@@ -146,6 +390,22 @@ struct MainToolbarContent: ToolbarContent {
             )
         }
         
+        // Center - editor layout controls
+        ToolbarItem(placement: .principal) {
+            Menu {
+                Button("Single Editor") { panels.setEditorLayout(.single) }
+                Button("Split Vertical") { panels.setEditorLayout(.splitVertical) }
+                Button("Split Horizontal") { panels.setEditorLayout(.splitHorizontal) }
+                Button("Grid (2x2)") { panels.setEditorLayout(.grid) }
+                Divider()
+                Button("Zen Mode (⌘K Z)") { panels.toggleZenMode() }
+            } label: {
+                Image(systemName: layoutIcon)
+            }
+            .help("Editor Layout")
+        }
+        
+        // Right side - actions
         ToolbarItem(placement: .primaryAction) {
             Button(action: { appState.showCommandPalette = true }) {
                 Image(systemName: "magnifyingglass")
@@ -162,17 +422,26 @@ struct MainToolbarContent: ToolbarContent {
         }
         
         ToolbarItem(placement: .primaryAction) {
-            Button(action: { appState.showTerminal.toggle() }) {
-                Image(systemName: "terminal")
+            Button(action: { panels.toggleBottomPanel() }) {
+                Image(systemName: "rectangle.bottomthird.inset.filled")
             }
-            .help("Toggle Terminal (⌃`)")
+            .help("Toggle Panel (⌃`)")
         }
         
         ToolbarItem(placement: .primaryAction) {
-            Button(action: { appState.showChatPanel.toggle() }) {
-                Image(systemName: "bubble.right")
+            Button(action: { panels.toggleSecondarySidebar() }) {
+                Image(systemName: "sidebar.right")
             }
-            .help("Toggle Chat Panel")
+            .help("Toggle Secondary Sidebar")
+        }
+    }
+    
+    private var layoutIcon: String {
+        switch panels.editorLayout {
+        case .single: return "rectangle"
+        case .splitVertical: return "rectangle.split.2x1"
+        case .splitHorizontal: return "rectangle.split.1x2"
+        case .grid: return "rectangle.split.2x2"
         }
     }
 }
@@ -192,59 +461,7 @@ struct DialogOverlay<Content: View>: View {
     }
 }
 
-// MARK: - Sidebar View
-
-struct SidebarView: View {
-    @Environment(AppState.self) private var appState
-    @State private var selectedTab: SidebarTab = .files
-    
-    enum SidebarTab: String, CaseIterable {
-        case files = "Files"
-        case search = "Search"
-        case git = "Git"
-        
-        var icon: String {
-            switch self {
-            case .files: return "doc.fill"
-            case .search: return "magnifyingglass"
-            case .git: return "arrow.triangle.branch"
-            }
-        }
-    }
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // Activity bar
-            HStack(spacing: 0) {
-                ForEach(SidebarTab.allCases, id: \.self) { tab in
-                    Button(action: { selectedTab = tab }) {
-                        Image(systemName: tab.icon)
-                            .font(.title3)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(selectedTab == tab ? Color.accentColor.opacity(0.2) : Color.clear)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .background(DS.Colors.secondaryBackground)
-            
-            Divider()
-            
-            // Content
-            switch selectedTab {
-            case .files:
-                FileTreeView()
-            case .search:
-                SearchSidebarView()
-            case .git:
-                GitSidebarView()
-            }
-        }
-    }
-}
-
-// MARK: - File Tree View
+// MARK: - Sidebar Views
 
 struct FileTreeView: View {
     @Environment(AppState.self) private var appState
@@ -252,46 +469,39 @@ struct FileTreeView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
-                Text("EXPLORER")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                
-                Spacer()
-                
-                Button(action: { appState.openFolderPanel() }) {
-                    Image(systemName: "folder.badge.plus")
+            DSSectionHeader(title: "EXPLORER") {
+                DSIconButton(icon: "folder.badge.plus", size: 14) {
+                    appState.openFolderPanel()
                 }
-                .buttonStyle(.plain)
-                .help("Open Folder")
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
             
-            Divider()
+            DSDivider()
             
             // File tree
             if let root = appState.rootFolder {
                 ScrollView {
                     FileTreeNode(url: root, level: 0)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, DS.Spacing.xs)
                 }
             } else {
-                VStack(spacing: 16) {
+                VStack(spacing: DS.Spacing.lg) {
                     Image(systemName: "folder")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text("No folder open")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 40))
+                        .foregroundStyle(DS.Colors.tertiaryText)
                     
-                    Button("Open Folder") {
+                    Text("No Folder Open")
+                        .font(DS.Typography.headline)
+                        .foregroundStyle(DS.Colors.secondaryText)
+                    
+                    Text("Open a folder to get started")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.tertiaryText)
+                    
+                    DSButton("Open Folder", style: .primary, size: .sm) {
                         appState.openFolderPanel()
                     }
-                    .buttonStyle(.bordered)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
             }
         }
     }
@@ -304,6 +514,7 @@ struct FileTreeNode: View {
     
     @State private var isExpanded: Bool = false
     @State private var children: [URL] = []
+    @State private var isHovered: Bool = false
     
     private var isDirectory: Bool {
         (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
@@ -316,18 +527,15 @@ struct FileTreeNode: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Node row
-            HStack(spacing: 6) {
+            HStack(spacing: DS.Spacing.xs) {
                 if isDirectory {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.tertiaryText)
                         .frame(width: 12)
-                        .onTapGesture {
-                            toggle()
-                        }
+                        .onTapGesture { toggle() }
                 } else {
-                    Spacer()
-                        .frame(width: 12)
+                    Spacer().frame(width: 12)
                 }
                 
                 Image(systemName: iconFor(url))
@@ -335,15 +543,19 @@ struct FileTreeNode: View {
                     .foregroundStyle(colorFor(url))
                 
                 Text(url.lastPathComponent)
-                    .font(.callout)
+                    .font(DS.Typography.callout)
                     .lineLimit(1)
                 
                 Spacer()
             }
-            .padding(.leading, CGFloat(level) * 16 + 8)
-            .padding(.vertical, 4)
-            .padding(.trailing, 8)
-            .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+            .padding(.leading, CGFloat(level) * 16 + DS.Spacing.sm)
+            .padding(.vertical, DS.Spacing.xs)
+            .padding(.trailing, DS.Spacing.sm)
+            .background(
+                isSelected
+                    ? DS.Colors.accent.opacity(0.2)
+                    : (isHovered ? DS.Colors.surface : Color.clear)
+            )
             .contentShape(Rectangle())
             .onTapGesture {
                 if isDirectory {
@@ -353,9 +565,8 @@ struct FileTreeNode: View {
                     appState.openFile(file)
                 }
             }
-            .contextMenu {
-                fileContextMenu
-            }
+            .onHover { isHovered = $0 }
+            .contextMenu { fileContextMenu }
             
             // Children
             if isExpanded {
@@ -379,14 +590,10 @@ struct FileTreeNode: View {
                 let file = FileItem(url: url, isDirectory: false)
                 appState.openFile(file)
             }
-            
             Divider()
         }
         
-        Button("Rename...") {
-            // TODO: Implement rename
-        }
-        
+        Button("Rename...") { /* TODO */ }
         Button("Duplicate") {
             _ = appState.fileSystemService.duplicate(at: url)
         }
@@ -410,7 +617,7 @@ struct FileTreeNode: View {
     }
     
     private func toggle() {
-        withAnimation(.easeInOut(duration: 0.15)) {
+        withAnimation(DS.Animation.fast) {
             isExpanded.toggle()
         }
         if isExpanded && children.isEmpty {
@@ -421,10 +628,16 @@ struct FileTreeNode: View {
     private func loadChildren() {
         guard isDirectory else { return }
         
-        let excludePatterns = Set(["node_modules", ".git", "__pycache__", ".build", ".DS_Store", ".swiftpm", "DerivedData"])
+        let excludePatterns = Set([
+            "node_modules", ".git", "__pycache__", ".build",
+            ".DS_Store", ".swiftpm", "DerivedData", ".next"
+        ])
         
         do {
-            let contents = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey])
+            let contents = try FileManager.default.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey]
+            )
             children = contents.filter { !excludePatterns.contains($0.lastPathComponent) }
                 .sorted { url1, url2 in
                     let isDir1 = (try? url1.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
@@ -450,22 +663,27 @@ struct FileTreeNode: View {
         case "ts", "tsx": return "t.circle.fill"
         case "json": return "curlybraces"
         case "md": return "doc.text.fill"
+        case "html": return "chevron.left.forwardslash.chevron.right"
+        case "css", "scss": return "paintbrush.fill"
+        case "sh", "bash": return "terminal.fill"
         default: return "doc.fill"
         }
     }
     
     private func colorFor(_ url: URL) -> Color {
         let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-        if isDir { return .blue }
+        if isDir { return DS.Colors.info }
         
         switch url.pathExtension.lowercased() {
         case "swift": return .orange
         case "py": return .green
         case "js": return .yellow
-        case "ts", "tsx": return .blue
-        case "json": return .purple
-        case "md": return .cyan
-        default: return .secondary
+        case "ts", "tsx": return DS.Colors.info
+        case "json": return Color.purple
+        case "md": return DS.Colors.accent
+        case "html": return DS.Colors.error
+        case "css", "scss": return DS.Colors.info
+        default: return DS.Colors.secondaryText
         }
     }
 }
@@ -481,12 +699,11 @@ struct TabBarView: View {
                 ForEach(appState.openFiles) { file in
                     TabItemView(file: file)
                 }
-                
                 Spacer()
             }
         }
         .frame(height: 35)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(DS.Colors.surface)
     }
 }
 
@@ -501,17 +718,18 @@ struct TabItemView: View {
     }
     
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: DS.Spacing.xs) {
             Image(systemName: file.icon)
                 .font(.caption)
                 .foregroundStyle(file.iconColor)
             
             Text(file.name)
-                .font(.callout)
+                .font(DS.Typography.callout)
+                .lineLimit(1)
             
             if file.isModified {
                 Circle()
-                    .fill(Color.secondary)
+                    .fill(DS.Colors.warning)
                     .frame(width: 6, height: 6)
             }
             
@@ -519,17 +737,23 @@ struct TabItemView: View {
                 Button(action: { appState.closeFile(file) }) {
                     Image(systemName: "xmark")
                         .font(.caption2)
+                        .foregroundStyle(DS.Colors.tertiaryText)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(isSelected ? Color(nsColor: .windowBackgroundColor) : Color.clear)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            appState.openFile(file)
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, DS.Spacing.sm)
+        .background(isSelected ? DS.Colors.background : Color.clear)
+        .overlay(alignment: .bottom) {
+            if isSelected {
+                Rectangle()
+                    .fill(DS.Colors.accent)
+                    .frame(height: 2)
+            }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { appState.openFile(file) }
         .onHover { isHovered = $0 }
     }
 }
@@ -541,7 +765,7 @@ struct BreadcrumbsView: View {
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
+            HStack(spacing: DS.Spacing.xs) {
                 if let file = appState.selectedFile, let root = appState.rootFolder {
                     let components = file.url.pathComponents.drop { component in
                         !root.pathComponents.contains(component) || component == root.lastPathComponent
@@ -551,21 +775,21 @@ struct BreadcrumbsView: View {
                         if index > 0 {
                             Image(systemName: "chevron.right")
                                 .font(.caption2)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(DS.Colors.tertiaryText)
                         }
                         
                         Text(component)
-                            .font(.caption)
-                            .foregroundStyle(index == components.count - 1 ? .primary : .secondary)
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(index == components.count - 1 ? DS.Colors.text : DS.Colors.secondaryText)
                     }
                 }
-                
                 Spacer()
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.vertical, DS.Spacing.xs)
         }
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+        .frame(height: 24)
+        .background(DS.Colors.surface.opacity(0.5))
     }
 }
 
@@ -574,42 +798,120 @@ struct BreadcrumbsView: View {
 struct SearchSidebarView: View {
     @Environment(AppState.self) private var appState
     @State private var searchText: String = ""
+    @State private var searchResults: [SearchResult] = []
+    @State private var isSearching = false
     
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("SEARCH")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            DSSectionHeader(title: "SEARCH")
             
-            Divider()
+            DSDivider()
             
-            TextField("Search files...", text: $searchText)
-                .textFieldStyle(.roundedBorder)
-                .padding()
-            
-            Spacer()
-            
-            if searchText.isEmpty {
-                VStack {
-                    Image(systemName: "magnifyingglass")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text("Search in files")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            // Search input
+            HStack(spacing: DS.Spacing.xs) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(DS.Colors.tertiaryText)
+                
+                TextField("Search in files...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(DS.Typography.callout)
+                    .onSubmit { performSearch() }
+                
+                if isSearching {
+                    DSLoadingSpinner(size: 12)
                 }
-                .frame(maxHeight: .infinity)
+            }
+            .padding(DS.Spacing.sm)
+            .background(DS.Colors.tertiaryBackground)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+            .padding(DS.Spacing.sm)
+            
+            DSDivider()
+            
+            // Results
+            if searchResults.isEmpty && !searchText.isEmpty && !isSearching {
+                DSEmptyState(
+                    icon: "magnifyingglass",
+                    title: "No Results",
+                    message: "No matches found for '\(searchText)'"
+                )
+            } else if searchResults.isEmpty {
+                DSEmptyState(
+                    icon: "magnifyingglass",
+                    title: "Search",
+                    message: "Search across all files"
+                )
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(searchResults) { result in
+                            SearchResultRow(result: result)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func performSearch() {
+        guard !searchText.isEmpty else { return }
+        
+        isSearching = true
+        Task {
+            // Use FileIndexer's content search
+            let results = await appState.fileIndexer.searchContent(searchText, maxResults: 100)
+            await MainActor.run {
+                searchResults = results.map { (url, _) in
+                    SearchResult(file: url, match: searchText)
+                }
+                isSearching = false
             }
         }
     }
 }
 
-// MARK: - Git Sidebar View (Uses GitService)
+struct SearchResult: Identifiable {
+    let id = UUID()
+    let file: URL
+    let match: String
+}
+
+struct SearchResultRow: View {
+    @Environment(AppState.self) private var appState
+    let result: SearchResult
+    @State private var isHovered = false
+    
+    var body: some View {
+        HStack(spacing: DS.Spacing.sm) {
+            Image(systemName: "doc.text")
+                .font(.caption)
+                .foregroundStyle(DS.Colors.secondaryText)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(result.file.lastPathComponent)
+                    .font(DS.Typography.caption)
+                    .lineLimit(1)
+                
+                Text(result.file.deletingLastPathComponent().lastPathComponent)
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, DS.Spacing.sm)
+        .padding(.vertical, DS.Spacing.xs)
+        .background(isHovered ? DS.Colors.surface : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            let file = FileItem(url: result.file, isDirectory: false)
+            appState.openFile(file)
+        }
+        .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - Git Sidebar View
 
 struct GitSidebarView: View {
     @Environment(AppState.self) private var appState
@@ -619,15 +921,7 @@ struct GitSidebarView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("SOURCE CONTROL")
-                    .font(DS.Typography.caption2)
-                    .foregroundStyle(DS.Colors.tertiaryText)
-                    .tracking(0.5)
-                
-                Spacer()
-                
+            DSSectionHeader(title: "SOURCE CONTROL") {
                 if git.isLoading {
                     DSLoadingSpinner(size: 12)
                 } else {
@@ -636,13 +930,10 @@ struct GitSidebarView: View {
                     }
                 }
             }
-            .padding(.horizontal, DS.Spacing.md)
-            .padding(.vertical, DS.Spacing.sm)
             
             DSDivider()
             
             if !git.isGitRepo {
-                // Not a git repo
                 DSEmptyState(
                     icon: "arrow.triangle.branch",
                     title: "Not a Git Repository",
@@ -651,15 +942,12 @@ struct GitSidebarView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                        // Branch info
                         branchSection
                         
-                        // Changes
                         if let status = git.status {
                             changesSection(status)
                         }
                         
-                        // Commit input
                         commitSection
                     }
                     .padding(DS.Spacing.sm)
@@ -690,17 +978,12 @@ struct GitSidebarView: View {
     @ViewBuilder
     private func changesSection(_ status: GitStatus) -> some View {
         VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-            // Staged changes
             if !status.staged.isEmpty {
                 changeGroup(title: "Staged Changes", changes: status.staged, staged: true)
             }
-            
-            // Unstaged changes
             if !status.unstaged.isEmpty {
                 changeGroup(title: "Changes", changes: status.unstaged, staged: false)
             }
-            
-            // Untracked
             if !status.untracked.isEmpty {
                 untrackedGroup(title: "Untracked", files: status.untracked)
             }
@@ -731,7 +1014,6 @@ struct GitSidebarView: View {
                     
                     Spacer()
                     
-                    // Stage/unstage button
                     DSIconButton(icon: staged ? "minus" : "plus", size: 12) {
                         if staged {
                             git.unstage(file: change.filename)
@@ -804,6 +1086,78 @@ struct GitSidebarView: View {
     }
 }
 
+// MARK: - Extensions Sidebar View
+
+struct ExtensionsSidebarView: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            DSSectionHeader(title: "EXTENSIONS")
+            
+            DSDivider()
+            
+            DSEmptyState(
+                icon: "puzzlepiece.extension",
+                title: "Extensions",
+                message: "Extension support coming soon"
+            )
+        }
+    }
+}
+
+// MARK: - Timeline View
+
+struct TimelineView: View {
+    @Environment(AppState.self) private var appState
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            if appState.selectedFile == nil {
+                DSEmptyState(
+                    icon: "clock",
+                    title: "Timeline",
+                    message: "Select a file to view its history"
+                )
+            } else {
+                // Git log for selected file
+                ScrollView {
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                        Text("Git history for \(appState.selectedFile?.name ?? "")")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.Colors.secondaryText)
+                            .padding(DS.Spacing.sm)
+                        
+                        // Would show git log here
+                        DSEmptyState(
+                            icon: "clock",
+                            title: "No History",
+                            message: "File history not available"
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Debug Console View
+
+struct DebugConsoleView: View {
+    @State private var debugOutput: String = ""
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                Text(debugOutput.isEmpty ? "Debug console - no output" : debugOutput)
+                    .font(DS.Typography.mono(11))
+                    .foregroundStyle(debugOutput.isEmpty ? DS.Colors.tertiaryText : DS.Colors.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(DS.Spacing.sm)
+            }
+            .background(DS.Colors.codeBackground)
+        }
+    }
+}
+
 // MARK: - Git Status View (Dialog)
 
 struct GitStatusView: View {
@@ -843,19 +1197,19 @@ struct GitStatusView: View {
                         List {
                             Section("Staged (\(status.staged.count))") {
                                 ForEach(status.staged) { change in
-                                    fileRow(change.filename, status: change.status, staged: true)
+                                    fileRow(change.filename, status: change.status)
                                 }
                             }
                             
                             Section("Modified (\(status.unstaged.count))") {
                                 ForEach(status.unstaged) { change in
-                                    fileRow(change.filename, status: change.status, staged: false)
+                                    fileRow(change.filename, status: change.status)
                                 }
                             }
                             
                             Section("Untracked (\(status.untracked.count))") {
                                 ForEach(status.untracked, id: \.self) { file in
-                                    fileRow(file, status: .untracked, staged: false)
+                                    fileRow(file, status: .untracked)
                                 }
                             }
                         }
@@ -883,7 +1237,7 @@ struct GitStatusView: View {
         .shadow(color: DS.Shadow.lg, radius: 20)
     }
     
-    private func fileRow(_ file: String, status: GitChangeStatus, staged: Bool) -> some View {
+    private func fileRow(_ file: String, status: GitChangeStatus) -> some View {
         HStack {
             Image(systemName: status.icon)
                 .font(.caption2)
@@ -895,11 +1249,7 @@ struct GitStatusView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            loadDiff(for: file)
+            diffContent = git.getDiff(file: file)
         }
-    }
-    
-    private func loadDiff(for file: String) {
-        diffContent = git.getDiff(file: file)
     }
 }
