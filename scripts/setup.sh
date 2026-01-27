@@ -22,6 +22,18 @@ set -eo pipefail
 # MODEL TIERS - RAM-aware model selection
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Tier: MINIMAL (8GB RAM) - 3B models, severely limited
+# WARNING: This is NOT recommended. Models have very limited capability.
+MINIMAL_1_NAME="qwen2.5:3b"
+MINIMAL_1_SIZE=2
+MINIMAL_2_NAME="phi3:3.8b"
+MINIMAL_2_SIZE=2
+MINIMAL_3_NAME="qwen2.5-coder:3b"
+MINIMAL_3_SIZE=2
+MINIMAL_4_NAME="llava:7b"
+MINIMAL_4_SIZE=4
+MINIMAL_TOTAL=10
+
 # Tier: COMPACT (16GB RAM) - 8B models, fast inference
 COMPACT_1_NAME="qwen3:8b"
 COMPACT_1_SIZE=5
@@ -72,6 +84,7 @@ SELECTED_TIER=""
 get_model_name() {
     local idx=$1
     case "$SELECTED_TIER" in
+        minimal)  eval "echo \$MINIMAL_${idx}_NAME" ;;
         compact)  eval "echo \$COMPACT_${idx}_NAME" ;;
         balanced) eval "echo \$BALANCED_${idx}_NAME" ;;
         *)        eval "echo \$PERF_${idx}_NAME" ;;
@@ -81,6 +94,7 @@ get_model_name() {
 get_model_size() {
     local idx=$1
     case "$SELECTED_TIER" in
+        minimal)  eval "echo \$MINIMAL_${idx}_SIZE" ;;
         compact)  eval "echo \$COMPACT_${idx}_SIZE" ;;
         balanced) eval "echo \$BALANCED_${idx}_SIZE" ;;
         *)        eval "echo \$PERF_${idx}_SIZE" ;;
@@ -92,6 +106,7 @@ get_model_desc() { eval "echo \$MODEL_${1}_DESC"; }
 
 get_tier_total() {
     case "$SELECTED_TIER" in
+        minimal)  echo "$MINIMAL_TOTAL" ;;
         compact)  echo "$COMPACT_TOTAL" ;;
         balanced) echo "$BALANCED_TOTAL" ;;
         *)        echo "$PERF_TOTAL" ;;
@@ -107,8 +122,10 @@ get_recommended_tier() {
         echo "performance"
     elif [ "$ram" -ge 24 ]; then
         echo "balanced"
-    else
+    elif [ "$ram" -ge 16 ]; then
         echo "compact"
+    else
+        echo "minimal"
     fi
 }
 
@@ -513,10 +530,59 @@ select_tier() {
     echo
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # RAM WARNING SECTION
+    # CRITICAL RAM WARNING (8GB)
     # ═══════════════════════════════════════════════════════════════════════════
     
-    if [ "$ram" -lt 32 ]; then
+    if [ "$ram" -lt 16 ]; then
+        echo
+        printf "  ${RED}╔══════════════════════════════════════════════════════════════════════════╗${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}   ${RED}🚨🚨🚨  CRITICAL: SEVERELY INSUFFICIENT RAM  🚨🚨🚨${NC}                  ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}╠══════════════════════════════════════════════════════════════════════════╣${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}   Your Mac has only ${WHITE}${ram}GB RAM${NC}.                                         ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}   OllamaBot is designed for ${WHITE}32GB+ unified memory${NC}.                       ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}   Running on 8GB is ${RED}NOT RECOMMENDED${NC} and will result in:                  ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}     ${RED}✗${NC} ${WHITE}Extremely limited model capability${NC} (3B models only)              ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}     ${RED}✗${NC} ${WHITE}Poor code generation quality${NC}                                     ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}     ${RED}✗${NC} ${WHITE}Frequent errors and hallucinations${NC}                               ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}     ${RED}✗${NC} ${WHITE}No multi-model orchestration${NC} (single model only)                 ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}     ${RED}✗${NC} ${WHITE}Possible system instability${NC}                                      ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}   ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}   ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}   ${WHITE}STRONG RECOMMENDATION:${NC}                                                 ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}   Upgrade to a Mac with ${GREEN}32GB+ unified memory${NC} for:                       ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}     • Full OllamaBot experience                                          ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}     • State-of-the-art 32B models                                        ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}     • Multi-model AI orchestration                                       ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}     • Professional-grade code generation                                 ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}   Consider: MacBook Pro M3 Pro (36GB) or Mac Studio M2 Max (32GB+)       ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                          ${RED}║${NC}\n"
+        printf "  ${RED}╚══════════════════════════════════════════════════════════════════════════╝${NC}\n"
+        echo
+        
+        print_color "$RED" "  Are you SURE you want to continue with severely limited functionality?"
+        print_color "$RED" "  Type 'I UNDERSTAND' to proceed (or press Enter to exit):"
+        read -r confirm
+        if [ "$confirm" != "I UNDERSTAND" ]; then
+            print_color "$CYAN" "  Setup cancelled. Consider upgrading your Mac for the full experience."
+            exit 0
+        fi
+        echo
+        print_color "$YELLOW" "  Proceeding with MINIMAL tier (3B models)..."
+        echo
+        
+    # ═══════════════════════════════════════════════════════════════════════════
+    # LOW RAM WARNING (16-31GB)
+    # ═══════════════════════════════════════════════════════════════════════════
+        
+    elif [ "$ram" -lt 32 ]; then
         echo
         printf "  ${RED}╔══════════════════════════════════════════════════════════════════╗${NC}\n"
         printf "  ${RED}║${NC}  ${YELLOW}⚠️  LOW RAM WARNING${NC}                                             ${RED}║${NC}\n"
@@ -554,35 +620,40 @@ select_tier() {
     echo
     
     # Tier comparison table
-    printf "  ${GRAY}┌──────────────────┬─────────┬─────────┬─────────┬──────────┐${NC}\n"
-    printf "  ${GRAY}│${NC} ${WHITE}%-16s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-8s${NC} ${GRAY}│${NC}\n" \
+    printf "  ${GRAY}┌───────────────────┬─────────┬─────────┬─────────┬──────────┐${NC}\n"
+    printf "  ${GRAY}│${NC} ${WHITE}%-17s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-7s${NC} ${GRAY}│${NC} ${WHITE}%-8s${NC} ${GRAY}│${NC}\n" \
         "Tier" "RAM" "Quality" "Speed" "Disk"
-    printf "  ${GRAY}├──────────────────┼─────────┼─────────┼─────────┼──────────┤${NC}\n"
+    printf "  ${GRAY}├───────────────────┼─────────┼─────────┼─────────┼──────────┤${NC}\n"
     
     # Performance tier (RECOMMENDED - show first)
-    local perf_rec=""
     if [ "$ram" -ge 32 ]; then
-        perf_rec=" ${GREEN}← RECOMMENDED${NC}"
-        printf "  ${GRAY}│${NC} ${GREEN}1)${NC} Perform. (32B) ${GRAY}│${NC} 32GB+   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC}$perf_rec\n"
+        printf "  ${GRAY}│${NC} ${GREEN}1)${NC} Perform. (32B)  ${GRAY}│${NC} 32GB+   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC} ${GREEN}← RECOMMENDED${NC}\n"
     else
-        printf "  ${GRAY}│${NC} ${DIM}1) Perform. (32B)${NC} ${GRAY}│${NC} ${RED}32GB+${NC}   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC} ${RED}(insufficient RAM)${NC}\n"
+        printf "  ${GRAY}│${NC} ${DIM}1) Perform. (32B)${NC}  ${GRAY}│${NC} ${RED}32GB+${NC}   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC} ${RED}(need more RAM)${NC}\n"
     fi
     
     # Balanced tier
     if [ "$ram" -ge 24 ]; then
-        printf "  ${GRAY}│${NC} ${CYAN}2)${NC} Balanced (14B) ${GRAY}│${NC} 24GB+   ${GRAY}│${NC} █████░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
+        printf "  ${GRAY}│${NC} ${CYAN}2)${NC} Balanced (14B)  ${GRAY}│${NC} 24GB+   ${GRAY}│${NC} █████░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
     else
-        printf "  ${GRAY}│${NC} ${DIM}2) Balanced (14B)${NC} ${GRAY}│${NC} ${RED}24GB+${NC}   ${GRAY}│${NC} █████░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
+        printf "  ${GRAY}│${NC} ${DIM}2) Balanced (14B)${NC}  ${GRAY}│${NC} ${RED}24GB+${NC}   ${GRAY}│${NC} █████░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
     fi
     
-    # Compact tier (FALLBACK)
+    # Compact tier
     if [ "$ram" -ge 16 ]; then
-        printf "  ${GRAY}│${NC} ${YELLOW}3)${NC} Compact (8B)   ${GRAY}│${NC} 16GB+   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC} ${YELLOW}(fallback)${NC}\n"
+        printf "  ${GRAY}│${NC} ${YELLOW}3)${NC} Compact (8B)    ${GRAY}│${NC} 16GB+   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ██████░ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC} ${YELLOW}(limited)${NC}\n"
     else
-        printf "  ${GRAY}│${NC} ${DIM}3) Compact (8B)${NC}   ${GRAY}│${NC} ${RED}16GB+${NC}   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC}\n"
+        printf "  ${GRAY}│${NC} ${DIM}3) Compact (8B)${NC}    ${GRAY}│${NC} ${RED}16GB+${NC}   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ██████░ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC}\n"
     fi
     
-    printf "  ${GRAY}└──────────────────┴─────────┴─────────┴─────────┴──────────┘${NC}\n"
+    # Minimal tier (EMERGENCY ONLY)
+    if [ "$ram" -ge 8 ]; then
+        printf "  ${GRAY}│${NC} ${RED}4)${NC} Minimal (3B)    ${GRAY}│${NC} 8GB+    ${GRAY}│${NC} ██░░░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~10GB   ${GRAY}│${NC} ${RED}(EMERGENCY)${NC}\n"
+    else
+        printf "  ${GRAY}│${NC} ${DIM}4) Minimal (3B)${NC}    ${GRAY}│${NC} ${RED}8GB+${NC}    ${GRAY}│${NC} ██░░░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~10GB   ${GRAY}│${NC}\n"
+    fi
+    
+    printf "  ${GRAY}└───────────────────┴─────────┴─────────┴─────────┴──────────┘${NC}\n"
     
     echo
     print_color "$WHITE" "  Tier Details:"
@@ -597,22 +668,30 @@ select_tier() {
     print_color "$GRAY" "     • Faster inference than 32B"
     print_color "$GRAY" "     • Compromise between speed and capability"
     echo
-    print_color "$YELLOW" "  3) Compact (8B) - FALLBACK ONLY"
+    print_color "$YELLOW" "  3) Compact (8B) - LIMITED"
     print_color "$GRAY" "     • Reduced reasoning capability"
-    print_color "$GRAY" "     • Suitable for simple tasks only"
-    print_color "$GRAY" "     • Use only if RAM is severely limited"
+    print_color "$GRAY" "     • Suitable for simpler tasks"
+    print_color "$GRAY" "     • Use if RAM is limited"
+    echo
+    print_color "$RED" "  4) Minimal (3B) - EMERGENCY/DEMO ONLY"
+    print_color "$GRAY" "     • ${RED}Severely limited capability${NC}"
+    print_color "$GRAY" "     • ${RED}Poor code quality${NC}"
+    print_color "$GRAY" "     • ${RED}For testing/demo purposes only${NC}"
+    print_color "$GRAY" "     • ${RED}NOT suitable for actual development${NC}"
     echo
     
     # Determine default based on RAM
-    local default_num="3"  # Fallback
+    local default_num="4"  # Minimal fallback
     if [ "$ram" -ge 32 ]; then 
         default_num="1"  # Performance is default for 32GB+
     elif [ "$ram" -ge 24 ]; then 
         default_num="2"  # Balanced for 24GB
+    elif [ "$ram" -ge 16 ]; then
+        default_num="3"  # Compact for 16GB
     fi
     
     while true; do
-        read -p "  Select tier [1/2/3] (default: $default_num): " -r tier_choice
+        read -p "  Select tier [1/2/3/4] (default: $default_num): " -r tier_choice
         tier_choice="${tier_choice:-$default_num}"
         
         case "$tier_choice" in
@@ -643,9 +722,8 @@ select_tier() {
                 ;;
             3)
                 if [ "$ram" -lt 16 ]; then
-                    print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Even Compact tier needs 16GB+."
-                    print_color "$RED" "  OllamaBot may not function properly."
-                    print_color "$YELLOW" "  Continue anyway? [y/N]"
+                    print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Compact tier needs 16GB+."
+                    print_color "$YELLOW" "  Models may run slowly. Continue anyway? [y/N]"
                     read -r force
                     if [ "$force" != "y" ] && [ "$force" != "Y" ]; then
                         continue
@@ -654,8 +732,24 @@ select_tier() {
                 SELECTED_TIER="compact"
                 break
                 ;;
+            4)
+                if [ "$ram" -lt 8 ]; then
+                    print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Even Minimal tier needs 8GB+."
+                    print_color "$RED" "  OllamaBot cannot run on this system."
+                    exit 1
+                fi
+                print_color "$RED" "  ⚠ WARNING: Minimal tier provides severely limited functionality."
+                print_color "$RED" "  This is only suitable for testing/demo purposes."
+                print_color "$YELLOW" "  Continue with Minimal tier? [y/N]"
+                read -r force
+                if [ "$force" != "y" ] && [ "$force" != "Y" ]; then
+                    continue
+                fi
+                SELECTED_TIER="minimal"
+                break
+                ;;
             *)
-                print_color "$YELLOW" "  Invalid choice. Please enter 1, 2, or 3."
+                print_color "$YELLOW" "  Invalid choice. Please enter 1, 2, 3, or 4."
                 ;;
         esac
     done

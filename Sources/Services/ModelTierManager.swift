@@ -15,13 +15,15 @@ final class ModelTierManager {
     // MARK: - Model Tiers
     
     enum ModelTier: String, CaseIterable, Comparable {
-        case compact = "Compact (8B)"      // 16GB RAM
-        case balanced = "Balanced (14B)"   // 24GB RAM
+        case minimal = "Minimal (3B)"         // 8GB RAM - EMERGENCY ONLY
+        case compact = "Compact (8B)"         // 16GB RAM
+        case balanced = "Balanced (14B)"      // 24GB RAM
         case performance = "Performance (32B)" // 32GB RAM
         case parallel = "Parallel (32B×4)"    // 64GB+ RAM
         
         var minRAM: Int {
             switch self {
+            case .minimal: return 8
             case .compact: return 16
             case .balanced: return 24
             case .performance: return 32
@@ -31,15 +33,37 @@ final class ModelTierManager {
         
         var description: String {
             switch self {
+            case .minimal:
+                return "⚠️ EMERGENCY ONLY: 3B models with severely limited capability. Not for actual development."
             case .compact:
-                return "Optimized for 16GB RAM. Uses 8B models for fast inference with good quality."
+                return "Limited: 8B models. Reduced reasoning but usable for simpler tasks."
             case .balanced:
-                return "Optimized for 24GB RAM. Uses 14B models for better quality while staying responsive."
+                return "Good: 14B models for better quality while staying responsive."
             case .performance:
-                return "Optimized for 32GB RAM. Uses full 32B models for best quality."
+                return "Best: Full 32B models for state-of-the-art quality."
             case .parallel:
-                return "Optimized for 64GB+ RAM. Can run multiple 32B models simultaneously."
+                return "Maximum: 32B models with parallel execution capability."
             }
+        }
+        
+        var isRecommended: Bool {
+            self == .performance || self == .parallel
+        }
+        
+        var warningLevel: WarningLevel {
+            switch self {
+            case .minimal: return .critical
+            case .compact: return .warning
+            case .balanced: return .caution
+            case .performance, .parallel: return .none
+            }
+        }
+        
+        enum WarningLevel {
+            case none
+            case caution
+            case warning
+            case critical
         }
         
         static func < (lhs: ModelTier, rhs: ModelTier) -> Bool {
@@ -60,12 +84,20 @@ final class ModelTierManager {
     
     // All available model variants by role
     static let orchestratorVariants: [ModelTier: ModelVariant] = [
+        .minimal: ModelVariant(
+            name: "Qwen2.5 3B",
+            ollamaTag: "qwen2.5:3b",
+            sizeGB: 2.0,
+            parameters: "3B",
+            quality: 3,  // Very limited
+            speed: 10
+        ),
         .compact: ModelVariant(
             name: "Qwen3 8B",
             ollamaTag: "qwen3:8b",
             sizeGB: 5.0,
             parameters: "8B",
-            quality: 7,
+            quality: 6,
             speed: 9
         ),
         .balanced: ModelVariant(
@@ -95,12 +127,20 @@ final class ModelTierManager {
     ]
     
     static let coderVariants: [ModelTier: ModelVariant] = [
+        .minimal: ModelVariant(
+            name: "Qwen2.5-Coder 3B",
+            ollamaTag: "qwen2.5-coder:3b",
+            sizeGB: 2.0,
+            parameters: "3B",
+            quality: 3,  // Very limited coding
+            speed: 10
+        ),
         .compact: ModelVariant(
             name: "Qwen2.5-Coder 7B",
             ollamaTag: "qwen2.5-coder:7b",
             sizeGB: 4.5,
             parameters: "7B",
-            quality: 7,
+            quality: 6,
             speed: 9
         ),
         .balanced: ModelVariant(
@@ -130,12 +170,20 @@ final class ModelTierManager {
     ]
     
     static let researcherVariants: [ModelTier: ModelVariant] = [
+        .minimal: ModelVariant(
+            name: "Phi-3 3.8B",
+            ollamaTag: "phi3:3.8b",
+            sizeGB: 2.0,
+            parameters: "3.8B",
+            quality: 3,  // Very limited
+            speed: 10
+        ),
         .compact: ModelVariant(
             name: "Command-R 7B",
             ollamaTag: "command-r:7b",
             sizeGB: 4.5,
             parameters: "7B",
-            quality: 7,
+            quality: 6,
             speed: 9
         ),
         .balanced: ModelVariant(
@@ -165,12 +213,20 @@ final class ModelTierManager {
     ]
     
     static let visionVariants: [ModelTier: ModelVariant] = [
+        .minimal: ModelVariant(
+            name: "LLaVA 7B",
+            ollamaTag: "llava:7b",
+            sizeGB: 4.0,
+            parameters: "7B",
+            quality: 4,  // Limited vision
+            speed: 8
+        ),
         .compact: ModelVariant(
             name: "Qwen2-VL 7B",
             ollamaTag: "qwen2-vl:7b",
             sizeGB: 4.5,
             parameters: "7B",
-            quality: 7,
+            quality: 6,
             speed: 9
         ),
         .balanced: ModelVariant(
@@ -234,6 +290,7 @@ final class ModelTierManager {
     
     var maxConcurrentModels: Int {
         switch effectiveTier {
+        case .minimal: return 1  // Single 3B model only
         case .compact: return 2  // Can run 2x 8B models
         case .balanced: return 1 // Single 14B at a time
         case .performance: return 1 // Single 32B at a time
@@ -306,15 +363,20 @@ final class ModelTierManager {
         let ramBytes = ProcessInfo.processInfo.physicalMemory
         self.systemRAM = Int(ramBytes / 1_073_741_824)
         
-        // Determine recommended tier
+        // Determine recommended tier (always recommend 32GB+ for full experience)
         if systemRAM >= 64 {
             self.recommendedTier = .parallel
         } else if systemRAM >= 32 {
             self.recommendedTier = .performance
         } else if systemRAM >= 24 {
             self.recommendedTier = .balanced
-        } else {
+        } else if systemRAM >= 16 {
             self.recommendedTier = .compact
+        } else {
+            self.recommendedTier = .minimal
+            print("⚠️ WARNING: System has only \(systemRAM)GB RAM")
+            print("   OllamaBot requires 32GB+ for optimal performance")
+            print("   Running in MINIMAL mode with severely limited capability")
         }
         
         // Try to load configuration from setup script
@@ -325,7 +387,7 @@ final class ModelTierManager {
         print("   System RAM: \(systemRAM)GB")
         print("   Selected tier: \(selectedTier.rawValue)")
         if let models = configuredModels {
-            print("   Models: \(models.orchestrator), \(models.coder)")
+            print("   Models: \(models.orchestrator ?? "none"), \(models.coder ?? "none")")
         }
     }
     
@@ -342,6 +404,8 @@ final class ModelTierManager {
         
         // Apply saved tier
         switch config.tier {
+        case "minimal":
+            selectedTier = .minimal
         case "compact":
             selectedTier = .compact
         case "balanced":
@@ -437,6 +501,14 @@ final class ModelTierManager {
     /// Get optimized memory settings for current tier
     func getMemorySettings() -> MemorySettings {
         switch effectiveTier {
+        case .minimal:
+            return MemorySettings(
+                contextWindow: 2048,  // Very small context
+                maxTokens: 1024,
+                keepAlive: "2m",  // Unload very quickly
+                numGPU: 99,
+                numThread: 4
+            )
         case .compact:
             return MemorySettings(
                 contextWindow: 4096,
@@ -477,6 +549,8 @@ final class ModelTierManager {
     /// Get recommended execution strategy for cycle agents
     func getRecommendedStrategy() -> String {
         switch effectiveTier {
+        case .minimal:
+            return "specialist" // Single model only, no orchestration
         case .compact:
             return "specialist" // Minimize switches, batch by agent
         case .balanced:
@@ -491,18 +565,25 @@ final class ModelTierManager {
     /// Get performance expectations
     func getPerformanceExpectations() -> PerformanceExpectations {
         switch effectiveTier {
+        case .minimal:
+            return PerformanceExpectations(
+                tokensPerSecond: "30-50",
+                modelSwitchTime: "5-10s",
+                quality: "⚠️ SEVERELY LIMITED - Not for production use",
+                recommendation: "Testing/demo only. Upgrade to 32GB+ Mac for real development."
+            )
         case .compact:
             return PerformanceExpectations(
                 tokensPerSecond: "25-35",
                 modelSwitchTime: "10-15s",
-                quality: "Good (suitable for most tasks)",
-                recommendation: "Great for quick iterations and everyday coding"
+                quality: "Limited (suitable for simpler tasks)",
+                recommendation: "Consider upgrading for better capability"
             )
         case .balanced:
             return PerformanceExpectations(
                 tokensPerSecond: "15-25",
                 modelSwitchTime: "15-20s",
-                quality: "Very Good (handles complex tasks well)",
+                quality: "Good (handles most tasks well)",
                 recommendation: "Good balance of speed and capability"
             )
         case .performance:
