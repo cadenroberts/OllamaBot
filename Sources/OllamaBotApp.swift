@@ -297,6 +297,7 @@ class AppState {
     let contextManager: ContextManager          // Unified context (SINGLE SOURCE OF TRUTH)
     let agentExecutor: AgentExecutor            // Single-task agent (Infinite Mode)
     let cycleAgentManager: CycleAgentManager    // Multi-agent orchestration (Cycle Mode)
+    let obotService: OBotService                // Rules, bots, context, templates
     let fileIndexer = FileIndexer()
     let asyncFileIO = AsyncFileIO()
     let config = ConfigurationManager.shared
@@ -337,6 +338,12 @@ class AppState {
             fileSystemService: fileSystemService,
             contextManager: contextManager,
             modelTierManager: modelTierManager
+        )
+        
+        // OBot: Rules, bots, context snippets, templates
+        self.obotService = OBotService(
+            fileSystemService: fileSystemService,
+            contextManager: contextManager
         )
         
         // Feature services
@@ -387,6 +394,11 @@ class AppState {
             // Update project context cache
             let files = fileSystemService.getAllFiles(in: url)
             contextManager.updateProjectCache(root: url, files: files)
+            
+            // Load OBot configuration (.obotrules, bots, context, templates)
+            Task {
+                await obotService.loadProject(url)
+            }
         }
     }
     

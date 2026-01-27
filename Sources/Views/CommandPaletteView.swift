@@ -168,6 +168,41 @@ struct CommandPaletteView: View {
         
         cmds.append(Command("ai.auto", "Auto-Select Model", icon: "sparkles", subtitle: "Smart routing", category: .ai) { appState.selectedModel = nil })
         
+        cmds.append(Command("ai.agents", "Show Cycle Agents", icon: "cpu", shortcut: "⌘⇧A", subtitle: "Multi-model orchestration", category: .ai) {
+            PanelState.shared.setSecondarySidebarTab(.agents)
+        })
+        
+        // OBot - dynamic commands from loaded bots
+        cmds.append(Command("obot.panel", "Show OBot Panel", icon: "cpu", subtitle: "Rules, Bots & Templates", category: .ai) {
+            PanelState.shared.setPrimarySidebarTab(.obot)
+        })
+        
+        cmds.append(Command("obot.scaffold", "Initialize OBot", icon: "folder.badge.plus", subtitle: "Create .obot directory", category: .ai) {
+            Task {
+                if let root = appState.rootFolder {
+                    try? await appState.obotService.scaffoldOBotDirectory(at: root)
+                    appState.showSuccess("OBot scaffolding created!")
+                }
+            }
+        })
+        
+        // Add loaded bots as commands
+        for bot in appState.obotService.bots {
+            cmds.append(Command("obot.bot.\(bot.id)", "Run: \(bot.name)", icon: bot.icon ?? "cpu", subtitle: bot.description, category: .ai) {
+                Task {
+                    let context = BotExecutionContext(
+                        selectedFile: appState.selectedFile,
+                        selectedText: appState.selectedText
+                    )
+                    _ = try? await appState.obotService.executeBot(
+                        bot,
+                        input: appState.selectedText.isEmpty ? appState.editorContent : appState.selectedText,
+                        context: context
+                    )
+                }
+            })
+        }
+        
         // Settings
         cmds.append(Command("settings.open", "Open Settings", icon: "gear", shortcut: "⌘,", category: .settings) { appState.showSettings = true })
         cmds.append(Command("settings.theme", "Toggle Theme", icon: "moon", subtitle: "Light/Dark", category: .settings) { appState.toggleTheme() })

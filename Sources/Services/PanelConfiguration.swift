@@ -63,6 +63,7 @@ enum SidebarTab: String, CaseIterable, Identifiable {
     case explorer = "Explorer"
     case search = "Search"
     case sourceControl = "Source Control"
+    case obot = "OBot"
     case outline = "Outline"
     case extensions = "Extensions"
     
@@ -73,6 +74,7 @@ enum SidebarTab: String, CaseIterable, Identifiable {
         case .explorer: return "doc.on.doc"
         case .search: return "magnifyingglass"
         case .sourceControl: return "arrow.triangle.branch"
+        case .obot: return "cpu"
         case .outline: return "list.bullet.indent"
         case .extensions: return "puzzlepiece.extension"
         }

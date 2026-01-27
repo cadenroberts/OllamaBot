@@ -120,6 +120,8 @@ struct MainView: View {
                     SearchSidebarView()
                 case .sourceControl:
                     GitSidebarView()
+                case .obot:
+                    OBotPanelView()
                 case .outline:
                     OutlineView()
                 case .extensions:
