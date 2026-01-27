@@ -258,6 +258,8 @@ Type in the chat panel on the right. The model auto-selects based on your questi
 
 ## 🏗️ Architecture
 
+### Project Structure
+
 ```
 OllamaBot/
 ├── Sources/
@@ -271,6 +273,7 @@ OllamaBot/
 │   │   └── OllamaModel.swift        # Model enum + metadata
 │   ├── Services/
 │   │   ├── OllamaService.swift      # Ollama API client
+│   │   ├── ContextManager.swift     # 🆕 Comprehensive context management
 │   │   ├── IntentRouter.swift       # Model routing logic
 │   │   ├── ContextBuilder.swift     # Prompt construction
 │   │   ├── FileIndexer.swift        # Background search index
@@ -283,12 +286,13 @@ OllamaBot/
 │   ├── Utilities/
 │   │   ├── DesignSystem.swift       # UI components & tokens
 │   │   ├── PerformanceCore.swift    # Caches, async I/O
+│   │   ├── StreamingBuffer.swift    # 🆕 Frame-rate limited UI updates
 │   │   ├── SyntaxHighlighter.swift  # Code highlighting
 │   │   └── Benchmarks.swift         # Performance testing
 │   └── Views/
 │       ├── MainView.swift           # Main layout
 │       ├── AgentView.swift          # Infinite Mode UI
-│       ├── ChatView.swift           # Chat panel
+│       ├── ChatView.swift           # Chat panel (optimized MessageRow)
 │       ├── EditorView.swift         # Code editor
 │       ├── TerminalView.swift       # Terminal emulator
 │       ├── OutlineView.swift        # Symbol navigation
@@ -308,6 +312,182 @@ OllamaBot/
 ├── push.sh                          # Git push script
 └── README.md
 ```
+
+### 🧠 Context Management System
+
+OllamaBot's context management is the core differentiator from other AI IDEs. Here's how it works:
+
+#### The Problem It Solves
+
+AI models have limited context windows (8K-32K tokens). OllamaBot must intelligently:
+1. **Prioritize** what context to include (selected code > open files > project structure)
+2. **Compress** large contexts without losing critical information
+3. **Pass context** between the orchestrator and specialist models
+4. **Remember** past interactions and learn from errors
+
+#### ContextManager Architecture
+
+```
+                    ┌─────────────────────────────────────┐
+                    │           ContextManager            │
+                    ├─────────────────────────────────────┤
+                    │  • Token Budget Allocation          │
+                    │  • Semantic Compression             │
+                    │  • Inter-Agent Context Passing      │
+                    │  • Conversation Memory              │
+                    │  • Error Pattern Learning           │
+                    └─────────────────────────────────────┘
+                           │                    │
+        ┌──────────────────┴───────┐ ┌─────────┴──────────────────┐
+        │   OrchestratorContext    │ │    DelegationContext       │
+        ├──────────────────────────┤ ├────────────────────────────┤
+        │  • Task description      │ │  • Optimized for specialist│
+        │  • Project structure     │ │  • Relevant files included │
+        │  • Recent steps summary  │ │  • Context compressed      │
+        │  • Relevant memories     │ │  • Model-specific prompts  │
+        │  • Error warnings        │ │                            │
+        └──────────────────────────┘ └────────────────────────────┘
+```
+
+#### Token Budget Allocation
+
+Each context section has a priority-based budget:
+
+| Section | Priority | Max % of Budget |
+|---------|----------|-----------------|
+| **Task** | Critical | 25% |
+| **File Content** | High | 33% |
+| **Project** | High | 16% |
+| **History** | Medium | 12% |
+| **Memory** | Medium | 12% |
+| **Errors** | High | 6% |
+
+#### Inter-Agent Context Flow
+
+```
+User Task: "Fix the authentication bug"
+                    │
+                    ▼
+    ┌───────────────────────────────┐
+    │   ORCHESTRATOR (Qwen3)        │
+    │                               │
+    │  ContextManager builds:       │
+    │  • Full task + project map    │
+    │  • Past relevant memories     │
+    │  • Error warnings             │
+    └───────────────────────────────┘
+                    │
+                    │ delegate_to_coder(task="Fix login validation")
+                    ▼
+    ┌───────────────────────────────┐
+    │   CODER (Qwen2.5-Coder)       │
+    │                               │
+    │  ContextManager builds:       │
+    │  • Task (compressed)          │
+    │  • Relevant files (extracted) │
+    │  • Specialist system prompt   │
+    │  • NO orchestrator bloat      │
+    └───────────────────────────────┘
+                    │
+                    │ Returns: Fixed code
+                    ▼
+    ┌───────────────────────────────┐
+    │   ORCHESTRATOR (Qwen3)        │
+    │                               │
+    │  Records:                     │
+    │  • Tool result for reference  │
+    │  • Memory entry for future    │
+    │  • Verifies output validity   │
+    └───────────────────────────────┘
+```
+
+#### Memory & Learning
+
+The ContextManager maintains:
+
+1. **Conversation Memory** - Past task/result pairs with relevance scoring
+2. **Tool Results Buffer** - Recent 50 tool executions for reference
+3. **Error Patterns** - Tracks recurring errors to warn the orchestrator
+
+```swift
+// Example: If "permissions" errors occur 2+ times, future tasks get warned:
+"⚠️ WATCH OUT: Previously encountered issues with 'permissions'. Be careful."
+```
+
+### ⚡ Streaming Performance
+
+#### The Problem
+
+Naive implementation updates `@Observable` state on every token (~60/sec):
+```swift
+// ❌ BAD: 60 state mutations/sec = 60 SwiftUI diffs/sec = choppy UI
+for try await chunk in stream {
+    chatMessages[index].content += chunk
+}
+```
+
+#### The Solution: Frame-Coalesced Updates
+
+```swift
+// ✅ GOOD: Batch updates to 30fps (every 33ms)
+var buffer = ""
+var lastUpdate = CACurrentMediaTime()
+
+for try await chunk in stream {
+    buffer.append(chunk)
+    
+    if CACurrentMediaTime() - lastUpdate >= 0.033 {  // 30fps
+        chatMessages[index].content = buffer  // Single diff
+        lastUpdate = CACurrentMediaTime()
+    }
+}
+```
+
+#### Additional Optimizations
+
+| Component | Optimization |
+|-----------|-------------|
+| **MessageRow** | `Equatable` conformance - only re-renders when content changes |
+| **AssistantContentView** | Cached markdown parsing - reparse only on content change |
+| **OllamaService** | Buffer tokens to ~50 chars before yielding |
+| **Throttler** | Rate-limits scroll, resize, search events |
+| **Debouncer** | Delays expensive operations (search, highlight) |
+
+### 🔄 Model Routing (IntentRouter)
+
+The IntentRouter automatically selects the best model based on the user's question:
+
+```swift
+// Keyword-based classification
+"How do I implement async/await?" → Coder (detected: "implement", "async", "await")
+"What is quantum computing?"     → Researcher (detected: "what is")
+"Write me a haiku about coding"  → Writing (detected: "write")
+[Image attached]                 → Vision (automatic)
+```
+
+Priority order:
+1. **Vision** - If images attached
+2. **Coder** - Code keywords + code context open
+3. **Researcher** - Question words, "explain", "compare"
+4. **Writing** - Default for general tasks
+
+### 🛠️ Tool Execution Pipeline
+
+Agent tools execute in parallel when possible:
+
+```
+Tool Calls: [read_file(A), read_file(B), search_files(C)]
+                           │
+           ┌───────────────┼───────────────┐
+           ▼               ▼               ▼
+    [Read File A]   [Read File B]   [Search Files]
+           │               │               │
+           └───────────────┼───────────────┘
+                           ▼
+              [Results aggregated & returned]
+```
+
+Non-parallelizable tools (write_file, run_command) execute sequentially.
 
 ---
 

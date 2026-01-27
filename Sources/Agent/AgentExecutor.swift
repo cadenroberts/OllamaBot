@@ -8,6 +8,9 @@ class AgentExecutor {
     private let ollamaService: OllamaService
     private let fileSystemService: FileSystemService
     
+    // Context Management (NEW - comprehensive inter-agent context)
+    let contextManager = ContextManager()
+    
     // State
     var isRunning = false
     var currentTask = ""
@@ -20,6 +23,11 @@ class AgentExecutor {
     // Limits
     var maxSteps = 50
     private var stepCount = 0
+    
+    // Verification tracking
+    private var delegationResults: [String: (success: Bool, output: String)] = [:]
+    private var verificationAttempts = 0
+    private let maxVerificationAttempts = 3
     
     // Performance
     private let toolResultCache = LRUCache<String, String>(capacity: 100)
@@ -64,12 +72,30 @@ class AgentExecutor {
         waitingForUser = false
     }
     
-    // MARK: - Agent Loop
+    // MARK: - Agent Loop (with Context Management)
     
     private func runAgentLoop() async {
         addStep(.system("Starting task: \(currentTask)"))
         
-        var messages: [[String: Any]] = [buildSystemMessage()]
+        // Build comprehensive context using ContextManager
+        let orchestratorContext = contextManager.buildOrchestratorContext(
+            task: currentTask,
+            workingDirectory: workingDirectory,
+            previousSteps: steps
+        )
+        
+        var messages: [[String: Any]] = [
+            ["role": "system", "content": orchestratorContext.systemPrompt]
+        ]
+        
+        // Add context as a system message if substantial
+        if !orchestratorContext.combinedContext.isEmpty {
+            messages.append([
+                "role": "system", 
+                "content": "CONTEXT:\n\(orchestratorContext.combinedContext)"
+            ])
+        }
+        
         messages.append(["role": "user", "content": currentTask])
         
         while isRunning && stepCount < maxSteps {
@@ -533,25 +559,40 @@ class AgentExecutor {
     
     // MARK: - Multi-Model Delegation
     
-    /// Delegate coding task to Qwen2.5-Coder
+    /// Delegate coding task to Qwen2.5-Coder (with context management)
     private func executeDelegateToCoder(_ call: ToolCall) async -> ToolResult {
         guard let task = call.getString("task") else {
             return ToolResult(toolCallId: call.id, success: false, output: "Missing 'task' parameter")
         }
         
-        let context = call.getString("context") ?? ""
+        let rawContext = call.getString("context") ?? ""
         let language = call.getString("language") ?? "swift"
         
         addStep(.tool(name: "delegate_to_coder", input: task, output: "Delegating to Qwen2.5-Coder..."))
         
-        // Compact prompt for faster inference
-        let prompt = """
-        [TASK] \(task)
-        [LANG] \(language)
-        \(context.isEmpty ? "" : "[CTX]\n\(context)")
+        // Gather relevant files for context
+        var relevantFiles: [String: String] = [:]
+        if let dir = workingDirectory {
+            // Search for files mentioned in task or context
+            let searchTerms = extractFileReferences(from: task + " " + rawContext)
+            for term in searchTerms.prefix(3) {
+                if let url = findFile(named: term, in: dir),
+                   let content = try? String(contentsOf: url, encoding: .utf8) {
+                    relevantFiles[url.lastPathComponent] = content
+                }
+            }
+        }
         
-        Output clean, working code.
-        """
+        // Build optimized context using ContextManager
+        let delegationContext = contextManager.buildDelegationContext(
+            for: .coder,
+            task: task,
+            orchestratorContext: "Language: \(language)\n\(rawContext)",
+            relevantFiles: relevantFiles
+        )
+        
+        // Construct prompt with specialist system prompt
+        let prompt = "\(delegationContext.systemPrompt)\n\n\(delegationContext.content)"
         
         do {
             let response = try await ollamaService.generate(
@@ -561,33 +602,74 @@ class AgentExecutor {
                 taskType: .coding
             )
             
+            // Record tool result for future reference
+            contextManager.recordToolResult("delegate_to_coder", input: task, output: response, success: true)
+            
+            // Store for verification
+            delegationResults["coder_\(call.id)"] = (true, response)
+            
             DispatchQueue.main.async {
                 self.updateLastToolStep(output: "Coder responded (\(response.count) chars)")
             }
             
             return ToolResult(toolCallId: call.id, success: true, output: response)
         } catch {
+            contextManager.recordError(error.localizedDescription, context: task)
             return ToolResult(toolCallId: call.id, success: false, output: "Coder delegation failed: \(error.localizedDescription)")
         }
     }
     
-    /// Delegate research task to Command-R
+    /// Extract file references from text (e.g., "main.swift", "utils.py")
+    private func extractFileReferences(from text: String) -> [String] {
+        let pattern = #"\b[\w-]+\.(swift|py|ts|tsx|js|jsx|rs|go|java|rb|c|cpp|h|json|yaml|yml|md)\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+            return []
+        }
+        
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, range: range)
+        
+        return matches.compactMap { match in
+            Range(match.range, in: text).map { String(text[$0]) }
+        }
+    }
+    
+    /// Find a file by name in directory
+    private func findFile(named name: String, in directory: URL) -> URL? {
+        let enumerator = FileManager.default.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        )
+        
+        while let url = enumerator?.nextObject() as? URL {
+            if url.lastPathComponent == name {
+                return url
+            }
+        }
+        return nil
+    }
+    
+    /// Delegate research task to Command-R (with context management)
     private func executeDelegateToResearcher(_ call: ToolCall) async -> ToolResult {
         guard let query = call.getString("query") else {
             return ToolResult(toolCallId: call.id, success: false, output: "Missing 'query' parameter")
         }
         
-        let context = call.getString("context") ?? ""
+        let rawContext = call.getString("context") ?? ""
         let format = call.getString("format") ?? "detailed"
         
         addStep(.tool(name: "delegate_to_researcher", input: query, output: "Delegating to Command-R..."))
         
-        // Compact prompt for faster inference
-        let prompt = """
-        [QUERY] \(query)
-        [FORMAT] \(format)
-        \(context.isEmpty ? "" : "[CTX]\n\(context)")
-        """
+        // Build optimized context
+        let delegationContext = contextManager.buildDelegationContext(
+            for: .commandR,
+            task: query,
+            orchestratorContext: "Format: \(format)\n\(rawContext)",
+            relevantFiles: [:]
+        )
+        
+        let prompt = "\(delegationContext.systemPrompt)\n\n\(delegationContext.content)"
         
         do {
             let response = try await ollamaService.generate(
@@ -597,12 +679,17 @@ class AgentExecutor {
                 taskType: .research
             )
             
+            // Record for future reference
+            contextManager.recordToolResult("delegate_to_researcher", input: query, output: response, success: true)
+            delegationResults["researcher_\(call.id)"] = (true, response)
+            
             DispatchQueue.main.async {
                 self.updateLastToolStep(output: "Researcher responded (\(response.count) chars)")
             }
             
             return ToolResult(toolCallId: call.id, success: true, output: response)
         } catch {
+            contextManager.recordError(error.localizedDescription, context: query)
             return ToolResult(toolCallId: call.id, success: false, output: "Research delegation failed: \(error.localizedDescription)")
         }
     }
