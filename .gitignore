@@ -43,6 +43,7 @@ ehthumbs.db
 
 # Build artifacts
 build/
+*.app
 *.o
 *.a
 *.dylib

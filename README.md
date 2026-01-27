@@ -157,11 +157,25 @@ ollama pull qwen3-vl:32b
 ```bash
 git clone https://github.com/cadenroberts/ollamabot.git
 cd ollamabot
-swift build -c release
+
+# Generate app icon (requires ImageMagick: brew install imagemagick)
+./scripts/generate-icon.sh
+
+# Build the app bundle
+./scripts/build-app.sh --release
 ```
 
-### Step 4: Run
+### Step 4: Install & Run
 
+```bash
+# Install to Applications
+cp -r build/OllamaBot.app /Applications/
+
+# Or run directly
+open build/OllamaBot.app
+```
+
+Or for development:
 ```bash
 swift run OllamaBot
 ```
@@ -223,16 +237,13 @@ Type in the chat panel on the right. The model auto-selects based on your questi
 OllamaBot/
 ├── Sources/
 │   ├── OllamaBotApp.swift           # App entry, state management
-│   │
 │   ├── Agent/
 │   │   ├── AgentExecutor.swift      # Infinite Mode engine
 │   │   └── AgentTools.swift         # 13 tool definitions
-│   │
 │   ├── Models/
 │   │   ├── ChatMessage.swift        # Chat data model
 │   │   ├── FileItem.swift           # File tree model
 │   │   └── OllamaModel.swift        # Model enum + metadata
-│   │
 │   ├── Services/
 │   │   ├── OllamaService.swift      # Ollama API client
 │   │   ├── IntentRouter.swift       # Model routing logic
@@ -240,25 +251,27 @@ OllamaBot/
 │   │   ├── FileIndexer.swift        # Background search index
 │   │   ├── FileSystemService.swift  # File operations
 │   │   └── ConfigurationService.swift
-│   │
 │   ├── Utilities/
 │   │   ├── DesignSystem.swift       # UI components & tokens
 │   │   ├── PerformanceCore.swift    # Caches, async I/O
 │   │   ├── SyntaxHighlighter.swift  # Code highlighting
 │   │   └── Benchmarks.swift         # Performance testing
-│   │
 │   └── Views/
 │       ├── MainView.swift           # Main layout
 │       ├── AgentView.swift          # Infinite Mode UI
 │       ├── ChatView.swift           # Chat panel
 │       ├── EditorView.swift         # Code editor
 │       ├── TerminalView.swift       # Terminal emulator
-│       ├── CommandPaletteView.swift
-│       ├── FindReplaceView.swift
-│       ├── GoToLineView.swift
-│       ├── ModelSelectorView.swift
-│       ├── SettingsView.swift
-│       └── StatusBarView.swift
+│       └── ...
+│
+├── Resources/
+│   ├── Info.plist                   # App bundle metadata
+│   ├── AppIcon.icns                 # App icon
+│   └── icon.svg                     # Source icon
+│
+├── scripts/
+│   ├── build-app.sh                 # Build .app bundle
+│   └── generate-icon.sh             # Generate .icns from SVG
 │
 ├── Package.swift                    # Swift Package Manager
 ├── push.sh                          # Git push script

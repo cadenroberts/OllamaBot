@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1b26"/>
+      <stop offset="100%" style="stop-color:#24283b"/>
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#bb9af7"/>
+      <stop offset="50%" style="stop-color:#7dcfff"/>
+      <stop offset="100%" style="stop-color:#2ac3de"/>
+    </linearGradient>
+    <linearGradient id="infinityGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#bb9af7"/>
+      <stop offset="100%" style="stop-color:#7dcfff"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="512" cy="512" r="480" fill="url(#bgGrad)"/>
+  
+  <!-- Outer ring with gradient -->
+  <circle cx="512" cy="512" r="440" fill="none" stroke="url(#ringGrad)" stroke-width="24" opacity="0.8"/>
+  
+  <!-- Inner glow ring -->
+  <circle cx="512" cy="512" r="380" fill="none" stroke="url(#ringGrad)" stroke-width="4" opacity="0.4"/>
+  
+  <!-- Infinity symbol -->
+  <g filter="url(#glow)" transform="translate(512, 512)">
+    <path d="M-180,0 
+             C-180,-100 -100,-100 0,0 
+             C100,100 180,100 180,0 
+             C180,-100 100,-100 0,0 
+             C-100,100 -180,100 -180,0 Z" 
+          fill="none" 
+          stroke="url(#infinityGrad)" 
+          stroke-width="48" 
+          stroke-linecap="round"/>
+  </g>
+  
+  <!-- Neural dots around the ring -->
+  <g fill="#7dcfff" opacity="0.6">
+    <circle cx="512" cy="72" r="12"/>
+    <circle cx="832" cy="212" r="10"/>
+    <circle cx="952" cy="512" r="12"/>
+    <circle cx="832" cy="812" r="10"/>
+    <circle cx="512" cy="952" r="12"/>
+    <circle cx="192" cy="812" r="10"/>
+    <circle cx="72" cy="512" r="12"/>
+    <circle cx="192" cy="212" r="10"/>
+  </g>
+  
+  <!-- Accent highlights -->
+  <circle cx="280" cy="280" r="40" fill="#bb9af7" opacity="0.15"/>
+  <circle cx="744" cy="744" r="30" fill="#7dcfff" opacity="0.1"/>
+</svg>
