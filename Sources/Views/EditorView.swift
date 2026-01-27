@@ -31,14 +31,50 @@ struct CodeEditorWithLineNumbers: View {
     
     var body: some View {
         GeometryReader { geo in
-            HStack(spacing: 0) {
-                // Line numbers gutter
-                if appState.config.showLineNumbers {
-                    lineNumberGutter
+            ZStack(alignment: .topLeading) {
+                HStack(spacing: 0) {
+                    // Line numbers gutter
+                    if appState.config.showLineNumbers {
+                        lineNumberGutter
+                    }
+                    
+                    // Editor
+                    CodeEditor(
+                        file: file,
+                        content: $content,
+                        goToLine: $goToLine,
+                        onRequestCompletion: { code, cursor, lang, path in
+                            appState.inlineCompletionService.requestCompletion(
+                                code: code,
+                                cursorPosition: cursor,
+                                language: lang,
+                                filePath: path
+                            )
+                        }
+                    )
                 }
                 
-                // Editor
-                CodeEditor(file: file, content: $content, goToLine: $goToLine)
+                // Inline completion overlay
+                if let suggestion = appState.inlineCompletionService.currentSuggestion {
+                    InlineCompletionOverlay(
+                        suggestion: suggestion,
+                        onAccept: {
+                            if let text = appState.inlineCompletionService.acceptSuggestion() {
+                                // Insert at cursor - simplified: just append
+                                content.insert(contentsOf: text, at: content.index(content.startIndex, offsetBy: min(suggestion.range.lowerBound, content.count)))
+                            }
+                        },
+                        onDismiss: {
+                            appState.inlineCompletionService.dismissSuggestion()
+                        },
+                        onAcceptWord: {
+                            if let word = appState.inlineCompletionService.acceptNextWord() {
+                                content.insert(contentsOf: word, at: content.index(content.startIndex, offsetBy: min(suggestion.range.lowerBound, content.count)))
+                            }
+                        }
+                    )
+                    .offset(x: gutterWidth + 16, y: 60) // Position near cursor
+                }
             }
         }
     }
@@ -77,6 +113,9 @@ struct CodeEditor: NSViewRepresentable {
     let file: FileItem
     @Binding var content: String
     @Binding var goToLine: Int?
+    
+    // Inline completion callback
+    var onRequestCompletion: ((String, Int, String, String?) -> Void)?
     
     private let highlighter = SyntaxHighlighter(theme: .dark)
     
@@ -189,6 +228,14 @@ struct CodeEditor: NSViewRepresentable {
                 let selection = textView.selectedRange()
                 textView.textStorage?.setAttributedString(attributed)
                 textView.setSelectedRange(selection)
+                
+                // Trigger inline completion request
+                parent.onRequestCompletion?(
+                    textView.string,
+                    selection.location,
+                    language,
+                    parent.file.url.path
+                )
             }
         }
     }

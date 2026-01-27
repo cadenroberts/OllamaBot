@@ -199,6 +199,12 @@ class AppState {
     let asyncFileIO = AsyncFileIO()
     let config = ConfigurationManager.shared
     
+    // NEW: Integrated services
+    let inlineCompletionService: InlineCompletionService
+    let chatHistoryService = ChatHistoryService()
+    let gitService = GitService()
+    let webSearchService = WebSearchService()
+    
     // Performance caches
     private let fileContentCache = LRUCache<URL, String>(capacity: 50_000_000) // ~50MB
     
@@ -211,6 +217,7 @@ class AppState {
         self.intentRouter = IntentRouter()
         self.contextBuilder = ContextBuilder()
         self.agentExecutor = AgentExecutor(ollamaService: ollamaService, fileSystemService: fileSystemService)
+        self.inlineCompletionService = InlineCompletionService(ollamaService: ollamaService)
         
         // Monitor memory pressure and clear caches when needed
         self.memoryMonitor = MemoryPressureMonitor()
