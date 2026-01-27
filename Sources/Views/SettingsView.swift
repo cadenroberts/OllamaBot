@@ -9,6 +9,7 @@ struct SettingsView: View {
         case appearance = "Appearance"
         case ai = "AI Models"
         case agent = "Agent"
+        case obot = "OBot"
         case files = "Files"
         case terminal = "Terminal"
         case git = "Git"
@@ -20,6 +21,7 @@ struct SettingsView: View {
             case .appearance: return "paintbrush"
             case .ai: return "cpu"
             case .agent: return "infinity"
+            case .obot: return "cpu"
             case .files: return "folder"
             case .terminal: return "terminal"
             case .git: return "arrow.triangle.branch"
@@ -52,6 +54,8 @@ struct SettingsView: View {
             AISettingsView()
         case .agent:
             AgentSettingsView()
+        case .obot:
+            OBotSettingsView()
         case .files:
             FilesSettingsView()
         case .terminal:
@@ -301,6 +305,145 @@ struct AgentSettingsView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("Agent")
+    }
+}
+
+// MARK: - OBot Settings
+
+struct OBotSettingsView: View {
+    @Environment(AppState.self) private var appState
+    @State private var autoCheckpoint = true
+    @State private var maxCheckpoints = 50
+    @State private var showRulesInContext = true
+    
+    var body: some View {
+        Form {
+            Section("Project Rules (.obotrules)") {
+                Toggle("Include rules in AI context", isOn: $showRulesInContext)
+                    .help("Automatically include .obotrules content in every AI conversation")
+                
+                if let rules = appState.obotService.projectRules {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(DS.Colors.success)
+                        Text("Rules loaded: \(rules.sections.count) sections")
+                            .font(.caption)
+                    }
+                } else {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(DS.Colors.secondaryText)
+                        Text("No .obotrules file found in project")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            
+            Section("Bots") {
+                HStack {
+                    Text("Loaded Bots")
+                    Spacer()
+                    Text("\(appState.obotService.bots.count)")
+                        .foregroundStyle(.secondary)
+                }
+                
+                if !appState.obotService.bots.isEmpty {
+                    ForEach(appState.obotService.bots) { bot in
+                        HStack {
+                            Image(systemName: bot.icon ?? "cpu")
+                                .frame(width: 20)
+                            Text(bot.name)
+                            Spacer()
+                            Text("\(bot.steps.count) steps")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            
+            Section("Context Snippets") {
+                HStack {
+                    Text("Loaded Snippets")
+                    Spacer()
+                    Text("\(appState.obotService.contextSnippets.count)")
+                        .foregroundStyle(.secondary)
+                }
+                
+                if !appState.obotService.contextSnippets.isEmpty {
+                    ForEach(appState.obotService.contextSnippets) { snippet in
+                        HStack {
+                            Image(systemName: "doc.text")
+                                .frame(width: 20)
+                            Text(snippet.name)
+                            Spacer()
+                            Text("@\(snippet.id)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            
+            Section("Checkpoints") {
+                Toggle("Auto-checkpoint before AI changes", isOn: $autoCheckpoint)
+                    .help("Automatically create a checkpoint before the agent modifies files")
+                
+                HStack {
+                    Text("Maximum Checkpoints")
+                    Spacer()
+                    TextField("", value: $maxCheckpoints, format: .number)
+                        .frame(width: 60)
+                }
+                
+                HStack {
+                    Text("Current Checkpoints")
+                    Spacer()
+                    Text("\(appState.checkpointService.checkpoints.count)")
+                        .foregroundStyle(.secondary)
+                }
+                
+                Button("Prune Old Checkpoints") {
+                    appState.checkpointService.pruneAutoCheckpoints()
+                    appState.showSuccess("Auto-checkpoints pruned")
+                }
+                .disabled(appState.checkpointService.checkpoints.filter { $0.isAutomatic }.count <= 10)
+            }
+            
+            Section("Templates") {
+                HStack {
+                    Text("Loaded Templates")
+                    Spacer()
+                    Text("\(appState.obotService.templates.count)")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Section("Actions") {
+                Button("Initialize OBot Directory") {
+                    Task {
+                        if let root = appState.rootFolder {
+                            try? await appState.obotService.scaffoldOBotDirectory(at: root)
+                            appState.showSuccess("OBot directory created!")
+                        }
+                    }
+                }
+                .disabled(appState.rootFolder == nil)
+                
+                Button("Reload OBot Configuration") {
+                    Task {
+                        if let root = appState.rootFolder {
+                            await appState.obotService.loadProject(root)
+                            appState.showSuccess("OBot reloaded!")
+                        }
+                    }
+                }
+                .disabled(appState.rootFolder == nil)
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("OBot")
     }
 }
 

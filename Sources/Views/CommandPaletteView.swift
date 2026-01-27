@@ -203,6 +203,30 @@ struct CommandPaletteView: View {
             })
         }
         
+        // Composer
+        cmds.append(Command("composer.open", "Open Composer", icon: "wand.and.stars", shortcut: "⌘⇧K", subtitle: "Multi-file AI changes", category: .ai) {
+            PanelState.shared.setSecondarySidebarTab(.composer)
+        })
+        
+        // Checkpoints
+        cmds.append(Command("checkpoint.create", "Create Checkpoint", icon: "clock.badge.checkmark", subtitle: "Save current state", category: .ai) {
+            if let _ = try? appState.checkpointService.createCheckpoint(name: "Manual Checkpoint") {
+                appState.showSuccess("Checkpoint created!")
+            }
+        })
+        
+        cmds.append(Command("checkpoint.list", "View Checkpoints", icon: "clock.arrow.circlepath", subtitle: "Restore previous states", category: .ai) {
+            PanelState.shared.setPrimarySidebarTab(.checkpoints)
+        })
+        
+        // Add context snippets as @mention commands
+        for snippet in appState.obotService.contextSnippets {
+            cmds.append(Command("context.\(snippet.id)", "Include: \(snippet.name)", icon: "doc.text", subtitle: "@\(snippet.id)", category: .ai) {
+                // Insert @mention into current chat
+                appState.focusChat = true
+            })
+        }
+        
         // Settings
         cmds.append(Command("settings.open", "Open Settings", icon: "gear", shortcut: "⌘,", category: .settings) { appState.showSettings = true })
         cmds.append(Command("settings.theme", "Toggle Theme", icon: "moon", subtitle: "Light/Dark", category: .settings) { appState.toggleTheme() })

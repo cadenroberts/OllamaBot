@@ -1118,30 +1118,116 @@ struct ExtensionsSidebarView: View {
 
 struct TimelineView: View {
     @Environment(AppState.self) private var appState
+    @State private var selectedTab: TimelineTab = .checkpoints
+    
+    enum TimelineTab: String, CaseIterable {
+        case checkpoints = "Checkpoints"
+        case git = "Git"
+        
+        var icon: String {
+            switch self {
+            case .checkpoints: return "clock.arrow.circlepath"
+            case .git: return "arrow.triangle.branch"
+            }
+        }
+    }
     
     var body: some View {
         VStack(spacing: 0) {
-            if appState.selectedFile == nil {
-                DSEmptyState(
-                    icon: "clock",
-                    title: "Timeline",
-                    message: "Select a file to view its history"
-                )
-            } else {
-                // Git log for selected file
-                ScrollView {
-                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                        Text("Git history for \(appState.selectedFile?.name ?? "")")
-                            .font(DS.Typography.caption)
-                            .foregroundStyle(DS.Colors.secondaryText)
-                            .padding(DS.Spacing.sm)
-                        
-                        // Would show git log here
+            // Tab selector
+            HStack(spacing: 0) {
+                ForEach(TimelineTab.allCases, id: \.self) { tab in
+                    Button {
+                        selectedTab = tab
+                    } label: {
+                        HStack(spacing: DS.Spacing.xs) {
+                            Image(systemName: tab.icon)
+                                .font(.caption)
+                            Text(tab.rawValue)
+                                .font(DS.Typography.caption)
+                        }
+                        .foregroundStyle(selectedTab == tab ? DS.Colors.text : DS.Colors.secondaryText)
+                        .padding(.horizontal, DS.Spacing.md)
+                        .padding(.vertical, DS.Spacing.sm)
+                        .background(selectedTab == tab ? DS.Colors.accent.opacity(0.1) : Color.clear)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+            .background(DS.Colors.surface)
+            
+            DSDivider()
+            
+            // Content
+            switch selectedTab {
+            case .checkpoints:
+                CheckpointListView()
+            case .git:
+                GitTimelineView()
+            }
+        }
+    }
+}
+
+struct GitTimelineView: View {
+    @Environment(AppState.self) private var appState
+    
+    var body: some View {
+        if appState.selectedFile == nil {
+            DSEmptyState(
+                icon: "clock",
+                title: "Git History",
+                message: "Select a file to view its history"
+            )
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Text("Git history for \(appState.selectedFile?.name ?? "")")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.secondaryText)
+                        .padding(DS.Spacing.sm)
+                    
+                    // Get git log
+                    let commits = appState.gitService.getLog(count: 20)
+                    
+                    if commits.isEmpty {
                         DSEmptyState(
                             icon: "clock",
                             title: "No History",
-                            message: "File history not available"
+                            message: "No commits found"
                         )
+                    } else {
+                        ForEach(commits) { commit in
+                            HStack(alignment: .top, spacing: DS.Spacing.sm) {
+                                Circle()
+                                    .fill(DS.Colors.accent)
+                                    .frame(width: 8, height: 8)
+                                    .padding(.top, 6)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(commit.message)
+                                        .font(DS.Typography.callout)
+                                        .lineLimit(2)
+                                    
+                                    HStack(spacing: DS.Spacing.sm) {
+                                        Text(commit.shortHash)
+                                            .font(DS.Typography.mono(10))
+                                            .foregroundStyle(DS.Colors.accent)
+                                        
+                                        Text(commit.author)
+                                            .font(DS.Typography.caption)
+                                            .foregroundStyle(DS.Colors.secondaryText)
+                                        
+                                        Text(commit.date)
+                                            .font(DS.Typography.caption)
+                                            .foregroundStyle(DS.Colors.tertiaryText)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, DS.Spacing.md)
+                            .padding(.vertical, DS.Spacing.sm)
+                        }
                     }
                 }
             }
