@@ -1,0 +1,61 @@
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+Packages/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Thumbnails
+Thumbs.db
+ehthumbs.db
+
+# IDE
+*.idea/
+*.vscode/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+build/
+*.o
+*.a
+*.dylib
+
+# Test artifacts
+*.xcresult
+
+# Benchmark results
+benchmark_results/
+
+# Credentials (never commit!)
+*.pem
+*.key
+secrets.json
+.env
+.env.local

@@ -1,0 +1,734 @@
+import Foundation
+import SwiftUI
+
+// MARK: - Optimized Agent Executor
+
+@Observable
+class AgentExecutor {
+    private let ollamaService: OllamaService
+    private let fileSystemService: FileSystemService
+    
+    // State
+    var isRunning = false
+    var currentTask = ""
+    var steps: [AgentStep] = []
+    var waitingForUser = false
+    var userPrompt = ""
+    private var pendingUserResponse: String?
+    private var workingDirectory: URL?
+    
+    // Limits
+    var maxSteps = 50
+    private var stepCount = 0
+    
+    // Performance
+    private let toolResultCache = LRUCache<String, String>(capacity: 100)
+    private let executionQueue: DispatchQueue
+    
+    init(ollamaService: OllamaService, fileSystemService: FileSystemService) {
+        self.ollamaService = ollamaService
+        self.fileSystemService = fileSystemService
+        
+        // High-priority concurrent queue for tool execution
+        self.executionQueue = DispatchQueue(
+            label: "com.ollamabot.agent",
+            qos: .userInitiated,
+            attributes: .concurrent
+        )
+    }
+    
+    // MARK: - Public API
+    
+    func start(task: String, workingDirectory: URL?) {
+        guard !isRunning else { return }
+        
+        self.isRunning = true
+        self.currentTask = task
+        self.workingDirectory = workingDirectory
+        self.steps = []
+        self.stepCount = 0
+        self.waitingForUser = false
+        
+        Task(priority: .userInitiated) {
+            await runAgentLoop()
+        }
+    }
+    
+    func stop() {
+        isRunning = false
+        addStep(.system("Agent stopped by user"))
+    }
+    
+    func provideUserInput(_ input: String) {
+        pendingUserResponse = input
+        waitingForUser = false
+    }
+    
+    // MARK: - Agent Loop
+    
+    private func runAgentLoop() async {
+        addStep(.system("Starting task: \(currentTask)"))
+        
+        var messages: [[String: Any]] = [buildSystemMessage()]
+        messages.append(["role": "user", "content": currentTask])
+        
+        while isRunning && stepCount < maxSteps {
+            stepCount += 1
+            
+            do {
+                let response = try await measureAsync("ollama_call") {
+                    try await ollamaService.chatWithTools(
+                        model: .qwen3,
+                        messages: messages,
+                        tools: AgentTools.all
+                    )
+                }
+                
+                if let toolCalls = response.toolCalls, !toolCalls.isEmpty {
+                    // Execute multiple tool calls in parallel when possible
+                    let results = await executeToolsParallel(toolCalls)
+                    
+                    for (call, result) in zip(toolCalls, results) {
+                        messages.append([
+                            "role": "assistant",
+                            "tool_calls": [[
+                                "id": call.id,
+                                "type": "function",
+                                "function": ["name": call.name, "arguments": call.arguments]
+                            ]]
+                        ])
+                        messages.append(result.asMessage)
+                        
+                        if call.name == "complete" {
+                            addStep(.complete(result.output))
+                            isRunning = false
+                            return
+                        }
+                        
+                        if call.name == "ask_user" {
+                            await handleUserInput(call: call, messages: &messages)
+                        }
+                    }
+                } else if let content = response.content, !content.isEmpty {
+                    addStep(.thinking(content))
+                    messages.append(["role": "assistant", "content": content])
+                } else {
+                    addStep(.error("Model returned empty response"))
+                    break
+                }
+                
+                // Minimal delay between iterations
+                try? await Task.sleep(for: .milliseconds(50))
+                
+            } catch {
+                addStep(.error("Error: \(error.localizedDescription)"))
+                messages.append([
+                    "role": "user",
+                    "content": "An error occurred: \(error.localizedDescription). Try a different approach or use complete tool."
+                ])
+            }
+        }
+        
+        if stepCount >= maxSteps {
+            addStep(.system("Reached maximum step limit (\(maxSteps))"))
+        }
+        
+        isRunning = false
+    }
+    
+    // MARK: - Parallel Tool Execution (Optimized)
+    
+    // Pre-computed set of tools safe for parallel execution
+    private static let parallelizableTools: Set<String> = ["read_file", "list_directory", "search_files", "think"]
+    
+    private func executeToolsParallel(_ calls: [ToolCall]) async -> [ToolResult] {
+        // Fast path: single call
+        guard calls.count > 1 else {
+            if let call = calls.first {
+                return [await executeTool(call)]
+            }
+            return []
+        }
+        
+        var results: [ToolResult] = []
+        results.reserveCapacity(calls.count)
+        
+        // Group consecutive parallelizable calls
+        var parallelGroup: [ToolCall] = []
+        parallelGroup.reserveCapacity(calls.count)
+        
+        @Sendable func executeParallelGroup(_ group: [ToolCall]) async -> [ToolResult] {
+            guard !group.isEmpty else { return [] }
+            
+            // For small groups, avoid TaskGroup overhead
+            if group.count <= 2 {
+                var groupResults: [ToolResult] = []
+                groupResults.reserveCapacity(group.count)
+                for call in group {
+                    groupResults.append(await self.executeTool(call))
+                }
+                return groupResults
+            }
+            
+            // True parallel execution for larger groups
+            return await withTaskGroup(of: (Int, ToolResult).self, returning: [ToolResult].self) { taskGroup in
+                for (idx, call) in group.enumerated() {
+                    taskGroup.addTask { [self] in
+                        return (idx, await self.executeTool(call))
+                    }
+                }
+                
+                var collected: [(Int, ToolResult)] = []
+                collected.reserveCapacity(group.count)
+                for await result in taskGroup { collected.append(result) }
+                return collected.sorted { $0.0 < $1.0 }.map { $0.1 }
+            }
+        }
+        
+        for call in calls {
+            if Self.parallelizableTools.contains(call.name) {
+                parallelGroup.append(call)
+            } else {
+                // Execute parallel group first
+                if !parallelGroup.isEmpty {
+                    let groupResults = await executeParallelGroup(parallelGroup)
+                    results.append(contentsOf: groupResults)
+                    parallelGroup.removeAll(keepingCapacity: true)
+                }
+                
+                // Execute sequential tool
+                results.append(await executeTool(call))
+            }
+        }
+        
+        // Handle remaining parallel group
+        if !parallelGroup.isEmpty {
+            let groupResults = await executeParallelGroup(parallelGroup)
+            results.append(contentsOf: groupResults)
+        }
+        
+        return results
+    }
+    
+    // MARK: - Tool Execution (Cached)
+    
+    private func executeTool(_ call: ToolCall) async -> ToolResult {
+        // Check cache for read-only operations
+        let cacheKey = "\(call.name):\(call.arguments.description)"
+        
+        if ["read_file", "list_directory"].contains(call.name),
+           let cached = toolResultCache.get(cacheKey) {
+            return ToolResult(toolCallId: call.id, success: true, output: cached)
+        }
+        
+        let result: ToolResult
+        
+        switch call.name {
+        case "read_file":
+            result = await executeReadFile(call)
+        case "write_file":
+            result = await executeWriteFile(call)
+        case "edit_file":
+            result = await executeEditFile(call)
+        case "search_files":
+            result = await executeSearchFiles(call)
+        case "list_directory":
+            result = await executeListDirectory(call)
+        case "run_command":
+            result = await executeRunCommand(call)
+        case "ask_user":
+            result = executeAskUser(call)
+        case "think":
+            result = executeThink(call)
+        case "complete":
+            result = executeComplete(call)
+        // Multi-model delegation
+        case "delegate_to_coder":
+            result = await executeDelegateToCoder(call)
+        case "delegate_to_researcher":
+            result = await executeDelegateToResearcher(call)
+        case "delegate_to_vision":
+            result = await executeDelegateToVision(call)
+        case "take_screenshot":
+            result = await executeTakeScreenshot(call)
+        default:
+            addStep(.error("Unknown tool: \(call.name)"))
+            result = ToolResult(toolCallId: call.id, success: false, output: "Unknown tool: \(call.name)")
+        }
+        
+        // Cache successful read-only results
+        if result.success && ["read_file", "list_directory"].contains(call.name) {
+            toolResultCache.set(cacheKey, result.output, size: max(1, result.output.count / 100))
+        }
+        
+        return result
+    }
+    
+    // MARK: - Tool Implementations
+    
+    private func executeReadFile(_ call: ToolCall) async -> ToolResult {
+        guard let path = call.getString("path") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing path parameter")
+        }
+        
+        let url = resolveURL(path)
+        
+        // Use memory-mapped reading for large files
+        let reader = MappedFileReader(url: url)
+        
+        do {
+            let content = try reader.read()
+            addStep(.tool(name: "read_file", input: path, output: "Read \(content.count) characters"))
+            return ToolResult(toolCallId: call.id, success: true, output: content)
+        } catch {
+            addStep(.tool(name: "read_file", input: path, output: "File not found"))
+            return ToolResult(toolCallId: call.id, success: false, output: "File not found: \(path)")
+        }
+    }
+    
+    private func executeWriteFile(_ call: ToolCall) async -> ToolResult {
+        guard let path = call.getString("path"),
+              let content = call.getString("content") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing path or content parameter")
+        }
+        
+        let url = resolveURL(path)
+        
+        // Create directory if needed
+        let dir = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        
+        do {
+            try content.write(to: url, atomically: true, encoding: .utf8)
+            
+            // Invalidate cache for this file
+            toolResultCache.clear()
+            
+            addStep(.tool(name: "write_file", input: path, output: "Wrote \(content.count) characters"))
+            return ToolResult(toolCallId: call.id, success: true, output: "Successfully wrote to \(path)")
+        } catch {
+            return ToolResult(toolCallId: call.id, success: false, output: "Write failed: \(error.localizedDescription)")
+        }
+    }
+    
+    private func executeEditFile(_ call: ToolCall) async -> ToolResult {
+        guard let path = call.getString("path"),
+              let oldString = call.getString("old_string"),
+              let newString = call.getString("new_string") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing parameters")
+        }
+        
+        let url = resolveURL(path)
+        
+        guard var content = try? String(contentsOf: url, encoding: .utf8) else {
+            return ToolResult(toolCallId: call.id, success: false, output: "File not found: \(path)")
+        }
+        
+        if content.contains(oldString) {
+            content = content.replacingOccurrences(of: oldString, with: newString)
+            try? content.write(to: url, atomically: true, encoding: .utf8)
+            
+            toolResultCache.clear()
+            
+            addStep(.tool(name: "edit_file", input: path, output: "Replaced text"))
+            return ToolResult(toolCallId: call.id, success: true, output: "Successfully edited \(path)")
+        } else {
+            addStep(.tool(name: "edit_file", input: path, output: "Text not found"))
+            return ToolResult(toolCallId: call.id, success: false, output: "Could not find the specified text in \(path)")
+        }
+    }
+    
+    private func executeSearchFiles(_ call: ToolCall) async -> ToolResult {
+        guard let query = call.getString("query") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing query parameter")
+        }
+        
+        let searchPath = call.getString("path")
+        let url = searchPath != nil ? resolveURL(searchPath!) : workingDirectory ?? URL(fileURLWithPath: NSHomeDirectory())
+        
+        let results = fileSystemService.searchContent(in: url, matching: query, maxResults: 20)
+        
+        var output = "Found \(results.count) files:\n"
+        for (file, matches) in results {
+            output += "\n\(file.url.path):\n"
+            for match in matches.prefix(3) {
+                output += "  \(match)\n"
+            }
+        }
+        
+        addStep(.tool(name: "search_files", input: query, output: "Found \(results.count) files"))
+        return ToolResult(toolCallId: call.id, success: true, output: output)
+    }
+    
+    private func executeListDirectory(_ call: ToolCall) async -> ToolResult {
+        guard let path = call.getString("path") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing path parameter")
+        }
+        
+        let url = resolveURL(path)
+        
+        do {
+            let contents = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey])
+            
+            var output = "Contents of \(path):\n"
+            for item in contents.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+                output += isDir ? "📁 " : "📄 "
+                output += "\(item.lastPathComponent)\n"
+            }
+            
+            addStep(.tool(name: "list_directory", input: path, output: "\(contents.count) items"))
+            return ToolResult(toolCallId: call.id, success: true, output: output)
+        } catch {
+            return ToolResult(toolCallId: call.id, success: false, output: "Error listing directory: \(error.localizedDescription)")
+        }
+    }
+    
+    private func executeRunCommand(_ call: ToolCall) async -> ToolResult {
+        guard let command = call.getString("command") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing command parameter")
+        }
+        
+        let workDir = call.getString("working_directory").map { resolveURL($0) } ?? workingDirectory
+        
+        addStep(.tool(name: "run_command", input: command, output: "Running..."))
+        
+        return await withCheckedContinuation { continuation in
+            executionQueue.async {
+                do {
+                    let process = Process()
+                    let outputPipe = Pipe()
+                    let errorPipe = Pipe()
+                    
+                    process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                    process.arguments = ["-c", command]
+                    process.standardOutput = outputPipe
+                    process.standardError = errorPipe
+                    process.currentDirectoryURL = workDir
+                    
+                    try process.run()
+                    process.waitUntilExit()
+                    
+                    let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+                    let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                    
+                    let output = String(data: outputData, encoding: .utf8) ?? ""
+                    let errorOutput = String(data: errorData, encoding: .utf8) ?? ""
+                    
+                    let exitCode = process.terminationStatus
+                    let fullOutput = output + (errorOutput.isEmpty ? "" : "\nSTDERR:\n\(errorOutput)")
+                    
+                    DispatchQueue.main.async {
+                        self.updateLastToolStep(output: "Exit code: \(exitCode)")
+                    }
+                    
+                    continuation.resume(returning: ToolResult(
+                        toolCallId: call.id,
+                        success: exitCode == 0,
+                        output: "Exit code: \(exitCode)\n\(fullOutput)"
+                    ))
+                } catch {
+                    continuation.resume(returning: ToolResult(
+                        toolCallId: call.id,
+                        success: false,
+                        output: "Failed to run command: \(error.localizedDescription)"
+                    ))
+                }
+            }
+        }
+    }
+    
+    private func executeAskUser(_ call: ToolCall) -> ToolResult {
+        let question = call.getString("question") ?? "Please provide input"
+        addStep(.userInput(question))
+        return ToolResult(toolCallId: call.id, success: true, output: "Waiting for user response...")
+    }
+    
+    private func executeThink(_ call: ToolCall) -> ToolResult {
+        let thought = call.getString("thought") ?? ""
+        addStep(.thinking(thought))
+        return ToolResult(toolCallId: call.id, success: true, output: "Thought recorded")
+    }
+    
+    private func executeComplete(_ call: ToolCall) -> ToolResult {
+        let summary = call.getString("summary") ?? "Task completed"
+        return ToolResult(toolCallId: call.id, success: true, output: summary)
+    }
+    
+    // MARK: - Helpers
+    
+    private func handleUserInput(call: ToolCall, messages: inout [[String: Any]]) async {
+        userPrompt = call.getString("question") ?? "Please provide input:"
+        waitingForUser = true
+        
+        while waitingForUser && isRunning {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        
+        if let response = pendingUserResponse {
+            messages.append(["role": "user", "content": response])
+            pendingUserResponse = nil
+        }
+    }
+    
+    private func resolveURL(_ path: String) -> URL {
+        if path.hasPrefix("/") {
+            return URL(fileURLWithPath: path)
+        } else if let workDir = workingDirectory {
+            return workDir.appendingPathComponent(path)
+        } else {
+            return URL(fileURLWithPath: path)
+        }
+    }
+    
+    private func addStep(_ type: AgentStepType) {
+        let step = AgentStep(type: type)
+        DispatchQueue.main.async {
+            self.steps.append(step)
+        }
+    }
+    
+    private func updateLastToolStep(output: String) {
+        guard let lastIndex = steps.lastIndex(where: {
+            if case .tool = $0.type { return true }
+            return false
+        }) else { return }
+        
+        if case .tool(let name, let input, _) = steps[lastIndex].type {
+            steps[lastIndex] = AgentStep(type: .tool(name: name, input: input, output: output))
+        }
+    }
+    
+    private func buildSystemMessage() -> [String: Any] {
+        // Compact system prompt - fewer tokens = faster inference
+        [
+            "role": "system",
+            "content": """
+            You are the ORCHESTRATOR (Qwen3). Plan and delegate.
+            
+            SPECIALISTS: delegate_to_coder (code), delegate_to_researcher (research), delegate_to_vision (images)
+            
+            WORKFLOW: think → gather info → delegate/execute → verify → complete
+            
+            TOOLS: read_file, write_file, edit_file, search_files, list_directory, run_command, ask_user, think, complete, delegate_to_coder, delegate_to_researcher, delegate_to_vision, take_screenshot
+            
+            RULES: Always think first. Delegate complex coding to coder model. Make small edits. Verify changes.
+            
+            CWD: \(workingDirectory?.path ?? ".")
+            """
+        ]
+    }
+    
+    // MARK: - Multi-Model Delegation
+    
+    /// Delegate coding task to Qwen2.5-Coder
+    private func executeDelegateToCoder(_ call: ToolCall) async -> ToolResult {
+        guard let task = call.getString("task") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing 'task' parameter")
+        }
+        
+        let context = call.getString("context") ?? ""
+        let language = call.getString("language") ?? "swift"
+        
+        addStep(.tool(name: "delegate_to_coder", input: task, output: "Delegating to Qwen2.5-Coder..."))
+        
+        // Compact prompt for faster inference
+        let prompt = """
+        [TASK] \(task)
+        [LANG] \(language)
+        \(context.isEmpty ? "" : "[CTX]\n\(context)")
+        
+        Output clean, working code.
+        """
+        
+        do {
+            let response = try await ollamaService.generate(
+                prompt: prompt, 
+                model: .coder, 
+                useCache: false,
+                taskType: .coding
+            )
+            
+            DispatchQueue.main.async {
+                self.updateLastToolStep(output: "Coder responded (\(response.count) chars)")
+            }
+            
+            return ToolResult(toolCallId: call.id, success: true, output: response)
+        } catch {
+            return ToolResult(toolCallId: call.id, success: false, output: "Coder delegation failed: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Delegate research task to Command-R
+    private func executeDelegateToResearcher(_ call: ToolCall) async -> ToolResult {
+        guard let query = call.getString("query") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing 'query' parameter")
+        }
+        
+        let context = call.getString("context") ?? ""
+        let format = call.getString("format") ?? "detailed"
+        
+        addStep(.tool(name: "delegate_to_researcher", input: query, output: "Delegating to Command-R..."))
+        
+        // Compact prompt for faster inference
+        let prompt = """
+        [QUERY] \(query)
+        [FORMAT] \(format)
+        \(context.isEmpty ? "" : "[CTX]\n\(context)")
+        """
+        
+        do {
+            let response = try await ollamaService.generate(
+                prompt: prompt, 
+                model: .commandR, 
+                useCache: false,
+                taskType: .research
+            )
+            
+            DispatchQueue.main.async {
+                self.updateLastToolStep(output: "Researcher responded (\(response.count) chars)")
+            }
+            
+            return ToolResult(toolCallId: call.id, success: true, output: response)
+        } catch {
+            return ToolResult(toolCallId: call.id, success: false, output: "Research delegation failed: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Delegate vision task to Qwen3-VL
+    private func executeDelegateToVision(_ call: ToolCall) async -> ToolResult {
+        guard let task = call.getString("task"),
+              let imagePath = call.getString("image_path") else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Missing 'task' or 'image_path' parameter")
+        }
+        
+        let imageURL = resolveURL(imagePath)
+        
+        guard let imageData = try? Data(contentsOf: imageURL) else {
+            return ToolResult(toolCallId: call.id, success: false, output: "Could not read image at: \(imagePath)")
+        }
+        
+        addStep(.tool(name: "delegate_to_vision", input: task, output: "Analyzing image with Qwen3-VL..."))
+        
+        let messages: [(String, String)] = [
+            ("user", "Analyze this image: \(task)")
+        ]
+        
+        do {
+            var response = ""
+            let stream = ollamaService.chat(
+                model: .vision,
+                messages: messages,
+                context: nil,
+                images: [imageData]
+            )
+            
+            for try await chunk in stream {
+                response += chunk
+            }
+            
+            DispatchQueue.main.async {
+                self.updateLastToolStep(output: "Vision analyzed (\(response.count) chars)")
+            }
+            
+            return ToolResult(toolCallId: call.id, success: true, output: response)
+        } catch {
+            return ToolResult(toolCallId: call.id, success: false, output: "Vision delegation failed: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Take a screenshot for analysis
+    private func executeTakeScreenshot(_ call: ToolCall) async -> ToolResult {
+        let region = call.getString("region") ?? "full"
+        let filename = call.getString("filename") ?? "screenshot_\(Int(Date().timeIntervalSince1970)).png"
+        
+        addStep(.tool(name: "take_screenshot", input: region, output: "Capturing screenshot..."))
+        
+        // Determine screenshot path
+        let screenshotDir = workingDirectory ?? FileManager.default.temporaryDirectory
+        let screenshotPath = screenshotDir.appendingPathComponent(filename)
+        
+        return await withCheckedContinuation { continuation in
+            executionQueue.async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+                
+                switch region {
+                case "window":
+                    process.arguments = ["-w", screenshotPath.path]
+                case "selection":
+                    process.arguments = ["-i", screenshotPath.path]
+                default: // "full"
+                    process.arguments = ["-x", screenshotPath.path]
+                }
+                
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    
+                    if process.terminationStatus == 0 && FileManager.default.fileExists(atPath: screenshotPath.path) {
+                        DispatchQueue.main.async {
+                            self.updateLastToolStep(output: "Screenshot saved: \(filename)")
+                        }
+                        continuation.resume(returning: ToolResult(
+                            toolCallId: call.id,
+                            success: true,
+                            output: "Screenshot saved to: \(screenshotPath.path)\n\nUse delegate_to_vision with this path to analyze it."
+                        ))
+                    } else {
+                        continuation.resume(returning: ToolResult(
+                            toolCallId: call.id,
+                            success: false,
+                            output: "Screenshot capture failed"
+                        ))
+                    }
+                } catch {
+                    continuation.resume(returning: ToolResult(
+                        toolCallId: call.id,
+                        success: false,
+                        output: "Screenshot error: \(error.localizedDescription)"
+                    ))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Agent Step
+
+struct AgentStep: Identifiable {
+    let id = UUID()
+    let timestamp = Date()
+    let type: AgentStepType
+}
+
+enum AgentStepType {
+    case system(String)
+    case thinking(String)
+    case tool(name: String, input: String, output: String)
+    case userInput(String)
+    case error(String)
+    case complete(String)
+    
+    var icon: String {
+        switch self {
+        case .system: return "info.circle"
+        case .thinking: return "brain"
+        case .tool: return "wrench"
+        case .userInput: return "person.fill.questionmark"
+        case .error: return "exclamationmark.triangle"
+        case .complete: return "checkmark.circle"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .system: return DS.Colors.secondaryText
+        case .thinking: return DS.Colors.orchestrator
+        case .tool: return DS.Colors.coder
+        case .userInput: return DS.Colors.warning
+        case .error: return DS.Colors.error
+        case .complete: return DS.Colors.success
+        }
+    }
+}
