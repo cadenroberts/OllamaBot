@@ -509,11 +509,48 @@ select_tier() {
     local recommended
     recommended=$(get_recommended_tier "$ram")
     
-    print_subheader "📊 Model Tier Selection"
+    print_subheader "📊 System RAM Analysis"
     echo
-    print_color "$WHITE" "  Your Mac has ${CYAN}${ram}GB RAM${NC}"
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # RAM WARNING SECTION
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    if [ "$ram" -lt 32 ]; then
+        echo
+        printf "  ${RED}╔══════════════════════════════════════════════════════════════════╗${NC}\n"
+        printf "  ${RED}║${NC}  ${YELLOW}⚠️  LOW RAM WARNING${NC}                                             ${RED}║${NC}\n"
+        printf "  ${RED}╠══════════════════════════════════════════════════════════════════╣${NC}\n"
+        printf "  ${RED}║${NC}                                                                  ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}  Your Mac has ${WHITE}${ram}GB RAM${NC}. OllamaBot is designed for ${WHITE}32GB+${NC}.      ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                  ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}  With less RAM, you will experience:                            ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}    • ${YELLOW}Slower inference${NC} (models may not fit in memory)            ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}    • ${YELLOW}Reduced model quality${NC} (smaller models have less capability)${RED}║${NC}\n"
+        printf "  ${RED}║${NC}    • ${YELLOW}Limited multi-model coordination${NC}                           ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                  ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}  ${WHITE}Recommendation:${NC} Upgrade to a Mac with 32GB+ unified memory    ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}  for the full OllamaBot experience.                             ${RED}║${NC}\n"
+        printf "  ${RED}║${NC}                                                                  ${RED}║${NC}\n"
+        printf "  ${RED}╚══════════════════════════════════════════════════════════════════╝${NC}\n"
+        echo
+        
+        print_color "$YELLOW" "  Do you want to continue with reduced capabilities? [y/N]"
+        read -r continue_choice
+        if [ "$continue_choice" != "y" ] && [ "$continue_choice" != "Y" ]; then
+            print_color "$CYAN" "  Setup cancelled. Consider upgrading your Mac for best results."
+            exit 0
+        fi
+        echo
+    fi
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TIER SELECTION
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    print_subheader "🎯 Model Tier Selection"
     echo
-    print_color "$WHITE" "  Choose a model tier based on your hardware:"
+    print_color "$WHITE" "  Your Mac: ${CYAN}${ram}GB RAM${NC}"
     echo
     
     # Tier comparison table
@@ -522,70 +559,57 @@ select_tier() {
         "Tier" "RAM" "Quality" "Speed" "Disk"
     printf "  ${GRAY}├──────────────────┼─────────┼─────────┼─────────┼──────────┤${NC}\n"
     
-    # Compact tier
-    local compact_rec=""
-    if [ "$recommended" = "compact" ]; then
-        compact_rec=" ${GREEN}✓${NC}"
-    fi
-    if [ "$ram" -ge 16 ]; then
-        printf "  ${GRAY}│${NC} ${CYAN}1)${NC} Compact (8B)  ${GRAY}│${NC} 16GB+   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC}$compact_rec\n"
+    # Performance tier (RECOMMENDED - show first)
+    local perf_rec=""
+    if [ "$ram" -ge 32 ]; then
+        perf_rec=" ${GREEN}← RECOMMENDED${NC}"
+        printf "  ${GRAY}│${NC} ${GREEN}1)${NC} Perform. (32B) ${GRAY}│${NC} 32GB+   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC}$perf_rec\n"
     else
-        printf "  ${GRAY}│${NC} ${DIM}1) Compact (8B)${NC}  ${GRAY}│${NC} ${RED}16GB+${NC}   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC}\n"
+        printf "  ${GRAY}│${NC} ${DIM}1) Perform. (32B)${NC} ${GRAY}│${NC} ${RED}32GB+${NC}   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC} ${RED}(insufficient RAM)${NC}\n"
     fi
     
     # Balanced tier
-    local balanced_rec=""
-    if [ "$recommended" = "balanced" ]; then
-        balanced_rec=" ${GREEN}✓${NC}"
-    fi
     if [ "$ram" -ge 24 ]; then
-        printf "  ${GRAY}│${NC} ${CYAN}2)${NC} Balanced (14B) ${GRAY}│${NC} 24GB+   ${GRAY}│${NC} █████░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}$balanced_rec\n"
+        printf "  ${GRAY}│${NC} ${CYAN}2)${NC} Balanced (14B) ${GRAY}│${NC} 24GB+   ${GRAY}│${NC} █████░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
     else
         printf "  ${GRAY}│${NC} ${DIM}2) Balanced (14B)${NC} ${GRAY}│${NC} ${RED}24GB+${NC}   ${GRAY}│${NC} █████░░ ${GRAY}│${NC} █████░░ ${GRAY}│${NC} ~36GB   ${GRAY}│${NC}\n"
     fi
     
-    # Performance tier
-    local perf_rec=""
-    if [ "$recommended" = "performance" ]; then
-        perf_rec=" ${GREEN}✓ Recommended${NC}"
-    fi
-    if [ "$ram" -ge 32 ]; then
-        printf "  ${GRAY}│${NC} ${CYAN}3)${NC} Perform. (32B) ${GRAY}│${NC} 32GB+   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC}$perf_rec\n"
+    # Compact tier (FALLBACK)
+    if [ "$ram" -ge 16 ]; then
+        printf "  ${GRAY}│${NC} ${YELLOW}3)${NC} Compact (8B)   ${GRAY}│${NC} 16GB+   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC} ${YELLOW}(fallback)${NC}\n"
     else
-        printf "  ${GRAY}│${NC} ${DIM}3) Perform. (32B)${NC} ${GRAY}│${NC} ${RED}32GB+${NC}   ${GRAY}│${NC} ███████ ${GRAY}│${NC} ███░░░░ ${GRAY}│${NC} ~80GB   ${GRAY}│${NC}\n"
+        printf "  ${GRAY}│${NC} ${DIM}3) Compact (8B)${NC}   ${GRAY}│${NC} ${RED}16GB+${NC}   ${GRAY}│${NC} ████░░░ ${GRAY}│${NC} ███████ ${GRAY}│${NC} ~17GB   ${GRAY}│${NC}\n"
     fi
     
     printf "  ${GRAY}└──────────────────┴─────────┴─────────┴─────────┴──────────┘${NC}\n"
     
     echo
-    print_color "$GRAY" "  Quality: Model reasoning capability"
-    print_color "$GRAY" "  Speed: Tokens per second (higher = faster)"
-    echo
-    
-    # Tier descriptions
     print_color "$WHITE" "  Tier Details:"
     echo
-    print_color "$CYAN" "  1) Compact (8B models)"
-    print_color "$GRAY" "     • Fast inference: 25-35 tokens/sec"
-    print_color "$GRAY" "     • Quick model switching: 10-15 seconds"
-    print_color "$GRAY" "     • Great for everyday coding tasks"
-    print_color "$GRAY" "     • Can run 2 models simultaneously"
+    print_color "$GREEN" "  1) Performance (32B) - BEST EXPERIENCE"
+    print_color "$GRAY" "     • State-of-the-art reasoning and code generation"
+    print_color "$GRAY" "     • Full multi-model orchestration capability"
+    print_color "$GRAY" "     • Recommended for serious development work"
     echo
-    print_color "$CYAN" "  2) Balanced (14B models)"
-    print_color "$GRAY" "     • Good inference: 15-25 tokens/sec"
-    print_color "$GRAY" "     • Moderate switching: 15-20 seconds"
-    print_color "$GRAY" "     • Better for complex reasoning"
+    print_color "$CYAN" "  2) Balanced (14B)"
+    print_color "$GRAY" "     • Good quality for most tasks"
+    print_color "$GRAY" "     • Faster inference than 32B"
+    print_color "$GRAY" "     • Compromise between speed and capability"
     echo
-    print_color "$CYAN" "  3) Performance (32B models)"
-    print_color "$GRAY" "     • Full capability inference: 8-15 tokens/sec"
-    print_color "$GRAY" "     • Longer switching: 30-60 seconds"
-    print_color "$GRAY" "     • Best reasoning and code quality"
+    print_color "$YELLOW" "  3) Compact (8B) - FALLBACK ONLY"
+    print_color "$GRAY" "     • Reduced reasoning capability"
+    print_color "$GRAY" "     • Suitable for simple tasks only"
+    print_color "$GRAY" "     • Use only if RAM is severely limited"
     echo
     
-    # Ask for selection
-    local default_num="1"
-    if [ "$recommended" = "balanced" ]; then default_num="2"; fi
-    if [ "$recommended" = "performance" ]; then default_num="3"; fi
+    # Determine default based on RAM
+    local default_num="3"  # Fallback
+    if [ "$ram" -ge 32 ]; then 
+        default_num="1"  # Performance is default for 32GB+
+    elif [ "$ram" -ge 24 ]; then 
+        default_num="2"  # Balanced for 24GB
+    fi
     
     while true; do
         read -p "  Select tier [1/2/3] (default: $default_num): " -r tier_choice
@@ -593,15 +617,16 @@ select_tier() {
         
         case "$tier_choice" in
             1)
-                if [ "$ram" -lt 16 ]; then
-                    print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Compact tier needs 16GB+."
-                    print_color "$YELLOW" "  Models may run very slowly. Continue anyway? [y/N]"
+                if [ "$ram" -lt 32 ]; then
+                    print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Performance tier needs 32GB+."
+                    print_color "$RED" "  This will cause severe disk swapping and very slow performance."
+                    print_color "$YELLOW" "  Are you absolutely sure? [y/N]"
                     read -r force
                     if [ "$force" != "y" ] && [ "$force" != "Y" ]; then
                         continue
                     fi
                 fi
-                SELECTED_TIER="compact"
+                SELECTED_TIER="performance"
                 break
                 ;;
             2)
@@ -617,15 +642,16 @@ select_tier() {
                 break
                 ;;
             3)
-                if [ "$ram" -lt 32 ]; then
-                    print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Performance tier needs 32GB+."
-                    print_color "$YELLOW" "  Models WILL run slowly with disk swapping. Continue anyway? [y/N]"
+                if [ "$ram" -lt 16 ]; then
+                    print_color "$RED" "  ⚠ Your Mac has ${ram}GB RAM. Even Compact tier needs 16GB+."
+                    print_color "$RED" "  OllamaBot may not function properly."
+                    print_color "$YELLOW" "  Continue anyway? [y/N]"
                     read -r force
                     if [ "$force" != "y" ] && [ "$force" != "Y" ]; then
                         continue
                     fi
                 fi
-                SELECTED_TIER="performance"
+                SELECTED_TIER="compact"
                 break
                 ;;
             *)
@@ -636,24 +662,6 @@ select_tier() {
     
     echo
     print_status "$CHECK" "$GREEN" "Selected: $(echo "$SELECTED_TIER" | tr '[:lower:]' '[:upper:]') tier"
-    
-    # Save tier selection to config file for app to read
-    local config_dir="$HOME/.config/ollamabot"
-    mkdir -p "$config_dir"
-    cat > "$config_dir/tier.json" << EOF
-{
-    "tier": "$SELECTED_TIER",
-    "ram_gb": $ram,
-    "selected_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-    "models": {
-        "orchestrator": "$(get_model_name 1)",
-        "researcher": "$(get_model_name 2)",
-        "coder": "$(get_model_name 3)",
-        "vision": "$(get_model_name 4)"
-    }
-}
-EOF
-    print_color "$GRAY" "  Configuration saved to $config_dir/tier.json"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -661,6 +669,9 @@ EOF
 # ═══════════════════════════════════════════════════════════════════════════════
 
 select_models() {
+    local ram
+    ram=$(get_ram_gb)
+    
     print_subheader "🎭 Model Selection"
     
     local disk_available
@@ -674,34 +685,7 @@ select_models() {
     print_color "$WHITE" "  Models for $(echo "$SELECTED_TIER" | tr '[:lower:]' '[:upper:]') tier:"
     echo
     
-    for i in $(seq 1 $MODEL_COUNT); do
-        local name size role desc status=""
-        name=$(get_model_name $i)
-        size=$(get_model_size $i)
-        role=$(get_model_role $i)
-        desc=$(get_model_desc $i)
-        
-        if echo "$installed" | grep -q "^${name}$"; then
-            status="${GREEN}[installed]${NC}"
-        fi
-        
-        printf "  ${WHITE}%d.${NC} %-25s ${GRAY}%3dGB${NC} %s %s\n" \
-            "$i" "$name" "$size" "$role" "$status"
-        printf "     ${GRAY}%s${NC}\n" "$desc"
-    done
-    
-    echo
-    print_color "$GRAY" "  Available disk: ${disk_available}GB | Tier total: ~${tier_total}GB"
-    echo
-    
-    # Check disk space
-    if [ "$disk_available" -lt "$tier_total" ]; then
-        print_color "$YELLOW" "  ⚠ You may not have enough disk space for all models."
-    fi
-    
-    print_color "$CYAN" "  Choose installation option:"
-    echo
-    
+    # Get model info
     local model1 model2 model3 model4
     model1=$(get_model_name 1)
     model2=$(get_model_name 2)
@@ -714,50 +698,207 @@ select_models() {
     size3=$(get_model_size 3)
     size4=$(get_model_size 4)
     
-    print_color "$WHITE" "  A) Full Suite - All 4 models (~${tier_total}GB)"
-    print_color "$WHITE" "  B) Essential  - Orchestrator + Coder (~$((size1 + size3))GB)"
-    print_color "$WHITE" "  C) Minimal    - Orchestrator only (~${size1}GB)"
-    print_color "$WHITE" "  D) Custom     - Choose specific models"
+    # Display models with importance indicators
+    printf "  ${GRAY}┌─────┬───────────────────────────┬───────┬─────────────────────────────────┐${NC}\n"
+    printf "  ${GRAY}│${NC} ${WHITE}#${NC}   ${GRAY}│${NC} ${WHITE}%-25s${NC} ${GRAY}│${NC} ${WHITE}Size${NC}  ${GRAY}│${NC} ${WHITE}Role${NC}                            ${GRAY}│${NC}\n" "Model"
+    printf "  ${GRAY}├─────┼───────────────────────────┼───────┼─────────────────────────────────┤${NC}\n"
+    
+    for i in $(seq 1 $MODEL_COUNT); do
+        local name size role desc status="" importance=""
+        name=$(get_model_name $i)
+        size=$(get_model_size $i)
+        role=$(get_model_role $i)
+        desc=$(get_model_desc $i)
+        
+        if echo "$installed" | grep -q "^${name}$"; then
+            status=" ${GREEN}✓${NC}"
+        fi
+        
+        # Set importance indicator
+        case $i in
+            1) importance="${GREEN}★ ESSENTIAL${NC}" ;;
+            3) importance="${CYAN}★ RECOMMENDED${NC}" ;;
+            2) importance="${GRAY}○ Optional${NC}" ;;
+            4) importance="${GRAY}○ Optional${NC}" ;;
+        esac
+        
+        printf "  ${GRAY}│${NC} ${WHITE}%d${NC}   ${GRAY}│${NC} %-25s ${GRAY}│${NC} %3dGB ${GRAY}│${NC} %s$status\n" \
+            "$i" "$name" "$size" "$role"
+        printf "  ${GRAY}│${NC}     ${GRAY}│${NC} ${GRAY}%-25s${NC} ${GRAY}│${NC}       ${GRAY}│${NC} %-20s\n" \
+            "$desc" "$importance"
+    done
+    
+    printf "  ${GRAY}└─────┴───────────────────────────┴───────┴─────────────────────────────────┘${NC}\n"
+    
+    echo
+    print_color "$GRAY" "  Available disk: ${disk_available}GB"
     echo
     
-    read -p "  Your choice [A/B/C/D]: " -r choice
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MODEL RECOMMENDATIONS BASED ON RAM
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    print_color "$WHITE" "  Model Selection Guide:"
+    echo
+    
+    if [ "$ram" -ge 32 ]; then
+        print_color "$GREEN" "  With ${ram}GB RAM, you can run all models effectively."
+        print_color "$GRAY" "  Recommended: Full Suite for maximum capability."
+    elif [ "$ram" -ge 24 ]; then
+        print_color "$YELLOW" "  With ${ram}GB RAM, consider selecting 2-3 models."
+        print_color "$GRAY" "  Recommended: Orchestrator + Coder (most useful combination)."
+    else
+        print_color "$RED" "  With ${ram}GB RAM, select only essential models."
+        print_color "$GRAY" "  Recommended: Orchestrator only, add Coder if needed."
+    fi
+    
+    echo
+    print_color "$CYAN" "  Choose installation option:"
+    echo
+    print_color "$WHITE" "  A) Full Suite    - All 4 models (~${tier_total}GB)"
+    print_color "$WHITE" "  B) Core Pair     - Orchestrator + Coder (~$((size1 + size3))GB) ${GREEN}← Most Useful${NC}"
+    print_color "$WHITE" "  C) Research Pair - Orchestrator + Researcher (~$((size1 + size2))GB)"
+    print_color "$WHITE" "  D) Minimal       - Orchestrator only (~${size1}GB)"
+    print_color "$WHITE" "  E) Custom        - Choose specific models"
+    echo
+    
+    # Check disk space for full suite
+    if [ "$disk_available" -lt "$tier_total" ]; then
+        print_color "$YELLOW" "  ⚠ Not enough disk for Full Suite. Consider a smaller option."
+    fi
+    
+    read -p "  Your choice [A/B/C/D/E]: " -r choice
     echo
     
     local selected=""
+    local selected_models=""
     
     case "$(echo "$choice" | tr '[:lower:]' '[:upper:]')" in
         A)
             selected="$model1 $model2 $model3 $model4"
+            selected_models="Orchestrator, Researcher, Coder, Vision"
             ;;
         B)
             selected="$model1 $model3"
+            selected_models="Orchestrator, Coder"
             ;;
         C)
-            selected="$model1"
+            selected="$model1 $model2"
+            selected_models="Orchestrator, Researcher"
             ;;
         D)
-            print_color "$CYAN" "  Enter model numbers (e.g., 1 3 4):"
-            read -r selections
-            for sel in $selections; do
-                if [ "$sel" -ge 1 ] && [ "$sel" -le "$MODEL_COUNT" ]; then
-                    local model_name
-                    model_name=$(get_model_name "$sel")
-                    selected="$selected $model_name"
-                fi
-            done
-            # Always include orchestrator
-            if ! echo "$selected" | grep -q "$model1"; then
-                selected="$model1 $selected"
-                print_color "$YELLOW" "  Added $model1 (required orchestrator)"
+            selected="$model1"
+            selected_models="Orchestrator"
+            ;;
+        E)
+            echo
+            print_color "$CYAN" "  Select models to install:"
+            print_color "$GRAY" "  (Orchestrator will always be included)"
+            echo
+            
+            # Interactive selection
+            local include_researcher="n"
+            local include_coder="n"
+            local include_vision="n"
+            
+            read -p "  Include Researcher ($model2, ${size2}GB)? [y/N]: " -r include_researcher
+            read -p "  Include Coder ($model3, ${size3}GB)? [y/N]: " -r include_coder
+            read -p "  Include Vision ($model4, ${size4}GB)? [y/N]: " -r include_vision
+            
+            selected="$model1"
+            selected_models="Orchestrator"
+            
+            if [ "$include_researcher" = "y" ] || [ "$include_researcher" = "Y" ]; then
+                selected="$selected $model2"
+                selected_models="$selected_models, Researcher"
+            fi
+            if [ "$include_coder" = "y" ] || [ "$include_coder" = "Y" ]; then
+                selected="$selected $model3"
+                selected_models="$selected_models, Coder"
+            fi
+            if [ "$include_vision" = "y" ] || [ "$include_vision" = "Y" ]; then
+                selected="$selected $model4"
+                selected_models="$selected_models, Vision"
             fi
             ;;
         *)
-            print_color "$YELLOW" "  Invalid choice, defaulting to Essential"
+            print_color "$YELLOW" "  Invalid choice, defaulting to Core Pair (Orchestrator + Coder)"
             selected="$model1 $model3"
+            selected_models="Orchestrator, Coder"
             ;;
     esac
     
+    echo
+    print_status "$CHECK" "$GREEN" "Selected: $selected_models"
+    
+    # Calculate total size
+    local total_size=0
+    for model in $selected; do
+        case "$model" in
+            "$model1") total_size=$((total_size + size1)) ;;
+            "$model2") total_size=$((total_size + size2)) ;;
+            "$model3") total_size=$((total_size + size3)) ;;
+            "$model4") total_size=$((total_size + size4)) ;;
+        esac
+    done
+    print_color "$GRAY" "  Total download: ~${total_size}GB"
+    
+    # Save configuration
+    save_model_config "$selected"
+    
     echo "$selected"
+}
+
+# Save model configuration for app to read
+save_model_config() {
+    local selected="$1"
+    local ram
+    ram=$(get_ram_gb)
+    
+    local model1 model2 model3 model4
+    model1=$(get_model_name 1)
+    model2=$(get_model_name 2)
+    model3=$(get_model_name 3)
+    model4=$(get_model_name 4)
+    
+    # Determine which models are selected
+    local has_orchestrator="false"
+    local has_researcher="false"
+    local has_coder="false"
+    local has_vision="false"
+    
+    for model in $selected; do
+        case "$model" in
+            "$model1") has_orchestrator="true" ;;
+            "$model2") has_researcher="true" ;;
+            "$model3") has_coder="true" ;;
+            "$model4") has_vision="true" ;;
+        esac
+    done
+    
+    local config_dir="$HOME/.config/ollamabot"
+    mkdir -p "$config_dir"
+    
+    cat > "$config_dir/tier.json" << EOF
+{
+    "tier": "$SELECTED_TIER",
+    "ram_gb": $ram,
+    "selected_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+    "models": {
+        "orchestrator": $([ "$has_orchestrator" = "true" ] && echo "\"$model1\"" || echo "null"),
+        "researcher": $([ "$has_researcher" = "true" ] && echo "\"$model2\"" || echo "null"),
+        "coder": $([ "$has_coder" = "true" ] && echo "\"$model3\"" || echo "null"),
+        "vision": $([ "$has_vision" = "true" ] && echo "\"$model4\"" || echo "null")
+    },
+    "enabled": {
+        "orchestrator": $has_orchestrator,
+        "researcher": $has_researcher,
+        "coder": $has_coder,
+        "vision": $has_vision
+    }
+}
+EOF
+    print_color "$GRAY" "  Configuration saved to $config_dir/tier.json"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════

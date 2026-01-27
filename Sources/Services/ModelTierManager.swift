@@ -252,12 +252,20 @@ final class ModelTierManager {
         let ramGb: Int
         let selectedAt: String
         let models: ModelTags
+        let enabled: EnabledModels?
         
         struct ModelTags: Codable {
-            let orchestrator: String
-            let researcher: String
-            let coder: String
-            let vision: String
+            let orchestrator: String?
+            let researcher: String?
+            let coder: String?
+            let vision: String?
+        }
+        
+        struct EnabledModels: Codable {
+            let orchestrator: Bool
+            let researcher: Bool
+            let coder: Bool
+            let vision: Bool
         }
         
         enum CodingKeys: String, CodingKey {
@@ -265,11 +273,32 @@ final class ModelTierManager {
             case ramGb = "ram_gb"
             case selectedAt = "selected_at"
             case models
+            case enabled
         }
     }
     
     /// Configured model tags (from setup script)
     var configuredModels: TierConfig.ModelTags?
+    
+    /// Which models are enabled (installed)
+    var enabledModels: TierConfig.EnabledModels?
+    
+    /// Check if a specific model role is available
+    func isModelEnabled(_ model: OllamaModel) -> Bool {
+        guard let enabled = enabledModels else { return true } // Default to all enabled
+        
+        switch model {
+        case .qwen3: return enabled.orchestrator
+        case .commandR: return enabled.researcher
+        case .coder: return enabled.coder
+        case .vision: return enabled.vision
+        }
+    }
+    
+    /// Get list of available (enabled) models
+    var availableModels: [OllamaModel] {
+        OllamaModel.allCases.filter { isModelEnabled($0) }
+    }
     
     // MARK: - Initialization
     
@@ -324,7 +353,19 @@ final class ModelTierManager {
         }
         
         configuredModels = config.models
+        enabledModels = config.enabled
+        
         print("   Loaded configuration from \(configPath.path)")
+        
+        // Log enabled models
+        if let enabled = enabledModels {
+            var enabledList: [String] = []
+            if enabled.orchestrator { enabledList.append("Orchestrator") }
+            if enabled.researcher { enabledList.append("Researcher") }
+            if enabled.coder { enabledList.append("Coder") }
+            if enabled.vision { enabledList.append("Vision") }
+            print("   Enabled models: \(enabledList.joined(separator: ", "))")
+        }
     }
     
     /// Save current configuration
@@ -334,16 +375,25 @@ final class ModelTierManager {
         
         try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
         
+        // Use existing enabled state or default to all enabled
+        let enabled = enabledModels ?? TierConfig.EnabledModels(
+            orchestrator: true,
+            researcher: true,
+            coder: true,
+            vision: true
+        )
+        
         let config = TierConfig(
             tier: selectedTier.rawValue.lowercased().components(separatedBy: " ").first ?? "performance",
             ramGb: systemRAM,
             selectedAt: ISO8601DateFormatter().string(from: Date()),
             models: TierConfig.ModelTags(
-                orchestrator: orchestrator.ollamaTag,
-                researcher: researcher.ollamaTag,
-                coder: coder.ollamaTag,
-                vision: vision.ollamaTag
-            )
+                orchestrator: enabled.orchestrator ? orchestrator.ollamaTag : nil,
+                researcher: enabled.researcher ? researcher.ollamaTag : nil,
+                coder: enabled.coder ? coder.ollamaTag : nil,
+                vision: enabled.vision ? vision.ollamaTag : nil
+            ),
+            enabled: enabled
         )
         
         let configPath = configDir.appendingPathComponent("tier.json")
