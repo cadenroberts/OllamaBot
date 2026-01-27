@@ -317,6 +317,16 @@ final class ModelTierManager {
         Self.visionVariants[effectiveTier]!
     }
     
+    /// Get the tier-specific variant for a base model
+    func getVariant(for model: OllamaModel) -> ModelVariant {
+        switch model {
+        case .qwen3: return orchestrator
+        case .coder: return coder
+        case .commandR: return researcher
+        case .vision: return vision
+        }
+    }
+    
     var effectiveTier: ModelTier {
         forceSmallModels ? .compact : selectedTier
     }

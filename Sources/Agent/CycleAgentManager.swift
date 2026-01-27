@@ -247,15 +247,18 @@ final class CycleAgentManager {
     
     // MARK: - Initialization
     
-    init(ollamaService: OllamaService, fileSystemService: FileSystemService, contextManager: ContextManager) {
+    // ModelTierManager integration for RAM-aware model selection
+    private let modelTierManager: ModelTierManager
+    
+    init(ollamaService: OllamaService, fileSystemService: FileSystemService, contextManager: ContextManager, modelTierManager: ModelTierManager) {
         self.ollamaService = ollamaService
         self.fileSystemService = fileSystemService
         self.contextManager = contextManager
+        self.modelTierManager = modelTierManager
         
-        // Detect system RAM
-        let ramBytes = ProcessInfo.processInfo.physicalMemory
-        self.availableRAM = Int(ramBytes / 1_073_741_824) // Convert to GB
-        self.canRunParallel = availableRAM >= Config.parallelRAMThreshold
+        // Use ModelTierManager for RAM-aware configuration (SINGLE SOURCE OF TRUTH)
+        self.availableRAM = modelTierManager.systemRAM
+        self.canRunParallel = modelTierManager.canRunParallel
         
         // Register default agents
         registerDefaultAgents()
@@ -296,6 +299,32 @@ final class CycleAgentManager {
                 priority: 40
             )
         ]
+    }
+    
+    // MARK: - Memory Management
+    
+    /// Pause operations when system is under memory pressure
+    func pauseForMemoryPressure() {
+        guard isRunning else { return }
+        
+        statusMessage = "⚠️ Paused: Low memory"
+        print("⚠️ CycleAgentManager: Pausing for memory pressure")
+        
+        // Don't stop completely, just pause current operation
+        // The system will resume when memory is available
+        // For now, we let the current task finish but don't start new ones
+        taskQueue.removeAll()
+        
+        // Record in context for learning
+        contextManager.recordError("Memory pressure pause", context: currentTask?.content ?? "")
+    }
+    
+    /// Resume after memory pressure is relieved
+    func resumeAfterMemoryPressure() {
+        if statusMessage.contains("Paused") {
+            statusMessage = "Ready"
+            print("✅ CycleAgentManager: Resuming after memory pressure")
+        }
     }
     
     // MARK: - Cycle Creation

@@ -169,10 +169,16 @@ struct OllamaBotApp: App {
                 }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
                 
+                Button("Show Cycle Agents") {
+                    PanelState.shared.setSecondarySidebarTab(.agents)
+                }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+                
                 Divider()
                 
+                // Model selection (uses ModelTierManager tier-appropriate models)
                 ForEach(OllamaModel.allCases) { model in
-                    Button(model.displayName) {
+                    Button("\(model.displayName) (\(appState.modelTierManager.getVariant(for: model).parameters))") {
                         appState.selectedModel = model
                     }
                     .keyboardShortcut(model.shortcut, modifiers: [.command, .shift])
@@ -184,6 +190,12 @@ struct OllamaBotApp: App {
                     appState.selectedModel = nil
                 }
                 .keyboardShortcut("0", modifiers: [.command, .shift])
+                
+                Divider()
+                
+                // RAM tier info
+                Text("Tier: \(appState.modelTierManager.selectedTier.rawValue)")
+                Text("RAM: \(appState.modelTierManager.systemRAM)GB")
             }
             
             #if DEBUG
@@ -278,12 +290,13 @@ class AppState {
     // MARK: - Editor Settings (Observable)
     var editorFontSize: CGFloat = 13
     
-    // MARK: - Services (All services are actually wired and used)
+    // MARK: - Services (All services are wired and interconnected)
     let ollamaService: OllamaService
     let fileSystemService: FileSystemService
     let intentRouter: IntentRouter
-    let contextManager: ContextManager          // Unified context (replaces ContextBuilder)
-    let agentExecutor: AgentExecutor
+    let contextManager: ContextManager          // Unified context (SINGLE SOURCE OF TRUTH)
+    let agentExecutor: AgentExecutor            // Single-task agent (Infinite Mode)
+    let cycleAgentManager: CycleAgentManager    // Multi-agent orchestration (Cycle Mode)
     let fileIndexer = FileIndexer()
     let asyncFileIO = AsyncFileIO()
     let config = ConfigurationManager.shared
@@ -302,7 +315,7 @@ class AppState {
     private var memoryMonitor: MemoryPressureMonitor?
     
     init() {
-        // Model tier management (RAM-aware model selection)
+        // Model tier management (RAM-aware model selection) - MUST BE FIRST
         self.modelTierManager = ModelTierManager()
         
         // Core services
@@ -311,8 +324,20 @@ class AppState {
         self.intentRouter = IntentRouter()
         self.contextManager = ContextManager()
         
-        // Agent - receives shared ContextManager (SINGLE SOURCE OF TRUTH)
-        self.agentExecutor = AgentExecutor(ollamaService: ollamaService, fileSystemService: fileSystemService, contextManager: contextManager)
+        // Agents - ALL share the same ContextManager (SINGLE SOURCE OF TRUTH)
+        self.agentExecutor = AgentExecutor(
+            ollamaService: ollamaService,
+            fileSystemService: fileSystemService,
+            contextManager: contextManager
+        )
+        
+        // Multi-agent orchestration (shares services + context)
+        self.cycleAgentManager = CycleAgentManager(
+            ollamaService: ollamaService,
+            fileSystemService: fileSystemService,
+            contextManager: contextManager,
+            modelTierManager: modelTierManager
+        )
         
         // Feature services
         self.inlineCompletionService = InlineCompletionService(ollamaService: ollamaService)
@@ -325,16 +350,18 @@ class AppState {
         self.memoryMonitor?.onHighPressure = { [weak self] in
             print("⚠️ High memory pressure detected - clearing caches")
             self?.clearAllCaches()
+            // Also pause cycle agents if running
+            self?.cycleAgentManager.pauseForMemoryPressure()
         }
         
         // Configure OllamaService with tier-appropriate model tags
         ollamaService.configureTier(modelTierManager)
         
-        // On low RAM systems, be more aggressive with cache management
-        if modelTierManager.systemRAM < 24 {
-            print("📊 Low RAM mode: Reducing cache sizes")
-            // Note: Cache sizes are set at compile time, but we can clear more aggressively
-        }
+        // Log system configuration
+        print("🚀 OllamaBot initialized")
+        print("   RAM: \(modelTierManager.systemRAM)GB")
+        print("   Tier: \(modelTierManager.selectedTier.rawValue)")
+        print("   Parallel: \(modelTierManager.canRunParallel ? "Yes" : "No")")
     }
     
     // MARK: - File Operations

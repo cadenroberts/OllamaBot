@@ -201,6 +201,10 @@ struct MainView: View {
                 switch panels.secondarySidebarTab {
                 case .chat:
                     ChatView()
+                case .agents:
+                    CycleAgentView()
+                        .environment(appState.cycleAgentManager)
+                        .environment(appState.modelTierManager)
                 case .outline:
                     OutlineView()
                 case .timeline:

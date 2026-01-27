@@ -2,15 +2,20 @@ import SwiftUI
 
 // MARK: - Cycle Agent View
 // Visual interface for multi-agent orchestration
+// Uses shared CycleAgentManager from AppState (SINGLE SOURCE OF TRUTH)
 
 struct CycleAgentView: View {
     @Environment(AppState.self) private var appState
-    @State private var cycleManager: CycleAgentManager?
     @State private var taskInput: String = ""
     @State private var selectedStrategy: CycleAgentManager.CycleStrategy = .adaptive
     @State private var isExecuting: Bool = false
     @State private var results: [CycleAgentManager.TaskResult] = []
     @State private var showStatistics: Bool = false
+    
+    // Use shared instance from AppState
+    private var cycleManager: CycleAgentManager {
+        appState.cycleAgentManager
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -27,15 +32,6 @@ struct CycleAgentView: View {
                 
                 // Right: Task execution
                 executionPanel
-            }
-        }
-        .onAppear {
-            if cycleManager == nil {
-                cycleManager = CycleAgentManager(
-                    ollamaService: appState.ollamaService,
-                    fileSystemService: appState.fileSystemService,
-                    contextManager: appState.contextManager
-                )
             }
         }
     }
@@ -62,9 +58,7 @@ struct CycleAgentView: View {
             Spacer()
             
             // System status
-            if let manager = cycleManager {
-                systemStatusBadge(manager)
-            }
+            systemStatusBadge(cycleManager)
             
             // Statistics button
             DSIconButton(icon: "chart.bar", size: 16) {
@@ -128,10 +122,8 @@ struct CycleAgentView: View {
             
             ScrollView {
                 VStack(spacing: DS.Spacing.sm) {
-                    if let manager = cycleManager {
-                        ForEach(manager.agents) { agent in
-                            AgentCard(agent: agent, isWarm: manager.getStatistics().warmAgent == agent.role.rawValue)
-                        }
+                    ForEach(cycleManager.agents) { agent in
+                        AgentCard(agent: agent, isWarm: cycleManager.getStatistics().warmAgent == agent.role.rawValue)
                     }
                 }
                 .padding(DS.Spacing.sm)
@@ -156,7 +148,7 @@ struct CycleAgentView: View {
                 Text("Specialist (Batched)").tag(CycleAgentManager.CycleStrategy.specialist)
                 Text("Pipeline (Sequential)").tag(CycleAgentManager.CycleStrategy.pipeline)
                 Text("Round Robin").tag(CycleAgentManager.CycleStrategy.roundRobin)
-                if cycleManager?.getStatistics().canRunParallel == true {
+                if cycleManager.getStatistics().canRunParallel {
                     Text("Parallel (64GB+ RAM)").tag(CycleAgentManager.CycleStrategy.parallel)
                 }
             }
@@ -273,18 +265,18 @@ struct CycleAgentView: View {
             
             // Animated agent visualization
             CycleVisualization(
-                agents: cycleManager?.agents ?? [],
-                currentAgent: cycleManager?.currentTask?.assignedAgent,
-                progress: cycleManager?.progress ?? 0
+                agents: cycleManager.agents,
+                currentAgent: cycleManager.currentTask?.assignedAgent,
+                progress: cycleManager.progress
             )
             
             // Status
             VStack(spacing: DS.Spacing.sm) {
-                Text(cycleManager?.statusMessage ?? "Executing...")
+                Text(cycleManager.statusMessage.isEmpty ? "Executing..." : cycleManager.statusMessage)
                     .font(DS.Typography.callout)
                     .foregroundStyle(DS.Colors.text)
                 
-                ProgressView(value: cycleManager?.progress ?? 0)
+                ProgressView(value: cycleManager.progress)
                     .tint(DS.Colors.accent)
                     .frame(maxWidth: 300)
             }
@@ -338,11 +330,12 @@ struct CycleAgentView: View {
             
             // Performance note
             VStack(spacing: DS.Spacing.xs) {
-                if cycleManager?.getStatistics().canRunParallel == true {
+                let stats = cycleManager.getStatistics()
+                if stats.canRunParallel {
                     Label("Parallel execution enabled (64GB+ RAM)", systemImage: "bolt.fill")
                         .foregroundStyle(DS.Colors.success)
                 } else {
-                    Label("Smart sequential mode (optimized for \(cycleManager?.getStatistics().availableRAM ?? 0)GB RAM)", systemImage: "bolt")
+                    Label("Smart sequential mode (optimized for \(stats.availableRAM)GB RAM)", systemImage: "bolt")
                         .foregroundStyle(DS.Colors.warning)
                 }
             }
@@ -360,8 +353,8 @@ struct CycleAgentView: View {
             Text("Cycle Statistics")
                 .font(DS.Typography.headline)
             
-            if let stats = cycleManager?.getStatistics() {
-                Grid(alignment: .leading, horizontalSpacing: DS.Spacing.lg, verticalSpacing: DS.Spacing.sm) {
+            let stats = cycleManager.getStatistics()
+            Grid(alignment: .leading, horizontalSpacing: DS.Spacing.lg, verticalSpacing: DS.Spacing.sm) {
                     GridRow {
                         Text("Available RAM")
                             .foregroundStyle(DS.Colors.secondaryText)
@@ -386,15 +379,14 @@ struct CycleAgentView: View {
                         Text(String(format: "%.1fs", stats.averageSwitchTime))
                             .font(DS.Typography.mono(12))
                     }
-                    GridRow {
-                        Text("Warm Model")
-                            .foregroundStyle(DS.Colors.secondaryText)
-                        Text(stats.warmAgent ?? "None")
-                            .font(DS.Typography.mono(12))
-                    }
+                GridRow {
+                    Text("Warm Model")
+                        .foregroundStyle(DS.Colors.secondaryText)
+                    Text(stats.warmAgent ?? "None")
+                        .font(DS.Typography.mono(12))
                 }
-                .font(DS.Typography.caption)
             }
+            .font(DS.Typography.caption)
         }
         .padding(DS.Spacing.md)
         .frame(width: 250)
@@ -403,8 +395,6 @@ struct CycleAgentView: View {
     // MARK: - Execution
     
     private func executeCycle() async {
-        guard let manager = cycleManager else { return }
-        
         isExecuting = true
         results = []
         
@@ -414,6 +404,8 @@ struct CycleAgentView: View {
            let content = appState.fileSystemService.readFile(at: file.url) {
             context.files[file.name] = content
         }
+        
+        let manager = cycleManager
         context.workingDirectory = appState.rootFolder
         
         do {
