@@ -4,10 +4,83 @@ struct AgentView: View {
     @Environment(AppState.self) private var appState
     @State private var taskInput = ""
     @State private var userResponse = ""
+    @State private var selectedMode: AgentMode = .infinite
     
     private var executor: AgentExecutor { appState.agentExecutor }
     
+    enum AgentMode: String, CaseIterable {
+        case infinite = "Infinite Mode"
+        case cycle = "Cycle Agents"
+        
+        var icon: String {
+            switch self {
+            case .infinite: return "infinity"
+            case .cycle: return "circle.hexagongrid.fill"
+            }
+        }
+    }
+    
     var body: some View {
+        VStack(spacing: 0) {
+            // Mode selector
+            modePicker
+            
+            DSDivider()
+            
+            // Content based on mode
+            switch selectedMode {
+            case .infinite:
+                infiniteModeContent
+            case .cycle:
+                CycleAgentView()
+            }
+        }
+        .background(DS.Colors.background)
+    }
+    
+    // MARK: - Mode Picker
+    
+    private var modePicker: some View {
+        HStack(spacing: DS.Spacing.xs) {
+            ForEach(AgentMode.allCases, id: \.self) { mode in
+                Button(action: { 
+                    withAnimation(DS.Animation.fast) {
+                        selectedMode = mode 
+                    }
+                }) {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: mode.icon)
+                            .font(.caption)
+                        Text(mode.rawValue)
+                            .font(DS.Typography.caption.weight(.medium))
+                    }
+                    .foregroundStyle(selectedMode == mode ? DS.Colors.text : DS.Colors.secondaryText)
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.vertical, DS.Spacing.sm)
+                    .background(selectedMode == mode ? DS.Colors.accent.opacity(0.2) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                }
+                .buttonStyle(.plain)
+            }
+            
+            Spacer()
+            
+            // Help button
+            DSIconButton(icon: "questionmark.circle", size: 14) {
+                // Show help
+            }
+            .help(selectedMode == .infinite 
+                ? "Single agent loop until task complete" 
+                : "Multi-model orchestration with specialists")
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, DS.Spacing.sm)
+        .background(DS.Colors.surface)
+    }
+    
+    // MARK: - Infinite Mode Content
+    
+    private var infiniteModeContent: some View {
         VStack(spacing: 0) {
             header
             DSDivider()
@@ -20,7 +93,6 @@ struct AgentView: View {
             
             controlBar
         }
-        .background(DS.Colors.background)
     }
     
     // MARK: - Header
