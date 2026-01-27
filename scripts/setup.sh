@@ -22,28 +22,36 @@ set -eo pipefail
 # MODEL TIERS - RAM-aware model selection
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Tier: MINIMAL (8GB RAM) - 3B models, severely limited
-# WARNING: This is NOT recommended. Models have very limited capability.
-MINIMAL_1_NAME="qwen2.5:3b"
-MINIMAL_1_SIZE=2
-MINIMAL_2_NAME="phi3:3.8b"
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tier: MINIMAL (8GB RAM) - 1.5B-3B models
+# These models ACTUALLY run smoothly on 8GB without swapping
+# macOS needs ~3-4GB, leaving ~4-5GB for the model
+# ═══════════════════════════════════════════════════════════════════════════════
+MINIMAL_1_NAME="qwen2.5:1.5b"          # Best small orchestrator (1.2GB loaded)
+MINIMAL_1_SIZE=1
+MINIMAL_2_NAME="phi3:mini"             # Good small reasoning (2.3GB loaded) - Microsoft's efficient model
 MINIMAL_2_SIZE=2
-MINIMAL_3_NAME="qwen2.5-coder:3b"
-MINIMAL_3_SIZE=2
-MINIMAL_4_NAME="llava:7b"
-MINIMAL_4_SIZE=4
-MINIMAL_TOTAL=10
+MINIMAL_3_NAME="deepseek-coder:1.3b"   # Best tiny coder! Surprisingly capable (1GB loaded)
+MINIMAL_3_SIZE=1
+MINIMAL_4_NAME="moondream:1.8b"        # Best tiny vision model (1.5GB loaded)
+MINIMAL_4_SIZE=1
+MINIMAL_TOTAL=5
 
-# Tier: COMPACT (16GB RAM) - 8B models, fast inference
-COMPACT_1_NAME="qwen3:8b"
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tier: COMPACT (16GB RAM) - 7B models
+# These models run well on 16GB with room for system overhead
+# macOS needs ~3-4GB, leaving ~12GB for models
+# 7B models use ~4-5GB, so comfortable single-model operation
+# ═══════════════════════════════════════════════════════════════════════════════
+COMPACT_1_NAME="qwen2.5:7b"            # Excellent small orchestrator (4.7GB loaded)
 COMPACT_1_SIZE=5
-COMPACT_2_NAME="command-r:7b"
+COMPACT_2_NAME="mistral:7b"            # Strong research/reasoning (4.1GB loaded)
 COMPACT_2_SIZE=4
-COMPACT_3_NAME="qwen2.5-coder:7b"
+COMPACT_3_NAME="deepseek-coder:6.7b"   # Excellent small coder! (4GB loaded)
 COMPACT_3_SIZE=4
-COMPACT_4_NAME="qwen2-vl:7b"
-COMPACT_4_SIZE=4
-COMPACT_TOTAL=17
+COMPACT_4_NAME="llava:7b"              # Solid vision model (4.5GB loaded)
+COMPACT_4_SIZE=5
+COMPACT_TOTAL=18
 
 # Tier: BALANCED (24GB RAM) - 14B models
 BALANCED_1_NAME="qwen3:14b"

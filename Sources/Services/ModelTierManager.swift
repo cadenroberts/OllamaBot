@@ -83,22 +83,23 @@ final class ModelTierManager {
     }
     
     // All available model variants by role
+    // RESEARCHED: These models actually fit and run well at each RAM tier
     static let orchestratorVariants: [ModelTier: ModelVariant] = [
         .minimal: ModelVariant(
-            name: "Qwen2.5 3B",
-            ollamaTag: "qwen2.5:3b",
-            sizeGB: 2.0,
-            parameters: "3B",
-            quality: 3,  // Very limited
+            name: "Qwen2.5 1.5B",
+            ollamaTag: "qwen2.5:1.5b",
+            sizeGB: 1.0,
+            parameters: "1.5B",
+            quality: 4,  // Limited but functional
             speed: 10
         ),
         .compact: ModelVariant(
-            name: "Qwen3 8B",
-            ollamaTag: "qwen3:8b",
+            name: "Qwen2.5 7B",
+            ollamaTag: "qwen2.5:7b",
             sizeGB: 5.0,
-            parameters: "8B",
-            quality: 6,
-            speed: 9
+            parameters: "7B",
+            quality: 7,
+            speed: 8
         ),
         .balanced: ModelVariant(
             name: "Qwen3 14B",
@@ -128,20 +129,20 @@ final class ModelTierManager {
     
     static let coderVariants: [ModelTier: ModelVariant] = [
         .minimal: ModelVariant(
-            name: "Qwen2.5-Coder 3B",
-            ollamaTag: "qwen2.5-coder:3b",
-            sizeGB: 2.0,
-            parameters: "3B",
-            quality: 3,  // Very limited coding
+            name: "DeepSeek-Coder 1.3B",
+            ollamaTag: "deepseek-coder:1.3b",
+            sizeGB: 1.0,
+            parameters: "1.3B",
+            quality: 5,  // Surprisingly capable for its size!
             speed: 10
         ),
         .compact: ModelVariant(
-            name: "Qwen2.5-Coder 7B",
-            ollamaTag: "qwen2.5-coder:7b",
-            sizeGB: 4.5,
-            parameters: "7B",
-            quality: 6,
-            speed: 9
+            name: "DeepSeek-Coder 6.7B",
+            ollamaTag: "deepseek-coder:6.7b",
+            sizeGB: 4.0,
+            parameters: "6.7B",
+            quality: 8,  // Excellent small coder
+            speed: 8
         ),
         .balanced: ModelVariant(
             name: "Qwen2.5-Coder 14B",
@@ -171,20 +172,20 @@ final class ModelTierManager {
     
     static let researcherVariants: [ModelTier: ModelVariant] = [
         .minimal: ModelVariant(
-            name: "Phi-3 3.8B",
-            ollamaTag: "phi3:3.8b",
+            name: "Phi-3 Mini",
+            ollamaTag: "phi3:mini",
             sizeGB: 2.0,
             parameters: "3.8B",
-            quality: 3,  // Very limited
-            speed: 10
+            quality: 5,  // Good reasoning for size (Microsoft's efficient model)
+            speed: 9
         ),
         .compact: ModelVariant(
-            name: "Command-R 7B",
-            ollamaTag: "command-r:7b",
-            sizeGB: 4.5,
+            name: "Mistral 7B",
+            ollamaTag: "mistral:7b",
+            sizeGB: 4.0,
             parameters: "7B",
-            quality: 6,
-            speed: 9
+            quality: 7,  // Strong reasoning
+            speed: 8
         ),
         .balanced: ModelVariant(
             name: "Command-R 14B",
@@ -214,20 +215,20 @@ final class ModelTierManager {
     
     static let visionVariants: [ModelTier: ModelVariant] = [
         .minimal: ModelVariant(
-            name: "LLaVA 7B",
-            ollamaTag: "llava:7b",
-            sizeGB: 4.0,
-            parameters: "7B",
-            quality: 4,  // Limited vision
-            speed: 8
+            name: "Moondream 1.8B",
+            ollamaTag: "moondream:1.8b",
+            sizeGB: 1.0,
+            parameters: "1.8B",
+            quality: 5,  // Best tiny vision model
+            speed: 10
         ),
         .compact: ModelVariant(
-            name: "Qwen2-VL 7B",
-            ollamaTag: "qwen2-vl:7b",
-            sizeGB: 4.5,
+            name: "LLaVA 7B",
+            ollamaTag: "llava:7b",
+            sizeGB: 5.0,
             parameters: "7B",
             quality: 6,
-            speed: 9
+            speed: 8
         ),
         .balanced: ModelVariant(
             name: "Qwen2-VL 14B",
