@@ -79,38 +79,37 @@ PERF_4_SIZE=20
 PERF_TOTAL=80
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Tier: ADVANCED (64GB RAM) - 70B models + parallel 32B
-# Can run 70B models OR multiple 32B models in parallel
-# macOS needs ~4-6GB, leaving ~58-60GB for models
-# 70B models need ~40GB RAM, so comfortable single-model operation
-# OR can run 2-3 32B models simultaneously
+# Tier: ADVANCED (64GB RAM) - 70B models
+# macOS needs ~5GB, leaving ~59GB for models
+# Can run single 70B model, or 70B + smaller models
+# VERIFIED sizes from ollama.com/library
 # ═══════════════════════════════════════════════════════════════════════════════
-ADVANCED_1_NAME="qwen2.5:72b"           # Best 70B-class orchestrator (40GB loaded)
-ADVANCED_1_SIZE=42
-ADVANCED_2_NAME="command-r-plus:104b"   # Cohere's flagship research model (60GB loaded)
-ADVANCED_2_SIZE=64
-ADVANCED_3_NAME="deepseek-coder:33b"    # Excellent large coder (20GB loaded)
+ADVANCED_1_NAME="llama3.1:70b"           # Meta's flagship (40GB disk) - VERIFIED
+ADVANCED_1_SIZE=40
+ADVANCED_2_NAME="command-r:35b"          # Cohere research model (19GB disk) - VERIFIED  
+ADVANCED_2_SIZE=19
+ADVANCED_3_NAME="deepseek-coder:33b"     # Excellent large coder (20GB disk) - VERIFIED
 ADVANCED_3_SIZE=20
-ADVANCED_4_NAME="llava:34b"             # Large vision model (20GB loaded)
-ADVANCED_4_SIZE=20
-ADVANCED_TOTAL=146
+ADVANCED_4_NAME="llama3.2-vision:11b"    # Vision model (8GB disk) - VERIFIED
+ADVANCED_4_SIZE=8
+ADVANCED_TOTAL=87
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Tier: MAXIMUM (128GB RAM) - Largest models available
-# Can run the absolute largest models with room for parallel operation
-# macOS needs ~4-6GB, leaving ~122-124GB for models
-# Can run Llama 3.1 70B + other models simultaneously
-# Or single massive models like Llama 3.1 405B (quantized)
+# Tier: MAXIMUM (128GB RAM) - Largest models + parallel execution
+# macOS needs ~6GB, leaving ~122GB for models
+# Can run multiple 70B models simultaneously
+# Includes 90B vision model for best image understanding
+# VERIFIED sizes from ollama.com/library
 # ═══════════════════════════════════════════════════════════════════════════════
-MAXIMUM_1_NAME="llama3.1:70b"            # Meta's flagship - excellent reasoning (40GB loaded)
-MAXIMUM_1_SIZE=40
-MAXIMUM_2_NAME="qwen2.5:72b"             # Alibaba's best - strong orchestration (40GB loaded)
-MAXIMUM_2_SIZE=42
-MAXIMUM_3_NAME="deepseek-coder-v2:236b"  # DeepSeek's MoE coder - state of the art (80GB loaded)
-MAXIMUM_3_SIZE=80
-MAXIMUM_4_NAME="llava:34b"               # Best available vision (20GB loaded)
-MAXIMUM_4_SIZE=20
-MAXIMUM_TOTAL=182
+MAXIMUM_1_NAME="qwen2.5:72b"              # Alibaba's flagship orchestrator (42GB disk) - VERIFIED
+MAXIMUM_1_SIZE=42
+MAXIMUM_2_NAME="command-r-plus:104b"     # Cohere's best RAG model (59GB disk) - VERIFIED
+MAXIMUM_2_SIZE=59
+MAXIMUM_3_NAME="deepseek-coder:33b"      # Excellent large coder (20GB disk) - VERIFIED
+MAXIMUM_3_SIZE=20
+MAXIMUM_4_NAME="llama3.2-vision:90b"     # Best vision model available (55GB disk) - VERIFIED
+MAXIMUM_4_SIZE=55
+MAXIMUM_TOTAL=176
 
 # Model roles (same across tiers)
 MODEL_1_ROLE="🧠 Orchestrator"

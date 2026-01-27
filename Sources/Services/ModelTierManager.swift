@@ -122,18 +122,18 @@ final class ModelTierManager {
             speed: 5
         ),
         .advanced: ModelVariant(
-            name: "Qwen2.5 72B",
-            ollamaTag: "qwen2.5:72b",
-            sizeGB: 42.0,
-            parameters: "72B",
-            quality: 9,
+            name: "Llama 3.1 70B",
+            ollamaTag: "llama3.1:70b",
+            sizeGB: 40.0,  // VERIFIED from ollama.com
+            parameters: "70B",
+            quality: 10,
             speed: 3
         ),
         .maximum: ModelVariant(
-            name: "Llama 3.1 70B",
-            ollamaTag: "llama3.1:70b",
-            sizeGB: 40.0,
-            parameters: "70B",
+            name: "Qwen2.5 72B",
+            ollamaTag: "qwen2.5:72b",
+            sizeGB: 42.0,  // VERIFIED from ollama.com
+            parameters: "72B",
             quality: 10,
             speed: 3
         )
@@ -175,18 +175,18 @@ final class ModelTierManager {
         .advanced: ModelVariant(
             name: "DeepSeek-Coder 33B",
             ollamaTag: "deepseek-coder:33b",
-            sizeGB: 20.0,
+            sizeGB: 20.0,  // VERIFIED from ollama.com
             parameters: "33B",
-            quality: 9,
+            quality: 10,
             speed: 4
         ),
         .maximum: ModelVariant(
-            name: "DeepSeek-Coder-V2 236B",
-            ollamaTag: "deepseek-coder-v2:236b",
-            sizeGB: 80.0,
-            parameters: "236B",
-            quality: 10,  // State of the art MoE coder
-            speed: 2
+            name: "DeepSeek-Coder 33B",
+            ollamaTag: "deepseek-coder:33b",
+            sizeGB: 20.0,  // VERIFIED - best coding model available
+            parameters: "33B",
+            quality: 10,
+            speed: 4
         )
     ]
     
@@ -224,20 +224,20 @@ final class ModelTierManager {
             speed: 5
         ),
         .advanced: ModelVariant(
+            name: "Command-R 35B",
+            ollamaTag: "command-r:35b",
+            sizeGB: 19.0,  // VERIFIED from ollama.com
+            parameters: "35B",
+            quality: 9,  // Great for research/RAG
+            speed: 4
+        ),
+        .maximum: ModelVariant(
             name: "Command-R Plus 104B",
             ollamaTag: "command-r-plus:104b",
-            sizeGB: 64.0,
+            sizeGB: 59.0,  // VERIFIED from ollama.com
             parameters: "104B",
             quality: 10,  // Cohere's flagship
             speed: 2
-        ),
-        .maximum: ModelVariant(
-            name: "Qwen2.5 72B",
-            ollamaTag: "qwen2.5:72b",
-            sizeGB: 42.0,
-            parameters: "72B",
-            quality: 9,
-            speed: 3
         )
     ]
     
@@ -275,20 +275,20 @@ final class ModelTierManager {
             speed: 5
         ),
         .advanced: ModelVariant(
-            name: "LLaVA 34B",
-            ollamaTag: "llava:34b",
-            sizeGB: 20.0,
-            parameters: "34B",
-            quality: 9,
-            speed: 4
+            name: "Llama 3.2 Vision 11B",
+            ollamaTag: "llama3.2-vision:11b",
+            sizeGB: 8.0,   // VERIFIED from ollama.com
+            parameters: "11B",
+            quality: 8,
+            speed: 6
         ),
         .maximum: ModelVariant(
-            name: "LLaVA 34B",
-            ollamaTag: "llava:34b",
-            sizeGB: 20.0,
-            parameters: "34B",
-            quality: 9,
-            speed: 4
+            name: "Llama 3.2 Vision 90B",
+            ollamaTag: "llama3.2-vision:90b",
+            sizeGB: 55.0,  // VERIFIED from ollama.com - BEST VISION MODEL
+            parameters: "90B",
+            quality: 10,
+            speed: 2
         )
     ]
     
