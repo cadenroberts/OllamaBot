@@ -299,6 +299,7 @@ class AppState {
     let cycleAgentManager: CycleAgentManager    // Multi-agent orchestration (Cycle Mode)
     let obotService: OBotService                // Rules, bots, context, templates
     let mentionService: MentionService          // @mention support for chat
+    let checkpointService: CheckpointService    // Save/restore code states
     let fileIndexer = FileIndexer()
     let asyncFileIO = AsyncFileIO()
     let config = ConfigurationManager.shared
@@ -362,6 +363,12 @@ class AppState {
         self.gitService = GitService()
         self.webSearchService = WebSearchService()
         
+        // Checkpoint Service: Save/restore code states (like Windsurf)
+        self.checkpointService = CheckpointService(
+            fileSystemService: fileSystemService,
+            gitService: gitService
+        )
+        
         // Monitor memory pressure and clear caches when needed
         self.memoryMonitor = MemoryPressureMonitor()
         self.memoryMonitor?.onHighPressure = { [weak self] in
@@ -409,6 +416,9 @@ class AppState {
             Task {
                 await obotService.loadProject(url)
             }
+            
+            // Load checkpoints for project
+            checkpointService.setProject(url)
         }
     }
     

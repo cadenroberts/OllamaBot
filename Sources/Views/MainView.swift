@@ -122,6 +122,8 @@ struct MainView: View {
                     GitSidebarView()
                 case .obot:
                     OBotPanelView()
+                case .checkpoints:
+                    CheckpointListView()
                 case .outline:
                     OutlineView()
                 case .extensions:
