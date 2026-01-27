@@ -194,6 +194,25 @@ class OllamaService {
     
     // MARK: - Chat with Streaming (Optimized)
     
+    /// Optional model tag override for tier-aware model selection
+    var modelTagOverrides: [OllamaModel: String] = [:]
+    
+    /// Get the actual Ollama model tag to use
+    func getModelTag(for model: OllamaModel) -> String {
+        modelTagOverrides[model] ?? model.defaultTag
+    }
+    
+    /// Configure model tags from tier configuration
+    func configureTier(_ tierManager: ModelTierManager) {
+        modelTagOverrides = [
+            .qwen3: tierManager.orchestrator.ollamaTag,
+            .commandR: tierManager.researcher.ollamaTag,
+            .coder: tierManager.coder.ollamaTag,
+            .vision: tierManager.vision.ollamaTag
+        ]
+        print("🔧 OllamaService configured for \(tierManager.selectedTier.rawValue) tier")
+    }
+    
     func chat(
         model: OllamaModel,
         messages: [(String, String)],
@@ -266,8 +285,10 @@ class OllamaService {
         // Per-model and per-task optimized options
         let contextWindow = Self.modelContextWindows[model] ?? 8192
         
+        let modelTag = getModelTag(for: model)
+        
         let requestBody: [String: Any] = [
-            "model": model.rawValue,
+            "model": modelTag,
             "messages": chatMessages,
             "stream": true,
             "options": [
@@ -349,9 +370,10 @@ class OllamaService {
         
         // Tool calling requires precise, low-temperature responses
         let contextWindow = Self.modelContextWindows[model] ?? 8192
+        let modelTag = getModelTag(for: model)
         
         let requestBody: [String: Any] = [
-            "model": model.rawValue,
+            "model": modelTag,
             "messages": messages,
             "tools": tools,
             "stream": false,
@@ -394,7 +416,8 @@ class OllamaService {
     // MARK: - Generate (Non-streaming, Cached)
     
     func generate(prompt: String, model: OllamaModel, useCache: Bool = true, taskType: TaskType? = nil) async throws -> String {
-        let cacheKey = "\(model.rawValue):\(prompt.hashValue)"
+        let modelTag = getModelTag(for: model)
+        let cacheKey = "\(modelTag):\(prompt.hashValue)"
         
         // Check cache
         if useCache, let cached = responseCache.get(cacheKey), cached.isValid {
@@ -409,7 +432,7 @@ class OllamaService {
         let contextWindow = Self.modelContextWindows[model] ?? 8192
         
         let requestBody: [String: Any] = [
-            "model": model.rawValue,
+            "model": modelTag,
             "prompt": prompt,
             "stream": false,
             "options": [

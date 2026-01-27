@@ -1,20 +1,63 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Model Role (constant, represents the capability)
 enum OllamaModel: String, CaseIterable, Identifiable {
-    case qwen3 = "qwen3:32b"
-    case commandR = "command-r:35b"
-    case coder = "qwen2.5-coder:32b"
-    case vision = "qwen3-vl:32b"
+    case qwen3       // Orchestrator role
+    case commandR    // Researcher role
+    case coder       // Coder role
+    case vision      // Vision role
     
     var id: String { rawValue }
     
+    // MARK: - Dynamic Model Tag
+    // The actual Ollama model tag is determined by the selected tier
+    
+    /// Default model tags (32B tier) - used when no tier config exists
+    var defaultTag: String {
+        switch self {
+        case .qwen3: return "qwen3:32b"
+        case .commandR: return "command-r:35b"
+        case .coder: return "qwen2.5-coder:32b"
+        case .vision: return "qwen3-vl:32b"
+        }
+    }
+    
+    /// Get the actual model tag for the current tier
+    func tag(for tier: ModelTierManager?) -> String {
+        guard let tierManager = tier else { return defaultTag }
+        
+        switch self {
+        case .qwen3: return tierManager.orchestrator.ollamaTag
+        case .commandR: return tierManager.researcher.ollamaTag
+        case .coder: return tierManager.coder.ollamaTag
+        case .vision: return tierManager.vision.ollamaTag
+        }
+    }
+    
+    /// For backwards compatibility - uses default tags
+    var rawValue: String { defaultTag }
+    
+    // MARK: - Display Properties
+    
     var displayName: String {
         switch self {
-        case .qwen3: return "Qwen3 32B"
-        case .commandR: return "Command-R 35B"
-        case .coder: return "Qwen2.5-Coder 32B"
-        case .vision: return "Qwen3-VL 32B"
+        case .qwen3: return "Orchestrator"
+        case .commandR: return "Researcher"
+        case .coder: return "Coder"
+        case .vision: return "Vision"
+        }
+    }
+    
+    /// Display name with tier info
+    func displayName(for tier: ModelTierManager?) -> String {
+        guard let tierManager = tier else { return displayName }
+        
+        switch self {
+        case .qwen3: return tierManager.orchestrator.name
+        case .commandR: return tierManager.researcher.name
+        case .coder: return tierManager.coder.name
+        case .vision: return tierManager.vision.name
         }
     }
     

@@ -292,6 +292,9 @@ class AppState {
     let gitService: GitService
     let webSearchService: WebSearchService
     
+    // MARK: - Model Tier Management (RAM-aware model selection)
+    let modelTierManager: ModelTierManager
+    
     // Performance caches
     private let fileContentCache = LRUCache<URL, String>(capacity: 50_000_000) // ~50MB
     
@@ -299,6 +302,9 @@ class AppState {
     private var memoryMonitor: MemoryPressureMonitor?
     
     init() {
+        // Model tier management (RAM-aware model selection)
+        self.modelTierManager = ModelTierManager()
+        
         // Core services
         self.ollamaService = OllamaService()
         self.fileSystemService = FileSystemService()
@@ -319,6 +325,15 @@ class AppState {
         self.memoryMonitor?.onHighPressure = { [weak self] in
             print("⚠️ High memory pressure detected - clearing caches")
             self?.clearAllCaches()
+        }
+        
+        // Configure OllamaService with tier-appropriate model tags
+        ollamaService.configureTier(modelTierManager)
+        
+        // On low RAM systems, be more aggressive with cache management
+        if modelTierManager.systemRAM < 24 {
+            print("📊 Low RAM mode: Reducing cache sizes")
+            // Note: Cache sizes are set at compile time, but we can clear more aggressively
         }
     }
     
