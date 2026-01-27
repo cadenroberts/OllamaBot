@@ -68,23 +68,28 @@ OllamaBot coordinates four specialized 32B parameter models, each excelling at d
                 [Loop continues until complete]
 ```
 
-**13 Built-in Agent Tools:**
+**18 Built-in Agent Tools:**
 
-| Tool | Description |
-|------|-------------|
-| `think` | Plan and reason about the task |
-| `read_file` | Read file contents |
-| `write_file` | Create or overwrite files |
-| `edit_file` | Search and replace in files |
-| `search_files` | Search text across the codebase |
-| `list_directory` | Explore directory structure |
-| `run_command` | Execute shell commands |
-| `ask_user` | Request user input |
-| `delegate_to_coder` | Send coding tasks to Qwen-Coder |
-| `delegate_to_researcher` | Send research tasks to Command-R |
-| `delegate_to_vision` | Send image analysis to Qwen-VL |
-| `take_screenshot` | Capture screen for vision analysis |
-| `complete` | Signal task completion |
+| Category | Tool | Description |
+|----------|------|-------------|
+| **Core** | `think` | Plan and reason about the task |
+| | `complete` | Signal task completion |
+| | `ask_user` | Request user input |
+| **Files** | `read_file` | Read file contents |
+| | `write_file` | Create or overwrite files |
+| | `edit_file` | Search and replace in files |
+| | `search_files` | Search text across the codebase |
+| | `list_directory` | Explore directory structure |
+| **System** | `run_command` | Execute shell commands |
+| | `take_screenshot` | Capture screen for vision analysis |
+| **AI Delegation** | `delegate_to_coder` | Send coding tasks to Qwen-Coder |
+| | `delegate_to_researcher` | Send research tasks to Command-R |
+| | `delegate_to_vision` | Send image analysis to Qwen-VL |
+| **Web** | `web_search` | Search the web via DuckDuckGo |
+| | `fetch_url` | Fetch and extract web page content |
+| **Git** | `git_status` | Get repository status |
+| | `git_diff` | View file or repo diffs |
+| | `git_commit` | Stage and commit changes |
 
 ### 💬 Chat Mode
 
@@ -93,6 +98,26 @@ OllamaBot coordinates four specialized 32B parameter models, each excelling at d
 - Manual model override with keyboard shortcuts
 - Context-aware — includes open files and selections
 - `@filename` mentions for additional context
+- **Persistent chat history** — conversations saved across sessions
+
+### 📊 Competitive Benchmark
+
+| Feature | Cursor | Windsurf | VS Code | **OllamaBot** |
+|---------|:------:|:--------:|:-------:|:-------------:|
+| Inline Tab Completions | ✅ | ✅ | ✅ (Copilot) | ✅ |
+| Chat with AI | ✅ | ✅ | ✅ | ✅ |
+| Agentic Mode | ✅ | ✅ (Cascade) | ❌ | ✅ (Infinite) |
+| **Multi-Model Orchestration** | ❌ | ❌ | ❌ | **✅** |
+| @ Mentions | ✅ | ✅ | ✅ | ✅ |
+| Diff View | ✅ | ✅ | ✅ | ✅ |
+| Git Integration | ✅ | ✅ | ✅ | ✅ |
+| Web Search | ✅ | ✅ | ❌ | ✅ |
+| Chat History | ✅ | ✅ | ✅ | ✅ |
+| Symbol Outline | ✅ | ✅ | ✅ | ✅ |
+| Problems Panel | ✅ | ✅ | ✅ | ✅ |
+| **100% Local/Private** | ❌ | ❌ | ❌ | **✅** |
+| **No API Costs** | ❌ | ❌ | ❌ | **✅** |
+| Native macOS | ❌ | ❌ | ❌ | **✅** |
 
 ### 🖥️ Full IDE
 
@@ -239,9 +264,9 @@ OllamaBot/
 │   ├── OllamaBotApp.swift           # App entry, state management
 │   ├── Agent/
 │   │   ├── AgentExecutor.swift      # Infinite Mode engine
-│   │   └── AgentTools.swift         # 13 tool definitions
+│   │   └── AgentTools.swift         # 18 tool definitions
 │   ├── Models/
-│   │   ├── ChatMessage.swift        # Chat data model
+│   │   ├── ChatMessage.swift        # Chat data model (Codable)
 │   │   ├── FileItem.swift           # File tree model
 │   │   └── OllamaModel.swift        # Model enum + metadata
 │   ├── Services/
@@ -250,7 +275,11 @@ OllamaBot/
 │   │   ├── ContextBuilder.swift     # Prompt construction
 │   │   ├── FileIndexer.swift        # Background search index
 │   │   ├── FileSystemService.swift  # File operations
-│   │   └── ConfigurationService.swift
+│   │   ├── ConfigurationService.swift
+│   │   ├── InlineCompletionService.swift  # Tab completions
+│   │   ├── GitService.swift         # Git integration
+│   │   ├── WebSearchService.swift   # DuckDuckGo search
+│   │   └── ChatHistoryService.swift # Persistent chat history
 │   ├── Utilities/
 │   │   ├── DesignSystem.swift       # UI components & tokens
 │   │   ├── PerformanceCore.swift    # Caches, async I/O
@@ -262,6 +291,8 @@ OllamaBot/
 │       ├── ChatView.swift           # Chat panel
 │       ├── EditorView.swift         # Code editor
 │       ├── TerminalView.swift       # Terminal emulator
+│       ├── OutlineView.swift        # Symbol navigation
+│       ├── ProblemsPanel.swift      # Errors/warnings
 │       └── ...
 │
 ├── Resources/
