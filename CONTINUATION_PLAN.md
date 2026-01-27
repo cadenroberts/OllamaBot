@@ -1,5 +1,9 @@
 # OllamaBot Continuation Plan
 
+## STATUS: Phase 1 & 2 COMPLETE ✅
+
+---
+
 ## Completed in This Session
 
 ### 1. OBot System (`.obotrules` + `.obot/` directory)
@@ -70,67 +74,85 @@
 
 ---
 
-## Next Steps (Priority Order)
+## Phase 1: Integration ✅ COMPLETE
 
-### Phase 1: Integration (High Priority)
+### 1.1 @Mentions in ChatView ✅
+- Autocomplete popup with 14+ mention types
+- Keyboard navigation (↑↓ Tab Enter Esc)
+- Mention chips display
+- Parallel resolution on send
+- Context injection into AI
 
-#### 1.1 Integrate @Mentions into ChatView
-- Add mention autocomplete popup to chat input
-- Show resolved mentions as chips
-- Include mention content in AI context
+### 1.2 Context Indicator ✅
+- Token usage badge in chat
+- Breakdown popover (system, rules, history, mentions, input)
+- Color-coded warning (green/yellow/red)
 
-#### 1.2 Integrate Context Indicator into ChatView
-- Add context bar above chat input
-- Show real-time token usage
-- Warn when approaching limit
+### 1.3 Composer AI Integration ✅
+- Connected to OllamaService
+- Project context building
+- Response parsing into file changes
+- Diff generation
+- Auto-checkpoint before apply
 
-#### 1.3 Connect Composer to AI
-- Integrate with OllamaService for actual AI generation
-- Use ContextManager for proper context building
-- Create auto-checkpoint before applying changes
+### 1.4 Image Support ✅
+- Already existed in ChatView
+- Drag/drop and file picker
+- Vision model routing
 
-#### 1.4 Image Support in Chat
-- Allow image drop/paste in chat
-- Detect and route to vision model
-- Preview images inline
+---
 
-### Phase 2: Enhancement (Medium Priority)
+## Phase 2: Enhancement ✅ COMPLETE
 
-#### 2.1 Bot Editor Improvements
+### 2.1 OBot Settings UI ✅
+- Full settings tab added
+- Shows loaded rules, bots, snippets, templates
+- Checkpoint management
+- Initialize/reload actions
+
+### 2.2 Timeline Integration ✅
+- Two-tab layout (Checkpoints | Git)
+- CheckpointListView in timeline
+- Git commit history display
+
+### 2.3 Command Palette ✅
+- Composer: ⌘⇧K
+- Create/View Checkpoints
+- All loaded bots as commands
+- Context snippet commands
+
+---
+
+## Phase 3: Future Enhancements (Lower Priority)
+
+### 3.1 MCP (Model Context Protocol)
+- Like Cursor's MCP support
+- External tool integration
+- Standardized interfaces
+
+### 3.2 Extension/Plugin System
+- Bot marketplace
+- Theme plugins
+- Language server plugins
+
+### 3.3 Voice Input
+- Speech-to-text for chat
+- Voice commands
+
+### 3.4 Collaboration Features
+- Share bots
+- Import/export configurations
+
+### 3.5 Bot Editor Improvements
 - Visual step editor (drag/drop)
 - Step type templates
 - Variable picker
 - Test run mode
 
-#### 2.2 Better Search
+### 3.6 Better Search
 - Semantic search across codebase
 - Symbol search integration
 - Recent files weighting
-
-#### 2.3 Terminal Integration
-- @terminal mention working
-- Command output capture
-- Error detection
-
-### Phase 3: Advanced Features (Lower Priority)
-
-#### 3.1 MCP (Model Context Protocol)
-- Like Cursor's MCP support
-- External tool integration
-- Standardized interfaces
-
-#### 3.2 Extension/Plugin System
-- Bot marketplace
-- Theme plugins
-- Language server plugins
-
-#### 3.3 Voice Input
-- Speech-to-text for chat
-- Voice commands
-
-#### 3.4 Collaboration Features
-- Share bots
-- Import/export configurations
 
 ---
 
