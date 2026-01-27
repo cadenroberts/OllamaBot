@@ -148,20 +148,40 @@ OllamaBot coordinates four specialized 32B parameter models, each excelling at d
 
 ## 📦 Installation
 
+### 🚀 One-Line Setup (Recommended)
+
+```bash
+git clone https://github.com/cadenroberts/OllamaBot.git && cd OllamaBot && ./scripts/setup.sh
+```
+
+The setup script will:
+- ✅ Check system requirements (RAM, disk, macOS version)
+- ✅ Test network speed and optimize download parallelism  
+- ✅ Calculate disk space for your model selection
+- ✅ Install Ollama if needed
+- ✅ Download models in parallel (up to 4x faster)
+- ✅ Build the native macOS app
+- ✅ Install to /Applications
+
 ### Prerequisites
 
 - **macOS 14.0** (Sonoma) or later
 - **Apple Silicon** Mac (M1/M2/M3)
-- **32GB RAM** minimum (for 32B models)
-- **Ollama** installed
+- **32GB RAM** recommended (16GB minimum)
+- **20-80GB disk space** (depending on model selection)
 
-### Step 1: Install Ollama
+### Manual Installation
+
+<details>
+<summary>Click to expand manual steps</summary>
+
+#### Step 1: Install Ollama
 
 ```bash
 curl -fsSL https://ollama.ai/install.sh | sh
 ```
 
-### Step 2: Pull the Models
+#### Step 2: Pull the Models
 
 ```bash
 # Orchestrator (required)
@@ -177,11 +197,11 @@ ollama pull qwen2.5-coder:32b
 ollama pull qwen3-vl:32b
 ```
 
-### Step 3: Clone & Build
+#### Step 3: Clone & Build
 
 ```bash
-git clone https://github.com/cadenroberts/ollamabot.git
-cd ollamabot
+git clone https://github.com/cadenroberts/OllamaBot.git
+cd OllamaBot
 
 # Generate app icon (requires ImageMagick: brew install imagemagick)
 ./scripts/generate-icon.sh
@@ -190,7 +210,7 @@ cd ollamabot
 ./scripts/build-app.sh --release
 ```
 
-### Step 4: Install & Run
+#### Step 4: Install & Run
 
 ```bash
 # Install to Applications
@@ -200,14 +220,23 @@ cp -r build/OllamaBot.app /Applications/
 open build/OllamaBot.app
 ```
 
-Or for development:
+</details>
+
+### Setup Script Options
+
 ```bash
-swift run OllamaBot
+./scripts/setup.sh              # Full interactive setup
+./scripts/setup.sh --diagnose   # System diagnostics only
+./scripts/setup.sh --space      # Disk space analysis only
+./scripts/setup.sh --models     # Download models only
+./scripts/setup.sh --build      # Build app only
 ```
 
-Or open in Xcode:
+### Development Mode
+
 ```bash
-open Package.swift
+swift run OllamaBot   # Run from source
+open Package.swift    # Open in Xcode
 ```
 
 ---
