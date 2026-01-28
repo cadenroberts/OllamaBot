@@ -181,7 +181,7 @@ struct OllamaBotApp: App {
                 // Model selection (uses ModelTierManager tier-appropriate models)
                 ForEach(OllamaModel.allCases) { model in
                     Button("\(model.displayName) (\(appState.modelTierManager.getVariant(for: model).parameters))") {
-                        appState.selectedModel = model
+                        appState.selectAndPreloadModel(model)
                     }
                     .keyboardShortcut(model.shortcut, modifiers: [.command, .shift])
                 }
@@ -189,7 +189,7 @@ struct OllamaBotApp: App {
                 Divider()
                 
                 Button("Auto-Route") {
-                    appState.selectedModel = nil
+                    appState.selectAndPreloadModel(nil)
                 }
                 .keyboardShortcut("0", modifiers: [.command, .shift])
                 
@@ -247,6 +247,18 @@ class AppState {
     var chatMessages: [ChatMessage] = []
     var isGenerating: Bool = false
     var mentionedFiles: [FileItem] = [] // For @file mentions
+    
+    /// Select and preload a model for faster response times
+    func selectAndPreloadModel(_ model: OllamaModel?) {
+        selectedModel = model
+        if let model = model {
+            // Preload the model in background
+            Task {
+                let keepAlive = modelTierManager.getMemorySettings().keepAlive
+                await ollamaService.preloadModel(model, keepAlive: keepAlive)
+            }
+        }
+    }
     
     // MARK: - UI State - Panels (delegated to PanelState for persistence)
     var showInfiniteMode: Bool = false

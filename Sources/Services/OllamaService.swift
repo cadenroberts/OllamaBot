@@ -120,16 +120,18 @@ class OllamaService {
     }
     
     @MainActor
-    private func warmupModel(_ model: OllamaModel) async {
+    private func warmupModel(_ model: OllamaModel, keepAlive: String = "30m") async {
         guard !warmedUpModels.contains(model.rawValue) else { return }
         
-        // Send a minimal request to load model into memory
+        // Send a minimal request to load model into memory with keep_alive
         guard let url = URL(string: "\(baseURL)/api/generate") else { return }
         
+        let modelTag = getModelTag(for: model)
         let requestBody: [String: Any] = [
-            "model": model.rawValue,
+            "model": modelTag,
             "prompt": "Hello",
             "stream": false,
+            "keep_alive": keepAlive,  // Keep model loaded in memory
             "options": ["num_predict": 1] // Generate only 1 token
         ]
         
@@ -137,15 +139,34 @@ class OllamaService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
-        request.timeoutInterval = 60
+        request.timeoutInterval = 120  // Give model time to load
         
         do {
             let _ = try await session.data(for: request)
             warmedUpModels.insert(model.rawValue)
-            print("✓ \(model.displayName) warmed up")
+            print("✓ \(model.displayName) warmed up (keep_alive: \(keepAlive))")
         } catch {
             print("⚠ Failed to warm up \(model.displayName): \(error.localizedDescription)")
         }
+    }
+    
+    /// Warm up a specific model - call this when switching models
+    @MainActor
+    func preloadModel(_ model: OllamaModel, keepAlive: String = "30m") async {
+        print("🔥 Preloading \(model.displayName)...")
+        await warmupModel(model, keepAlive: keepAlive)
+    }
+    
+    /// Warm up all configured models
+    @MainActor
+    func warmupAllModels(keepAlive: String = "30m") async {
+        guard isConnected else { return }
+        
+        print("🔥 Warming up all models...")
+        for model in OllamaModel.allCases {
+            await warmupModel(model, keepAlive: keepAlive)
+        }
+        print("✓ All models warmed up")
     }
     
     deinit {
@@ -291,6 +312,7 @@ class OllamaService {
             "model": modelTag,
             "messages": chatMessages,
             "stream": true,
+            "keep_alive": "30m",  // Keep model loaded for fast subsequent requests
             "options": [
                 "num_ctx": contextWindow,
                 "num_predict": taskType.maxTokens,
@@ -377,6 +399,7 @@ class OllamaService {
             "messages": messages,
             "tools": tools,
             "stream": false,
+            "keep_alive": "30m",  // Keep model loaded
             "options": [
                 "num_ctx": contextWindow,
                 "num_predict": TaskType.orchestration.maxTokens,
@@ -415,7 +438,7 @@ class OllamaService {
     
     // MARK: - Generate (Non-streaming, Cached)
     
-    func generate(prompt: String, model: OllamaModel, useCache: Bool = true, taskType: TaskType? = nil) async throws -> String {
+    func generate(prompt: String, model: OllamaModel, useCache: Bool = true, taskType: TaskType? = nil, keepAlive: String = "30m") async throws -> String {
         let modelTag = getModelTag(for: model)
         let cacheKey = "\(modelTag):\(prompt.hashValue)"
         
@@ -435,6 +458,7 @@ class OllamaService {
             "model": modelTag,
             "prompt": prompt,
             "stream": false,
+            "keep_alive": keepAlive,  // Keep model loaded
             "options": [
                 "num_ctx": contextWindow,
                 "num_predict": task.maxTokens,

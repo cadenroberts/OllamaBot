@@ -7,7 +7,7 @@ struct ModelSelectorView: View {
     var body: some View {
         Menu {
             // Auto option
-            Button(action: { appState.selectedModel = nil }) {
+            Button(action: { appState.selectAndPreloadModel(nil) }) {
                 HStack {
                     Image(systemName: "sparkles")
                     Text("Auto (Smart Routing)")
@@ -19,9 +19,9 @@ struct ModelSelectorView: View {
             
             Divider()
             
-            // Model options
+            // Model options - preload on selection for faster response
             ForEach(OllamaModel.allCases) { model in
-                Button(action: { appState.selectedModel = model }) {
+                Button(action: { appState.selectAndPreloadModel(model) }) {
                     HStack {
                         Image(systemName: model.icon)
                         VStack(alignment: .leading) {

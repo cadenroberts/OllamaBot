@@ -63,6 +63,8 @@ struct OBotPanelView: View {
                 Text("Rules, Bots & Templates")
                     .font(DS.Typography.caption)
                     .foregroundStyle(DS.Colors.secondaryText)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             
             Spacer()
