@@ -47,14 +47,17 @@ struct MainView: View {
     private var mainContentArea: some View {
         HStack(spacing: 0) {
             // Activity Bar (left edge) - if sidebar is on left
+            // Highest priority - stays visible longest
             if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
                 ActivityBarView(panels: panels)
                     .environment(appState)
+                    .layoutPriority(3)
             }
             
-            // Primary Sidebar (left)
+            // Primary Sidebar (left) - High priority, persists
             if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
                 primarySidebar
+                    .layoutPriority(2)
                 PanelResizer(
                     axis: .vertical,
                     size: $panels.primarySidebarWidth,
@@ -65,11 +68,11 @@ struct MainView: View {
                 }
             }
             
-            // Editor + Bottom Panel Area
+            // Editor + Bottom Panel Area - Medium priority, compresses first
             editorArea
-                .layoutPriority(1)  // Give editor priority during window resize
+                .layoutPriority(1)
             
-            // Primary Sidebar (right position)
+            // Primary Sidebar (right position) - Low priority
             if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
                 PanelResizer(
                     axis: .vertical,
@@ -81,9 +84,10 @@ struct MainView: View {
                     panels.saveState()
                 }
                 primarySidebar
+                    .layoutPriority(0)
             }
             
-            // Secondary Sidebar (always right, for chat)
+            // Secondary Sidebar (always right, for chat) - Lowest priority, clips first
             if panels.showSecondarySidebar && !panels.zenMode {
                 PanelResizer(
                     axis: .vertical,
@@ -95,14 +99,17 @@ struct MainView: View {
                     panels.saveState()
                 }
                 secondarySidebar
+                    .layoutPriority(-1)
             }
             
             // Activity Bar (right edge) - if sidebar is on right
             if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
                 ActivityBarView(panels: panels)
                     .environment(appState)
+                    .layoutPriority(-1)
             }
         }
+        .clipped()  // Clip content that overflows during resize
     }
     
     // MARK: - Primary Sidebar
@@ -270,7 +277,7 @@ struct MainView: View {
                 }
             }
         }
-        .frame(minWidth: 400)
+        .frame(minWidth: 200)  // Allow editor to compress more before sidebars clip
     }
     
     @ViewBuilder

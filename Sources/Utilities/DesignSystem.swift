@@ -350,7 +350,7 @@ struct DSButton: View {
     
     private var foreground: Color {
         switch style {
-        case .primary, .destructive, .accent: return DS.Colors.background
+        case .primary, .destructive, .accent: return .white
         case .secondary: return DS.Colors.text
         case .ghost: return DS.Colors.accent
         }
