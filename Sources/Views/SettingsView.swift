@@ -248,7 +248,7 @@ struct AISettingsView: View {
                             
                             Text(model.id)
                                 .font(.caption)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(DS.Colors.tertiaryText)
                         }
                     }
                 }

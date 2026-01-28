@@ -87,7 +87,8 @@ struct MainView: View {
                     axis: .vertical,
                     size: $panels.secondarySidebarWidth,
                     minSize: PanelState.minSidebarWidth,
-                    maxSize: PanelState.maxSidebarWidth
+                    maxSize: PanelState.maxSidebarWidth,
+                    isRightSide: true
                 ) {
                     panels.saveState()
                 }
