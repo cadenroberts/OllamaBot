@@ -262,48 +262,54 @@ struct WelcomeView: View {
                     .foregroundStyle(DS.Colors.secondaryText)
             }
             
-            // Quick Actions
-            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                Text("Quick Start")
-                    .font(DS.Typography.caption.weight(.semibold))
-                    .foregroundStyle(DS.Colors.secondaryText)
-                
-                quickAction(icon: "folder", title: "Open Folder", shortcut: "⌘O") {
-                    appState.openFolder()
+            // Quick Actions & Models - same width container
+            VStack(spacing: DS.Spacing.lg) {
+                // Quick Actions
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Text("Quick Start")
+                        .font(DS.Typography.caption.weight(.semibold))
+                        .foregroundStyle(DS.Colors.secondaryText)
+                    
+                    quickAction(icon: "folder", title: "Open Folder", shortcut: "⌘O") {
+                        appState.openFolder()
+                    }
+                    
+                    quickAction(icon: "infinity", title: "Infinite Mode", shortcut: "⌘⇧I") {
+                        appState.showInfiniteMode = true
+                    }
+                    
+                    quickAction(icon: "magnifyingglass", title: "Quick Open", shortcut: "⌘P") {
+                        appState.showQuickOpen = true
+                    }
+                    
+                    quickAction(icon: "terminal", title: "Toggle Terminal", shortcut: "⌃`") {
+                        appState.showTerminal.toggle()
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(DS.Spacing.lg)
+                .background(DS.Colors.secondaryBackground)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
                 
-                quickAction(icon: "infinity", title: "Infinite Mode", shortcut: "⌘⇧I") {
-                    appState.showInfiniteMode = true
+                // Models
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Text("Available Models")
+                        .font(DS.Typography.caption.weight(.semibold))
+                        .foregroundStyle(DS.Colors.secondaryText)
+                    
+                    HStack(spacing: DS.Spacing.sm) {
+                        modelBadge("Qwen3", DS.Colors.orchestrator, "Writing/Thinking")
+                        modelBadge("Command-R", DS.Colors.researcher, "Research/RAG")
+                        modelBadge("Qwen-Coder", DS.Colors.coder, "Coding")
+                        modelBadge("Qwen-VL", DS.Colors.vision, "Vision")
+                    }
                 }
-                
-                quickAction(icon: "magnifyingglass", title: "Quick Open", shortcut: "⌘P") {
-                    appState.showQuickOpen = true
-                }
-                
-                quickAction(icon: "terminal", title: "Toggle Terminal", shortcut: "⌃`") {
-                    appState.showTerminal.toggle()
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(DS.Spacing.lg)
+                .background(DS.Colors.secondaryBackground)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
             }
-            .padding(DS.Spacing.lg)
-            .background(DS.Colors.secondaryBackground)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
-            
-            // Models
-            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                Text("Available Models")
-                    .font(DS.Typography.caption.weight(.semibold))
-                    .foregroundStyle(DS.Colors.secondaryText)
-                
-                HStack(spacing: DS.Spacing.sm) {
-                    modelBadge("Qwen3", DS.Colors.orchestrator, "Writing/Thinking")
-                    modelBadge("Command-R", DS.Colors.researcher, "Research/RAG")
-                    modelBadge("Qwen-Coder", DS.Colors.coder, "Coding")
-                    modelBadge("Qwen-VL", DS.Colors.vision, "Vision")
-                }
-            }
-            .padding(DS.Spacing.lg)
-            .background(DS.Colors.secondaryBackground)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+            .fixedSize(horizontal: true, vertical: false)
             
             // Connection Status
             HStack(spacing: DS.Spacing.sm) {
