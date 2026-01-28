@@ -369,7 +369,4 @@ struct TemplateButton: View {
     }
 }
 
-#Preview {
-    RulesEditorView()
-        .environment(AppState())
-}
+// Preview removed - use Xcode previews instead

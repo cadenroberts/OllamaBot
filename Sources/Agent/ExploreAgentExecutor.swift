@@ -275,7 +275,7 @@ class ExploreAgentExecutor {
         """
         
         // Add project context from ContextManager
-        if let projectContext = contextManager.projectRulesContext {
+        if let projectContext = contextManager.getProjectRulesContext() {
             context += "\n## Project Rules\n\(projectContext)\n"
         }
         
@@ -474,7 +474,7 @@ class ExploreAgentExecutor {
         case "list_directory":
             if let path = action.parameters["path"] {
                 let fullPath = resolvePath(path)
-                let files = fileSystemService.listFiles(in: fullPath)
+                let files = fileSystemService.listDirectory(fullPath)
                 return ActionResult(success: true, output: "Listed \(files.count) items in \(path)", madeChanges: false)
             }
             return ActionResult(success: false, output: "No path specified", madeChanges: false)

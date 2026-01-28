@@ -579,4 +579,3 @@ struct GeneratedDocCard: View {
 }
 
 // Preview removed - use Xcode previews instead
-}

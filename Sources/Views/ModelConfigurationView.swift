@@ -442,8 +442,4 @@ struct ModelSelectionRow: View {
     }
 }
 
-// MARK: - Preview
-
-#Preview {
-    ModelConfigurationView(tierManager: ModelTierManager()) { _ in }
-}
+// Preview removed - use Xcode previews instead

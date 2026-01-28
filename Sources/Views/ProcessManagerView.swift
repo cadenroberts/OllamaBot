@@ -440,6 +440,4 @@ struct RAMPopover: View {
     }
 }
 
-#Preview {
-    ProcessManagerView()
-}
+// Preview removed - use Xcode previews instead

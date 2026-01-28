@@ -410,9 +410,8 @@ class AppState {
         
         // Check for recovery data on launch
         Task { @MainActor in
-            if await resilienceService.checkForRecoveryData() {
-                // Recovery alert will be shown by the view
-            }
+            await resilienceService.checkForRecoveryData()
+            // Recovery alert will be shown by the view if data exists
         }
         
         // Log system configuration

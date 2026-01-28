@@ -135,7 +135,7 @@ final class SystemMonitorService {
     
     private func getMemoryInfo() -> MemoryInfo {
         // Get total physical memory
-        let totalRAM = ProcessInfo.processInfo.physicalMemory
+        let totalRAM = Foundation.ProcessInfo.processInfo.physicalMemory
         
         // Get VM statistics
         var vmStats = vm_statistics64_data_t()
