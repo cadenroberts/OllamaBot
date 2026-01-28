@@ -49,10 +49,15 @@ struct MainView: View {
             let leftWidth = calculateLeftPanelWidth()
             let rightWidth = calculateRightPanelWidth()
             let minEditorWidth: CGFloat = 200
-            let availableForEditor = max(minEditorWidth, geometry.size.width - leftWidth - rightWidth)
+            
+            // Calculate editor width: fill remaining space, minimum 200
+            let editorWidth = max(minEditorWidth, geometry.size.width - leftWidth - rightWidth)
+            
+            // Total content width - may exceed window width
+            let totalWidth = leftWidth + editorWidth + rightWidth
             
             HStack(spacing: 0) {
-                // LEFT PANEL - Fixed width, anchored to left edge
+                // LEFT PANEL
                 HStack(spacing: 0) {
                     if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
                         ActivityBarView(panels: panels)
@@ -71,13 +76,12 @@ struct MainView: View {
                         }
                     }
                 }
-                .frame(width: leftWidth)
                 
-                // MIDDLE PANEL - Attached to left, fills available space
+                // MIDDLE PANEL - Editor
                 editorArea
-                    .frame(width: availableForEditor)
+                    .frame(width: editorWidth)
                 
-                // RIGHT PANELS - Fixed width, can extend past window edge
+                // RIGHT PANELS - Locked to middle, clips off window edge
                 HStack(spacing: 0) {
                     if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
                         PanelResizer(
@@ -110,26 +114,24 @@ struct MainView: View {
                             .environment(appState)
                     }
                 }
-                .frame(width: rightWidth)
             }
-            .frame(width: leftWidth + availableForEditor + rightWidth, height: geometry.size.height, alignment: .leading)
+            // All panels locked together, total width may exceed window
+            .frame(width: totalWidth, height: geometry.size.height, alignment: .leading)
         }
-        .clipped()  // Clip at the view level so right panels go off screen
+        .clipped()  // Window clips off the right edge
     }
     
-    // Calculate left panel total width
     private func calculateLeftPanelWidth() -> CGFloat {
         var width: CGFloat = 0
         if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
-            width += 48  // Activity bar width
+            width += 48
         }
         if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
-            width += panels.primarySidebarWidth + 4  // Sidebar + resizer
+            width += panels.primarySidebarWidth + 4
         }
         return width
     }
     
-    // Calculate right panel total width
     private func calculateRightPanelWidth() -> CGFloat {
         var width: CGFloat = 0
         if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
