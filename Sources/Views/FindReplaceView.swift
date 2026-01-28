@@ -26,6 +26,7 @@ struct FindBarView: View {
                     
                     TextField("Find", text: $searchText)
                         .textFieldStyle(.plain)
+                        .foregroundStyle(DS.Colors.text)
                         .focused($isSearchFocused)
                         .onChange(of: searchText) { _, _ in
                             updateMatches()
@@ -117,6 +118,7 @@ struct FindBarView: View {
                         
                         TextField("Replace", text: $replaceText)
                             .textFieldStyle(.plain)
+                            .foregroundStyle(DS.Colors.text)
                             .onSubmit {
                                 replaceOne()
                             }

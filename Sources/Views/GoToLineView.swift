@@ -25,6 +25,7 @@ struct GoToLineView: View {
                 TextField("Go to line (1-\(lineCount))...", text: $lineInput)
                     .textFieldStyle(.plain)
                     .font(DS.Typography.title)
+                    .foregroundStyle(DS.Colors.text)
                     .focused($focused)
                     .onSubmit { goToLine() }
                 

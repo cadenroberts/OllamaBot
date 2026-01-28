@@ -158,9 +158,9 @@ enum DS {
     // MARK: - Shadows
     
     enum Shadow {
-        static let sm = Color.black.opacity(0.15)
-        static let md = Color.black.opacity(0.25)
-        static let lg = Color.black.opacity(0.35)
+        static let sm = DS.Colors.background.opacity(0.3)
+        static let md = DS.Colors.background.opacity(0.5)
+        static let lg = DS.Colors.background.opacity(0.7)
         static let glow = Colors.accent.opacity(0.3)
     }
     

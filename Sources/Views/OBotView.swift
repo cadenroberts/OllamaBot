@@ -145,6 +145,7 @@ struct OBotPanelView: View {
                     .foregroundStyle(DS.Colors.tertiaryText)
                 TextField("Search bots...", text: $searchText)
                     .textFieldStyle(.plain)
+                    .foregroundStyle(DS.Colors.text)
             }
             .padding(DS.Spacing.sm)
             .background(DS.Colors.surface)

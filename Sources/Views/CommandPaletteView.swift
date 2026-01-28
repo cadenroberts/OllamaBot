@@ -63,6 +63,7 @@ struct CommandPaletteView: View {
                 TextField("Type a command...", text: $search)
                     .textFieldStyle(.plain)
                     .font(DS.Typography.title)
+                    .foregroundStyle(DS.Colors.text)
                     .focused($focused)
                     .onSubmit { execute() }
                 
@@ -303,6 +304,7 @@ struct QuickOpenView: View {
                 TextField("Search files...", text: $search)
                     .textFieldStyle(.plain)
                     .font(DS.Typography.title)
+                    .foregroundStyle(DS.Colors.text)
                     .focused($focused)
                     .onSubmit { open() }
             }
@@ -408,6 +410,7 @@ struct GlobalSearchView: View {
                 TextField("Search in files...", text: $search)
                     .textFieldStyle(.plain)
                     .font(DS.Typography.title)
+                    .foregroundStyle(DS.Colors.text)
                     .onSubmit { performSearch() }
                 
                 if isSearching { DSLoadingSpinner(size: 16) }

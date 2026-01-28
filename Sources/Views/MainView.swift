@@ -486,7 +486,7 @@ struct DialogOverlay<Content: View>: View {
     
     var body: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            DS.Colors.background.opacity(0.85)
                 .ignoresSafeArea()
             
             content
@@ -1104,6 +1104,7 @@ struct GitSidebarView: View {
             TextField("Commit message...", text: $commitMessage, axis: .vertical)
                 .font(DS.Typography.caption)
                 .textFieldStyle(.plain)
+                .foregroundStyle(DS.Colors.text)
                 .padding(DS.Spacing.sm)
                 .background(DS.Colors.tertiaryBackground)
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))

@@ -218,7 +218,7 @@ struct ChatView: View {
             RoundedRectangle(cornerRadius: DS.Radius.md)
                 .stroke(DS.Colors.border, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.2), radius: 8, y: -4)
+        .shadow(color: DS.Colors.background.opacity(0.5), radius: 8, y: -4)
         .padding(.horizontal, DS.Spacing.md)
     }
     
