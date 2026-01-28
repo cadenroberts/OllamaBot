@@ -6,6 +6,7 @@ import SwiftUI
 struct MainView: View {
     @Environment(AppState.self) private var appState
     @State private var panels = PanelState.shared
+    @State private var minEditorWidth: CGFloat = 200
     
     var body: some View {
         @Bindable var state = appState
@@ -51,7 +52,7 @@ struct MainView: View {
             let rightPanelWidth = calculateRightPanelWidth()
             
             // 2. Define the minimum width for the middle editor
-            let minEditorWidth: CGFloat = 200
+            // minEditorWidth is tracked via @State from preference key
             
             // 3. Calculate the minimum total width required for the entire layout
             let minTotalWidth = leftPanelWidth + minEditorWidth + rightPanelWidth
@@ -90,6 +91,12 @@ struct MainView: View {
                 // MIDDLE PANEL - Flexible (stretches to fill space)
                 editorArea
                     .frame(width: currentEditorWidth)
+                    .clipped() // Prevent visual bleed
+                    .onPreferenceChange(MinEditorWidthKey.self) { width in
+                        if abs(minEditorWidth - width) > 1 && width > 0 {
+                            minEditorWidth = width
+                        }
+                    }
                 
                 // RIGHT PANELS - Fixed width
                 HStack(spacing: 0) {

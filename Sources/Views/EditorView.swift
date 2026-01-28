@@ -310,6 +310,9 @@ struct WelcomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
             }
             .fixedSize(horizontal: true, vertical: false)
+            .background(GeometryReader { proxy in
+                Color.clear.preference(key: MinEditorWidthKey.self, value: proxy.size.width)
+            })
             
             // Connection Status
             HStack(spacing: DS.Spacing.sm) {
@@ -362,5 +365,14 @@ struct WelcomeView: View {
         .padding(.vertical, DS.Spacing.xs)
         .background(color.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+    }
+}
+
+// MARK: - Layout Preferences
+
+struct MinEditorWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 200
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
