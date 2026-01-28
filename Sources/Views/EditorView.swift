@@ -263,7 +263,7 @@ struct WelcomeView: View {
             }
             
             // Quick Actions
-            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                 Text("Quick Start")
                     .font(DS.Typography.caption.weight(.semibold))
                     .foregroundStyle(DS.Colors.secondaryText)
