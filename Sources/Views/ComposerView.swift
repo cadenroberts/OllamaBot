@@ -113,18 +113,12 @@ struct ComposerView: View {
                     Button {
                         generateChanges()
                     } label: {
-                        HStack(spacing: DS.Spacing.xs) {
-                            if isGenerating {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                            }
-                            Text(isGenerating ? "Generating..." : "Generate")
-                        }
-                        .padding(.horizontal, DS.Spacing.lg)
-                        .padding(.vertical, DS.Spacing.sm)
+                        Image(systemName: isGenerating ? "stop.circle.fill" : "arrow.up.circle.fill")
+                            .font(.title)
+                            .foregroundStyle((!prompt.isEmpty && !isGenerating) ? DS.Colors.accent : DS.Colors.secondaryText)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(prompt.isEmpty || isGenerating)
+                    .buttonStyle(.plain)
+                    .disabled(prompt.isEmpty && !isGenerating)
                 }
             }
             .frame(maxWidth: 600)

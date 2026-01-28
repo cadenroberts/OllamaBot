@@ -143,22 +143,70 @@ struct CycleAgentView: View {
                 .font(DS.Typography.caption.weight(.semibold))
                 .foregroundStyle(DS.Colors.secondaryText)
             
-            Picker("Strategy", selection: $selectedStrategy) {
-                Text("Adaptive (Recommended)").tag(CycleAgentManager.CycleStrategy.adaptive)
-                Text("Specialist (Batched)").tag(CycleAgentManager.CycleStrategy.specialist)
-                Text("Pipeline (Sequential)").tag(CycleAgentManager.CycleStrategy.pipeline)
-                Text("Round Robin").tag(CycleAgentManager.CycleStrategy.roundRobin)
-                if cycleManager.getStatistics().canRunParallel {
-                    Text("Parallel (64GB+ RAM)").tag(CycleAgentManager.CycleStrategy.parallel)
+            Menu {
+                Button { selectedStrategy = .adaptive } label: {
+                    HStack {
+                        Text("Adaptive (Recommended)")
+                        if selectedStrategy == .adaptive { Image(systemName: "checkmark") }
+                    }
                 }
+                Button { selectedStrategy = .specialist } label: {
+                    HStack {
+                        Text("Specialist (Batched)")
+                        if selectedStrategy == .specialist { Image(systemName: "checkmark") }
+                    }
+                }
+                Button { selectedStrategy = .pipeline } label: {
+                    HStack {
+                        Text("Pipeline (Sequential)")
+                        if selectedStrategy == .pipeline { Image(systemName: "checkmark") }
+                    }
+                }
+                Button { selectedStrategy = .roundRobin } label: {
+                    HStack {
+                        Text("Round Robin")
+                        if selectedStrategy == .roundRobin { Image(systemName: "checkmark") }
+                    }
+                }
+                if cycleManager.getStatistics().canRunParallel {
+                    Button { selectedStrategy = .parallel } label: {
+                        HStack {
+                            Text("Parallel (64GB+ RAM)")
+                            if selectedStrategy == .parallel { Image(systemName: "checkmark") }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: DS.Spacing.xs) {
+                    Text(strategyLabel)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.text)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(DS.Colors.secondaryText)
+                }
+                .padding(.horizontal, DS.Spacing.sm)
+                .padding(.vertical, DS.Spacing.xs)
+                .background(DS.Colors.tertiaryBackground)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
             }
-            .pickerStyle(.menu)
+            .buttonStyle(.plain)
             
             Text(strategyDescription)
                 .font(DS.Typography.caption2)
                 .foregroundStyle(DS.Colors.tertiaryText)
         }
         .padding(DS.Spacing.sm)
+    }
+    
+    private var strategyLabel: String {
+        switch selectedStrategy {
+        case .adaptive: return "Adaptive (Recommended)"
+        case .specialist: return "Specialist (Batched)"
+        case .pipeline: return "Pipeline (Sequential)"
+        case .roundRobin: return "Round Robin"
+        case .parallel: return "Parallel (64GB+ RAM)"
+        }
     }
     
     private var strategyDescription: String {
@@ -218,9 +266,22 @@ struct CycleAgentView: View {
                         taskInput = "Analyze this project: 1) Review code quality, 2) Research similar implementations, 3) Suggest improvements with implementation plan."
                     }
                 } label: {
-                    Label("Templates", systemImage: "text.badge.plus")
-                        .font(DS.Typography.caption)
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: "text.badge.plus")
+                        Text("Templates")
+                    }
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.accent)
+                    .padding(.horizontal, DS.Spacing.sm)
+                    .padding(.vertical, DS.Spacing.xs)
+                    .background(DS.Colors.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.sm)
+                            .strokeBorder(DS.Colors.border, lineWidth: 1)
+                    )
                 }
+                .buttonStyle(.plain)
             }
             
             TextEditor(text: $taskInput)
@@ -250,12 +311,15 @@ struct CycleAgentView: View {
                 
                 Spacer()
                 
-                DSButton("Execute Cycle", style: .primary, size: .md) {
-                    Task {
-                        await executeCycle()
-                    }
+                Button {
+                    Task { await executeCycle() }
+                } label: {
+                    Image(systemName: isExecuting ? "stop.circle.fill" : "arrow.up.circle.fill")
+                        .font(.title)
+                        .foregroundStyle((!taskInput.isEmpty && !isExecuting) ? DS.Colors.accent : DS.Colors.secondaryText)
                 }
-                .disabled(taskInput.isEmpty || isExecuting)
+                .buttonStyle(.plain)
+                .disabled(taskInput.isEmpty && !isExecuting)
             }
         }
         .padding(DS.Spacing.md)

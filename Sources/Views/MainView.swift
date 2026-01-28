@@ -870,17 +870,23 @@ struct SearchSidebarView: View {
             
             // Results
             if searchResults.isEmpty && !searchText.isEmpty && !isSearching {
-                DSEmptyState(
-                    icon: "magnifyingglass",
-                    title: "No Results",
-                    message: "No matches found for '\(searchText)'"
-                )
+                VStack {
+                    DSEmptyState(
+                        icon: "magnifyingglass",
+                        title: "No Results",
+                        message: "No matches found for '\(searchText)'"
+                    )
+                    Spacer()
+                }
             } else if searchResults.isEmpty {
-                DSEmptyState(
-                    icon: "magnifyingglass",
-                    title: "Search",
-                    message: "Search across all files"
-                )
+                VStack {
+                    DSEmptyState(
+                        icon: "magnifyingglass",
+                        title: "Search",
+                        message: "Search across all files"
+                    )
+                    Spacer()
+                }
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -975,11 +981,14 @@ struct GitSidebarView: View {
             DSDivider()
             
             if !git.isGitRepo {
-                DSEmptyState(
-                    icon: "arrow.triangle.branch",
-                    title: "Not a Git Repository",
-                    message: "Open a folder with git initialized"
-                )
+                VStack {
+                    DSEmptyState(
+                        icon: "arrow.triangle.branch",
+                        title: "Not a Git Repository",
+                        message: "Open a folder with git initialized"
+                    )
+                    Spacer()
+                }
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: DS.Spacing.md) {
@@ -1138,11 +1147,14 @@ struct ExtensionsSidebarView: View {
             
             DSDivider()
             
-            DSEmptyState(
-                icon: "puzzlepiece.extension",
-                title: "Extensions",
-                message: "Extension support coming soon"
-            )
+            VStack {
+                DSEmptyState(
+                    icon: "puzzlepiece.extension",
+                    title: "Extensions",
+                    message: "Extension support coming soon"
+                )
+                Spacer()
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -1210,11 +1222,14 @@ struct GitTimelineView: View {
     
     var body: some View {
         if appState.selectedFile == nil {
-            DSEmptyState(
-                icon: "clock",
-                title: "Git History",
-                message: "Select a file to view its history"
-            )
+            VStack {
+                DSEmptyState(
+                    icon: "clock",
+                    title: "Git History",
+                    message: "Select a file to view its history"
+                )
+                Spacer()
+            }
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.Spacing.sm) {

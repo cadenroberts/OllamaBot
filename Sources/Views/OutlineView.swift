@@ -36,15 +36,19 @@ struct OutlineView: View {
             
             // Symbols
             if isLoading {
-                Spacer()
-                DSLoadingSpinner()
-                Spacer()
+                VStack {
+                    DSLoadingSpinner()
+                    Spacer()
+                }
             } else if symbols.isEmpty {
-                DSEmptyState(
-                    icon: "list.bullet.indent",
-                    title: "No Symbols",
-                    message: "Open a file to see its symbols"
-                )
+                VStack {
+                    DSEmptyState(
+                        icon: "list.bullet.indent",
+                        title: "No Symbols",
+                        message: "Open a file to see its symbols"
+                    )
+                    Spacer()
+                }
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
