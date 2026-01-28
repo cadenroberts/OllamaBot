@@ -45,6 +45,7 @@ struct ChatView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onDrop(of: [.image], isTargeted: $isDragOver) { providers in
             handleImageDrop(providers)
             return true

@@ -26,6 +26,7 @@ struct ComposerView: View {
                 changesView
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DS.Colors.background)
     }
     

@@ -446,11 +446,11 @@ struct PanelResizer: View {
     @Binding var size: CGFloat
     let minSize: CGFloat
     let maxSize: CGFloat
-    var isRightSide: Bool = false  // For right-side panels, invert the drag
+    var isRightSide: Bool = false
     var onResizeEnd: (() -> Void)?
     
     @State private var isDragging = false
-    @State private var startSize: CGFloat = 0
+    @State private var baseSize: CGFloat = 0
     
     var body: some View {
         Rectangle()
@@ -468,16 +468,17 @@ struct PanelResizer: View {
                 }
             }
             .gesture(
-                DragGesture(minimumDistance: 1)
+                DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { value in
                         if !isDragging {
+                            // Capture the size at drag start
                             isDragging = true
-                            startSize = size
+                            baseSize = size
                         }
+                        // Use translation from drag start point
                         let delta = axis == .vertical ? value.translation.width : value.translation.height
-                        // For right-side panels, invert the delta
                         let adjustedDelta = isRightSide ? -delta : delta
-                        let newSize = startSize + adjustedDelta
+                        let newSize = baseSize + adjustedDelta
                         size = min(max(newSize, minSize), maxSize)
                     }
                     .onEnded { _ in

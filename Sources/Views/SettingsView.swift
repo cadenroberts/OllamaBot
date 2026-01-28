@@ -656,7 +656,7 @@ struct KeyboardShortcutRow: View {
                 .font(.system(.body, design: .monospaced))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.secondary.opacity(0.15))
+                .background(DS.Colors.tertiaryBackground)
                 .cornerRadius(4)
         }
     }

@@ -54,7 +54,7 @@ struct ModelSelectorView: View {
             .padding(.vertical, 4)
             .background(
                 Capsule()
-                    .fill(Color.secondary.opacity(0.15))
+                    .fill(DS.Colors.tertiaryBackground)
             )
         }
         .menuStyle(.borderlessButton)

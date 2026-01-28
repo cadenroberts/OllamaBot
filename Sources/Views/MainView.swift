@@ -74,7 +74,8 @@ struct MainView: View {
                     axis: .vertical,
                     size: $panels.primarySidebarWidth,
                     minSize: PanelState.minSidebarWidth,
-                    maxSize: PanelState.maxSidebarWidth
+                    maxSize: PanelState.maxSidebarWidth,
+                    isRightSide: true
                 ) {
                     panels.saveState()
                 }
@@ -220,6 +221,7 @@ struct MainView: View {
                     TimelineView()
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: panels.secondarySidebarWidth)
         .background(DS.Colors.secondaryBackground)
@@ -1199,6 +1201,7 @@ struct TimelineView: View {
                 GitTimelineView()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
