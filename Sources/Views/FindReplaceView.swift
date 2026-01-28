@@ -22,7 +22,7 @@ struct FindBarView: View {
                 // Search field
                 HStack(spacing: 4) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.secondaryText)
                     
                     TextField("Find", text: $searchText)
                         .textFieldStyle(.plain)
@@ -45,7 +45,7 @@ struct FindBarView: View {
                 if totalMatches > 0 {
                     Text("\(currentMatch) of \(totalMatches)")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.secondaryText)
                         .frame(width: 60)
                 } else if !searchText.isEmpty {
                     Text("No results")
@@ -113,7 +113,7 @@ struct FindBarView: View {
                 HStack(spacing: 8) {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.left.arrow.right")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.secondaryText)
                         
                         TextField("Replace", text: $replaceText)
                             .textFieldStyle(.plain)

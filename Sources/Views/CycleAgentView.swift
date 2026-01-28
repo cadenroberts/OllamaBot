@@ -225,6 +225,8 @@ struct CycleAgentView: View {
             
             TextEditor(text: $taskInput)
                 .font(DS.Typography.callout)
+                .foregroundStyle(DS.Colors.text)
+                .scrollContentBackground(.hidden)
                 .frame(minHeight: 80, maxHeight: 150)
                 .padding(DS.Spacing.xs)
                 .background(DS.Colors.tertiaryBackground)

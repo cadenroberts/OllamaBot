@@ -241,7 +241,7 @@ struct AISettingsView: View {
                                     .fontWeight(.medium)
                                 Text(model.purpose)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(DS.Colors.secondaryText)
                             }
                             
                             Spacer()
@@ -292,7 +292,7 @@ struct AgentSettingsView: View {
             Section("Agent Tools") {
                 Text("The agent can use these tools to complete tasks:")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DS.Colors.secondaryText)
                 
                 VStack(alignment: .leading, spacing: 8) {
                     ToolInfoRow(name: "code", description: "Write/modify code files")
@@ -335,7 +335,7 @@ struct OBotSettingsView: View {
                             .foregroundStyle(DS.Colors.secondaryText)
                         Text("No .obotrules file found in project")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DS.Colors.secondaryText)
                     }
                 }
             }
@@ -345,7 +345,7 @@ struct OBotSettingsView: View {
                     Text("Loaded Bots")
                     Spacer()
                     Text("\(appState.obotService.bots.count)")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.secondaryText)
                 }
                 
                 if !appState.obotService.bots.isEmpty {
@@ -357,7 +357,7 @@ struct OBotSettingsView: View {
                             Spacer()
                             Text("\(bot.steps.count) steps")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(DS.Colors.secondaryText)
                         }
                     }
                 }
@@ -368,7 +368,7 @@ struct OBotSettingsView: View {
                     Text("Loaded Snippets")
                     Spacer()
                     Text("\(appState.obotService.contextSnippets.count)")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.secondaryText)
                 }
                 
                 if !appState.obotService.contextSnippets.isEmpty {
@@ -380,7 +380,7 @@ struct OBotSettingsView: View {
                             Spacer()
                             Text("@\(snippet.id)")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(DS.Colors.secondaryText)
                         }
                     }
                 }
@@ -401,7 +401,7 @@ struct OBotSettingsView: View {
                     Text("Current Checkpoints")
                     Spacer()
                     Text("\(appState.checkpointService.checkpoints.count)")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.secondaryText)
                 }
                 
                 Button("Prune Old Checkpoints") {
@@ -416,7 +416,7 @@ struct OBotSettingsView: View {
                     Text("Loaded Templates")
                     Spacer()
                     Text("\(appState.obotService.templates.count)")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.secondaryText)
                 }
             }
             
@@ -459,7 +459,7 @@ struct ToolInfoRow: View {
             Spacer()
             Text(description)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DS.Colors.secondaryText)
         }
     }
 }
@@ -494,7 +494,7 @@ struct FilesSettingsView: View {
             Section("Exclude Patterns") {
                 Text("Files and folders matching these patterns will be hidden from the file tree and search results.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DS.Colors.secondaryText)
                 
                 ForEach(config.excludePatterns, id: \.self) { pattern in
                     HStack {

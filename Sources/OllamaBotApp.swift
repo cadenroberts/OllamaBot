@@ -636,24 +636,33 @@ class AppState {
                 
                 let now = CACurrentMediaTime()
                 if now - lastUpdateTime >= updateInterval {
-                    // Batch update: single state mutation per frame
-                    chatMessages[messageIndex].content = buffer
+                    // IMPORTANT: Replace entire element to trigger @Observable re-render
+                    // Mutating .content directly doesn't notify SwiftUI of changes
+                    var updatedMessage = chatMessages[messageIndex]
+                    updatedMessage.content = buffer
+                    chatMessages[messageIndex] = updatedMessage
                     lastUpdateTime = now
                 }
             }
             
-            // Final update with complete content
-            chatMessages[messageIndex].content = buffer
+            // Final update with complete content - replace entire element
+            var finalMessage = chatMessages[messageIndex]
+            finalMessage.content = buffer
+            chatMessages[messageIndex] = finalMessage
             
             // Save to persistent history
             chatHistoryService.addMessage(chatMessages[messageIndex])
             
         } catch let error as OllamaError {
-            chatMessages[messageIndex].content = "Error: \(error.localizedDescription)"
+            var errorMessage = chatMessages[messageIndex]
+            errorMessage.content = "Error: \(error.localizedDescription)"
+            chatMessages[messageIndex] = errorMessage
             showError(error.userMessage)
             contextManager.recordError(error.localizedDescription, context: content)
         } catch {
-            chatMessages[messageIndex].content = "Error: \(error.localizedDescription)"
+            var errorMessage = chatMessages[messageIndex]
+            errorMessage.content = "Error: \(error.localizedDescription)"
+            chatMessages[messageIndex] = errorMessage
             showError("Failed to get AI response")
             contextManager.recordError(error.localizedDescription, context: content)
         }

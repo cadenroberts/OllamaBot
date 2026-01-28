@@ -416,7 +416,7 @@ struct ModelSelectionRow: View {
                             Text("\(option.variant.name)")
                             Spacer()
                             Text("\(option.variant.parameters)")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(DS.Colors.secondaryText)
                         }
                     }
                 }

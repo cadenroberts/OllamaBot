@@ -88,6 +88,8 @@ struct ComposerView: View {
             VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                 TextEditor(text: $prompt)
                     .font(DS.Typography.body)
+                    .foregroundStyle(DS.Colors.text)
+                    .scrollContentBackground(.hidden)
                     .frame(height: 120)
                     .padding(DS.Spacing.sm)
                     .background(DS.Colors.surface)

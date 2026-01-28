@@ -65,6 +65,7 @@ struct OutlineView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: appState.editorContent) { _, _ in
             parseSymbols()
         }

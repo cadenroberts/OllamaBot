@@ -298,6 +298,7 @@ struct ChatView: View {
             // Text input with keyboard navigation for mentions
             TextEditor(text: $inputText)
                 .font(DS.Typography.body)
+                .foregroundStyle(DS.Colors.text)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 36, maxHeight: 100)
                 .padding(DS.Spacing.sm)
@@ -503,12 +504,23 @@ struct MessageRow: View, Equatable {
                 if message.isUser {
                     userBubble
                 } else {
-                    AssistantContentView(content: message.content)
+                    assistantBubble
                 }
             }
             
             if !message.isUser { Spacer(minLength: 40) }
         }
+    }
+    
+    private var assistantBubble: some View {
+        AssistantContentView(content: message.content)
+            .padding(DS.Spacing.sm)
+            .background(DS.Colors.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.lg)
+                    .stroke(DS.Colors.border, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
     }
     
     private var messageHeader: some View {
@@ -631,9 +643,8 @@ struct TextBlockView: View {
     var body: some View {
         Text(parsedMarkdown)
             .textSelection(.enabled)
-            .padding(DS.Spacing.md)
-            .background(DS.Colors.secondaryBackground)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+            .foregroundStyle(DS.Colors.text)
+            .padding(DS.Spacing.sm)
     }
     
     private var parsedMarkdown: AttributedString {

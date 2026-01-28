@@ -43,7 +43,7 @@ struct ModelSelectorView: View {
                         .font(.caption)
                 } else {
                     Image(systemName: "sparkles")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS.Colors.secondaryText)
                     Text("Auto")
                         .font(.caption)
                 }

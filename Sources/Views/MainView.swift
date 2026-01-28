@@ -173,6 +173,8 @@ struct MainView: View {
                                 .font(.caption)
                             Text(tab.rawValue)
                                 .font(DS.Typography.caption)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
                         }
                         .foregroundStyle(
                             panels.secondarySidebarTab == tab
@@ -189,7 +191,7 @@ struct MainView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                Spacer()
+                Spacer(minLength: DS.Spacing.xs)
                 
                 DSIconButton(icon: "xmark", size: 12) {
                     panels.toggleSecondarySidebar()
@@ -364,6 +366,27 @@ struct MainView: View {
         if appState.showGitStatus {
             DialogOverlay {
                 GitStatusView(isPresented: $state.showGitStatus)
+            }
+        }
+        
+        if appState.showSettings {
+            DialogOverlay {
+                SettingsView()
+                    .environment(appState)
+                    .frame(width: 750, height: 550)
+                    .background(DS.Colors.background)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+                    .overlay(
+                        // Close button
+                        Button(action: { appState.showSettings = false }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(DS.Colors.secondaryText)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(DS.Spacing.md),
+                        alignment: .topTrailing
+                    )
             }
         }
     }
@@ -828,6 +851,7 @@ struct SearchSidebarView: View {
                 TextField("Search in files...", text: $searchText)
                     .textFieldStyle(.plain)
                     .font(DS.Typography.callout)
+                    .foregroundStyle(DS.Colors.text)
                     .onSubmit { performSearch() }
                 
                 if isSearching {
@@ -864,6 +888,7 @@ struct SearchSidebarView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private func performSearch() {
@@ -967,6 +992,7 @@ struct GitSidebarView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             git.setWorkingDirectory(appState.rootFolder)
         }
@@ -1114,6 +1140,7 @@ struct ExtensionsSidebarView: View {
                 message: "Extension support coming soon"
             )
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

@@ -83,6 +83,7 @@ struct RulesEditorView: View {
         VStack(spacing: 0) {
             TextEditor(text: $rulesContent)
                 .font(DS.Typography.mono(12))
+                .foregroundStyle(DS.Colors.text)
                 .scrollContentBackground(.hidden)
                 .background(DS.Colors.codeBackground)
                 .onChange(of: rulesContent) { _, _ in
