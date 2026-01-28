@@ -102,20 +102,78 @@ class OllamaService {
     
     // MARK: - Model Warmup (Critical for UX)
     
-    /// Pre-load the orchestrator model on app launch for instant first response
+    /// Warmup progress callback for UI updates
+    var warmupProgress: ((String, Double) -> Void)?
+    
+    /// Estimated model sizes in GB (for warmup ordering - smaller first)
+    private static let modelSizes: [OllamaModel: Double] = [
+        .qwen3: 4.7,      // qwen3:8b ~4.7GB
+        .vision: 4.7,     // llava:7b ~4.7GB  
+        .commandR: 20.0,  // command-r:35b ~20GB
+        .coder: 9.0       // qwen2.5-coder:14b ~9GB
+    ]
+    
+    /// Pre-load models on app launch using smart ordering strategy
+    /// Strategy: Orchestrator first (most used), then by size (smallest→largest)
     @MainActor
     func warmupModels() async {
         guard isConnected else { return }
         
-        // Warm up the orchestrator (Qwen3) first - it's used most often
-        print("🔥 Warming up Qwen3 (orchestrator)...")
-        await warmupModel(.qwen3)
+        let keepAlive = "30m"
         
-        // Optionally warm up coder in background (most common delegation)
+        // 1. Always warm orchestrator first - it handles every request
+        print("🔥 [1/4] Warming up Qwen3 (orchestrator)...")
+        warmupProgress?("Loading Qwen3 (orchestrator)...", 0.1)
+        await warmupModelWithTiming(.qwen3, keepAlive: keepAlive)
+        
+        // 2. Warm remaining models in background, sorted by size (smallest first)
+        // This ensures faster availability of more models
         Task.detached(priority: .background) { [self] in
-            try? await Task.sleep(for: .seconds(5))
-            print("🔥 Warming up Qwen-Coder...")
-            await warmupModel(.coder)
+            try? await Task.sleep(for: .seconds(2))
+            
+            // Sort remaining models by size
+            let remainingModels = OllamaModel.allCases
+                .filter { $0 != .qwen3 }
+                .sorted { (Self.modelSizes[$0] ?? 10) < (Self.modelSizes[$1] ?? 10) }
+            
+            var completed = 1
+            for model in remainingModels {
+                completed += 1
+                let progress = Double(completed) / Double(OllamaModel.allCases.count)
+                
+                await MainActor.run {
+                    print("🔥 [\(completed)/4] Warming up \(model.displayName)...")
+                    warmupProgress?("Loading \(model.displayName)...", progress)
+                }
+                
+                await warmupModelWithTiming(model, keepAlive: keepAlive)
+                
+                // Brief pause between models to avoid overwhelming the system
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            
+            await MainActor.run {
+                print("✅ All models warmed up and ready!")
+                warmupProgress?("All models ready", 1.0)
+            }
+        }
+    }
+    
+    /// Warm up a model with timing information (like the article suggests)
+    @MainActor
+    private func warmupModelWithTiming(_ model: OllamaModel, keepAlive: String) async {
+        guard !warmedUpModels.contains(model.rawValue) else {
+            print("⏭️ \(model.displayName) already warm")
+            return
+        }
+        
+        let startTime = Date()
+        await warmupModel(model, keepAlive: keepAlive)
+        let elapsed = Date().timeIntervalSince(startTime)
+        
+        if warmedUpModels.contains(model.rawValue) {
+            let sizeGB = Self.modelSizes[model] ?? 0
+            print("✅ \(model.displayName) (~\(String(format: "%.1f", sizeGB))GB) loaded in \(String(format: "%.1f", elapsed))s")
         }
     }
     
@@ -129,44 +187,72 @@ class OllamaService {
         let modelTag = getModelTag(for: model)
         let requestBody: [String: Any] = [
             "model": modelTag,
-            "prompt": "Hello",
+            "prompt": "Ready?",  // Minimal prompt like the article suggests
             "stream": false,
             "keep_alive": keepAlive,  // Keep model loaded in memory
-            "options": ["num_predict": 1] // Generate only 1 token
+            "options": ["num_predict": 1] // Generate only 1 token - fastest warmup
         ]
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
-        request.timeoutInterval = 120  // Give model time to load
+        request.timeoutInterval = 300  // 5 min timeout like the article (large models can be slow)
         
         do {
             let _ = try await session.data(for: request)
             warmedUpModels.insert(model.rawValue)
-            print("✓ \(model.displayName) warmed up (keep_alive: \(keepAlive))")
         } catch {
-            print("⚠ Failed to warm up \(model.displayName): \(error.localizedDescription)")
+            print("⚠️ Failed to warm up \(model.displayName): \(error.localizedDescription)")
         }
     }
     
     /// Warm up a specific model - call this when switching models
     @MainActor
     func preloadModel(_ model: OllamaModel, keepAlive: String = "30m") async {
+        if warmedUpModels.contains(model.rawValue) {
+            print("⚡ \(model.displayName) already in memory")
+            return
+        }
         print("🔥 Preloading \(model.displayName)...")
-        await warmupModel(model, keepAlive: keepAlive)
+        await warmupModelWithTiming(model, keepAlive: keepAlive)
     }
     
-    /// Warm up all configured models
+    /// Warm up all configured models (for setup wizard)
+    /// Uses size-ordered loading: smallest models first for faster initial availability
     @MainActor
-    func warmupAllModels(keepAlive: String = "30m") async {
+    func warmupAllModels(keepAlive: String = "30m", progress: ((String, Double) -> Void)? = nil) async {
         guard isConnected else { return }
         
-        print("🔥 Warming up all models...")
-        for model in OllamaModel.allCases {
-            await warmupModel(model, keepAlive: keepAlive)
+        // Sort by size (smallest first) for faster initial availability
+        let sortedModels = OllamaModel.allCases.sorted { 
+            (Self.modelSizes[$0] ?? 10) < (Self.modelSizes[$1] ?? 10) 
         }
-        print("✓ All models warmed up")
+        
+        print("🔥 Warming up all \(sortedModels.count) models (smallest first)...")
+        
+        for (index, model) in sortedModels.enumerated() {
+            let progressValue = Double(index + 1) / Double(sortedModels.count)
+            progress?("Loading \(model.displayName)...", progressValue)
+            await warmupModelWithTiming(model, keepAlive: keepAlive)
+        }
+        
+        progress?("All models ready!", 1.0)
+        print("✅ All models warmed up!")
+    }
+    
+    /// Check if a model is currently warm (in memory)
+    func isModelWarm(_ model: OllamaModel) -> Bool {
+        warmedUpModels.contains(model.rawValue)
+    }
+    
+    /// Get warmup status for all models
+    func getWarmupStatus() -> [(model: OllamaModel, isWarm: Bool, sizeGB: Double)] {
+        OllamaModel.allCases.map { model in
+            (model: model, 
+             isWarm: warmedUpModels.contains(model.rawValue),
+             sizeGB: Self.modelSizes[model] ?? 0)
+        }
     }
     
     deinit {

@@ -155,7 +155,7 @@ class InstallerState {
         
         for (index, model) in models.enumerated() {
             currentDownload = model.name
-            downloadProgress = Double(index) / Double(total)
+            downloadProgress = Double(index) / Double(total) * 0.7  // 70% for downloads
             
             // Pull model using Ollama
             let result = runCommand("ollama pull \(model.ollamaTag)")
@@ -168,8 +168,82 @@ class InstallerState {
             downloadedModels.append(model.ollamaTag)
         }
         
+        // Warm up models after download (loads them into RAM with keep_alive)
+        downloadProgress = 0.75
+        currentDownload = "Warming up models..."
+        
+        await warmupDownloadedModels()
+        
         downloadProgress = 1.0
         currentDownload = "Complete"
+    }
+    
+    /// Warm up models by sending a minimal request with keep_alive
+    /// This loads models into RAM so they're ready for immediate use
+    func warmupDownloadedModels() async {
+        // Calculate keep_alive based on RAM tier
+        let keepAlive: String
+        switch selectedTier {
+        case .minimal:
+            keepAlive = "5m"
+        case .compact:
+            keepAlive = "10m"
+        case .balanced:
+            keepAlive = "15m"
+        case .performance:
+            keepAlive = "30m"
+        case .advanced, .maximum:
+            keepAlive = "60m"
+        }
+        
+        // Sort models by size (smallest first) for faster initial availability
+        let sortedModels = downloadedModels.sorted { m1, m2 in
+            getModelSizeGB(m1) < getModelSizeGB(m2)
+        }
+        
+        let total = sortedModels.count
+        for (index, modelTag) in sortedModels.enumerated() {
+            currentDownload = "Warming up \(modelTag)..."
+            downloadProgress = 0.75 + (Double(index + 1) / Double(total)) * 0.25
+            
+            await warmupModel(modelTag, keepAlive: keepAlive)
+        }
+    }
+    
+    /// Estimate model size for sorting
+    private func getModelSizeGB(_ modelTag: String) -> Double {
+        // Common model sizes (approximate)
+        if modelTag.contains("7b") || modelTag.contains("8b") { return 4.5 }
+        if modelTag.contains("14b") { return 8.5 }
+        if modelTag.contains("32b") || modelTag.contains("35b") { return 19.0 }
+        if modelTag.contains("70b") { return 39.0 }
+        return 10.0  // Default
+    }
+    
+    /// Warm up a single model using Ollama API with keep_alive
+    private func warmupModel(_ modelTag: String, keepAlive: String) async {
+        guard let url = URL(string: "http://localhost:11434/api/generate") else { return }
+        
+        let requestBody: [String: Any] = [
+            "model": modelTag,
+            "prompt": "Ready?",
+            "stream": false,
+            "keep_alive": keepAlive,
+            "options": ["num_predict": 1]  // Generate only 1 token
+        ]
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
+        request.timeoutInterval = 300  // 5 min timeout for large models
+        
+        do {
+            let _ = try await URLSession.shared.data(for: request)
+            print("✅ \(modelTag) warmed up (keep_alive: \(keepAlive))")
+        } catch {
+            print("⚠️ Failed to warm up \(modelTag): \(error.localizedDescription)")
+        }
     }
     
     func installApp() async {
