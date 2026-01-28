@@ -45,105 +45,64 @@ struct MainView: View {
     
     @ViewBuilder
     private var mainContentArea: some View {
-        GeometryReader { geometry in
-            let leftWidth = calculateLeftPanelWidth()
-            let rightWidth = calculateRightPanelWidth()
-            let minEditorWidth: CGFloat = 200
+        HStack(spacing: 0) {
+            // LEFT PANEL - Fixed width, anchored to window left edge
+            if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
+                ActivityBarView(panels: panels)
+                    .environment(appState)
+            }
             
-            // Calculate editor width: fill remaining space, minimum 200
-            let editorWidth = max(minEditorWidth, geometry.size.width - leftWidth - rightWidth)
-            
-            // Total content width - may exceed window width
-            let totalWidth = leftWidth + editorWidth + rightWidth
-            
-            HStack(spacing: 0) {
-                // LEFT PANEL
-                HStack(spacing: 0) {
-                    if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
-                        ActivityBarView(panels: panels)
-                            .environment(appState)
-                    }
-                    
-                    if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
-                        primarySidebar
-                        PanelResizer(
-                            axis: .vertical,
-                            size: $panels.primarySidebarWidth,
-                            minSize: PanelState.minSidebarWidth,
-                            maxSize: PanelState.maxSidebarWidth
-                        ) {
-                            panels.saveState()
-                        }
-                    }
-                }
-                
-                // MIDDLE PANEL - Editor
-                editorArea
-                    .frame(width: editorWidth)
-                
-                // RIGHT PANELS - Locked to middle, clips off window edge
-                HStack(spacing: 0) {
-                    if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
-                        PanelResizer(
-                            axis: .vertical,
-                            size: $panels.primarySidebarWidth,
-                            minSize: PanelState.minSidebarWidth,
-                            maxSize: PanelState.maxSidebarWidth,
-                            isRightSide: true
-                        ) {
-                            panels.saveState()
-                        }
-                        primarySidebar
-                    }
-                    
-                    if panels.showSecondarySidebar && !panels.zenMode {
-                        PanelResizer(
-                            axis: .vertical,
-                            size: $panels.secondarySidebarWidth,
-                            minSize: PanelState.minSidebarWidth,
-                            maxSize: PanelState.maxSidebarWidth,
-                            isRightSide: true
-                        ) {
-                            panels.saveState()
-                        }
-                        secondarySidebar
-                    }
-                    
-                    if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
-                        ActivityBarView(panels: panels)
-                            .environment(appState)
-                    }
+            if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
+                primarySidebar
+                    .frame(width: panels.primarySidebarWidth)
+                PanelResizer(
+                    axis: .vertical,
+                    size: $panels.primarySidebarWidth,
+                    minSize: PanelState.minSidebarWidth,
+                    maxSize: PanelState.maxSidebarWidth
+                ) {
+                    panels.saveState()
                 }
             }
-            // All panels locked together, total width may exceed window
-            .frame(width: totalWidth, height: geometry.size.height, alignment: .leading)
+            
+            // MIDDLE PANEL - Flexible, compresses to min 200, then right clips
+            editorArea
+                .frame(minWidth: 200)
+            
+            // RIGHT PANELS - Fixed width, clip off right edge when window too small
+            if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
+                PanelResizer(
+                    axis: .vertical,
+                    size: $panels.primarySidebarWidth,
+                    minSize: PanelState.minSidebarWidth,
+                    maxSize: PanelState.maxSidebarWidth,
+                    isRightSide: true
+                ) {
+                    panels.saveState()
+                }
+                primarySidebar
+                    .frame(width: panels.primarySidebarWidth)
+            }
+            
+            if panels.showSecondarySidebar && !panels.zenMode {
+                PanelResizer(
+                    axis: .vertical,
+                    size: $panels.secondarySidebarWidth,
+                    minSize: PanelState.minSidebarWidth,
+                    maxSize: PanelState.maxSidebarWidth,
+                    isRightSide: true
+                ) {
+                    panels.saveState()
+                }
+                secondarySidebar
+                    .frame(width: panels.secondarySidebarWidth)
+            }
+            
+            if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
+                ActivityBarView(panels: panels)
+                    .environment(appState)
+            }
         }
-        .clipped()  // Window clips off the right edge
-    }
-    
-    private func calculateLeftPanelWidth() -> CGFloat {
-        var width: CGFloat = 0
-        if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
-            width += 48
-        }
-        if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
-            width += panels.primarySidebarWidth + 4
-        }
-        return width
-    }
-    
-    private func calculateRightPanelWidth() -> CGFloat {
-        var width: CGFloat = 0
-        if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
-            width += panels.primarySidebarWidth + 4
-        }
-        if panels.showSecondarySidebar && !panels.zenMode {
-            width += panels.secondarySidebarWidth + 4
-        }
-        if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
-            width += 48
-        }
-        return width
     }
     
     // MARK: - Primary Sidebar

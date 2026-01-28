@@ -136,13 +136,12 @@ class OllamaService {
                 .filter { $0 != .qwen3 }
                 .sorted { (Self.modelSizes[$0] ?? 10) < (Self.modelSizes[$1] ?? 10) }
             
-            var completed = 1
-            for model in remainingModels {
-                completed += 1
-                let progress = Double(completed) / Double(OllamaModel.allCases.count)
+            for (index, model) in remainingModels.enumerated() {
+                let completedCount = index + 2  // +2 because qwen3 was first
+                let progress = Double(completedCount) / Double(OllamaModel.allCases.count)
                 
                 await MainActor.run {
-                    print("🔥 [\(completed)/4] Warming up \(model.displayName)...")
+                    print("🔥 [\(completedCount)/4] Warming up \(model.displayName)...")
                     warmupProgress?("Loading \(model.displayName)...", progress)
                 }
                 

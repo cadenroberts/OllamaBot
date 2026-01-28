@@ -435,7 +435,7 @@ class ExploreAgentExecutor {
         case "read_file":
             if let path = action.parameters["path"] {
                 let fullPath = resolvePath(path)
-                if let content = fileSystemService.readFile(at: fullPath) {
+                if fileSystemService.readFile(at: fullPath) != nil {
                     return ActionResult(success: true, output: "Read \(path)", madeChanges: false)
                 }
             }
