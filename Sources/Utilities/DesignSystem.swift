@@ -381,12 +381,19 @@ struct DSTextField: View {
                     .animation(DS.Animation.fast, value: isFocused)
             }
             
-            TextField(placeholder, text: $text)
-                .textFieldStyle(.plain)
-                .font(DS.Typography.body)
-                .foregroundStyle(DS.Colors.text)
-                .focused($isFocused)
-                .onSubmit { onSubmit?() }
+            ZStack(alignment: .leading) {
+                if text.isEmpty {
+                    Text(placeholder)
+                        .font(DS.Typography.body)
+                        .foregroundStyle(DS.Colors.tertiaryText)
+                }
+                TextField("", text: $text)
+                    .textFieldStyle(.plain)
+                    .font(DS.Typography.body)
+                    .foregroundStyle(DS.Colors.text)
+                    .focused($isFocused)
+                    .onSubmit { onSubmit?() }
+            }
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.sm)

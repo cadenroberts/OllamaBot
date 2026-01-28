@@ -143,9 +143,15 @@ struct OBotPanelView: View {
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(DS.Colors.tertiaryText)
-                TextField("Search bots...", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .foregroundStyle(DS.Colors.text)
+                ZStack(alignment: .leading) {
+                    if searchText.isEmpty {
+                        Text("Search bots...")
+                            .foregroundStyle(DS.Colors.tertiaryText)
+                    }
+                    TextField("", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(DS.Colors.text)
+                }
             }
             .padding(DS.Spacing.sm)
             .background(DS.Colors.surface)

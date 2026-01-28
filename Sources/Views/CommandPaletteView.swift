@@ -60,12 +60,19 @@ struct CommandPaletteView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(DS.Colors.secondaryText)
                 
-                TextField("Type a command...", text: $search)
-                    .textFieldStyle(.plain)
-                    .font(DS.Typography.title)
-                    .foregroundStyle(DS.Colors.text)
-                    .focused($focused)
-                    .onSubmit { execute() }
+                ZStack(alignment: .leading) {
+                    if search.isEmpty {
+                        Text("Type a command...")
+                            .font(DS.Typography.title)
+                            .foregroundStyle(DS.Colors.tertiaryText)
+                    }
+                    TextField("", text: $search)
+                        .textFieldStyle(.plain)
+                        .font(DS.Typography.title)
+                        .foregroundStyle(DS.Colors.text)
+                        .focused($focused)
+                        .onSubmit { execute() }
+                }
                 
                 if !search.isEmpty {
                     DSIconButton(icon: "xmark.circle.fill") { search = "" }
@@ -301,12 +308,19 @@ struct QuickOpenView: View {
                 Image(systemName: "doc.text.magnifyingglass")
                     .foregroundStyle(DS.Colors.secondaryText)
                 
-                TextField("Search files...", text: $search)
-                    .textFieldStyle(.plain)
-                    .font(DS.Typography.title)
-                    .foregroundStyle(DS.Colors.text)
-                    .focused($focused)
-                    .onSubmit { open() }
+                ZStack(alignment: .leading) {
+                    if search.isEmpty {
+                        Text("Search files...")
+                            .font(DS.Typography.title)
+                            .foregroundStyle(DS.Colors.tertiaryText)
+                    }
+                    TextField("", text: $search)
+                        .textFieldStyle(.plain)
+                        .font(DS.Typography.title)
+                        .foregroundStyle(DS.Colors.text)
+                        .focused($focused)
+                        .onSubmit { open() }
+                }
             }
             .padding(DS.Spacing.md)
             .background(DS.Colors.secondaryBackground)
@@ -407,16 +421,31 @@ struct GlobalSearchView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(DS.Colors.secondaryText)
                 
-                TextField("Search in files...", text: $search)
-                    .textFieldStyle(.plain)
-                    .font(DS.Typography.title)
-                    .foregroundStyle(DS.Colors.text)
-                    .onSubmit { performSearch() }
+                ZStack(alignment: .leading) {
+                    if search.isEmpty {
+                        Text("Search in files...")
+                            .font(DS.Typography.title)
+                            .foregroundStyle(DS.Colors.tertiaryText)
+                    }
+                    TextField("", text: $search)
+                        .textFieldStyle(.plain)
+                        .font(DS.Typography.title)
+                        .foregroundStyle(DS.Colors.text)
+                        .onSubmit { performSearch() }
+                }
                 
                 if isSearching { DSLoadingSpinner(size: 16) }
                 
-                DSButton("Search", style: .primary) { performSearch() }
-                    .disabled(search.isEmpty)
+                // Arrow button instead of text button
+                Button {
+                    performSearch()
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(!search.isEmpty ? DS.Colors.accent : DS.Colors.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .disabled(search.isEmpty)
             }
             .padding(DS.Spacing.md)
             .background(DS.Colors.secondaryBackground)

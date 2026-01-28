@@ -8,10 +8,11 @@ struct OllamaBotApp: App {
         WindowGroup {
             MainView()
                 .environment(appState)
-                .frame(minWidth: 1200, minHeight: 800)
+                .frame(minWidth: 900, minHeight: 600)
                 .foregroundStyle(DS.Colors.text)  // Default all text to light blue/white
         }
         .windowStyle(.automatic)
+        .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Open Folder...") {

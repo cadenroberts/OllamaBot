@@ -67,6 +67,7 @@ struct MainView: View {
             
             // Editor + Bottom Panel Area
             editorArea
+                .layoutPriority(1)  // Give editor priority during window resize
             
             // Primary Sidebar (right position)
             if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
@@ -839,6 +840,8 @@ struct SearchSidebarView: View {
     @State private var searchText: String = ""
     @State private var searchResults: [SearchResult] = []
     @State private var isSearching = false
+    @State private var useRegex = false
+    @State private var matchCase = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -851,17 +854,53 @@ struct SearchSidebarView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(DS.Colors.tertiaryText)
                 
-                TextField("Search in files...", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(DS.Typography.callout)
-                    .foregroundStyle(DS.Colors.text)
-                    .onSubmit { performSearch() }
+                ZStack(alignment: .leading) {
+                    if searchText.isEmpty {
+                        Text("Search in files...")
+                            .font(DS.Typography.callout)
+                            .foregroundStyle(DS.Colors.tertiaryText)
+                    }
+                    TextField("", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(DS.Typography.callout)
+                        .foregroundStyle(DS.Colors.text)
+                        .onSubmit { performSearch() }
+                }
                 
                 if isSearching {
                     DSLoadingSpinner(size: 12)
                 }
             }
             .padding(DS.Spacing.sm)
+            
+            // Search options
+            HStack(spacing: DS.Spacing.sm) {
+                Toggle(isOn: $useRegex) {
+                    Image(systemName: "asterisk")
+                        .font(.caption2)
+                }
+                .toggleStyle(.button)
+                .buttonStyle(.plain)
+                .padding(4)
+                .background(useRegex ? DS.Colors.accent.opacity(0.2) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                .help("Use Regular Expression")
+                
+                Toggle(isOn: $matchCase) {
+                    Text("Aa")
+                        .font(.caption2.weight(.medium))
+                }
+                .toggleStyle(.button)
+                .buttonStyle(.plain)
+                .padding(4)
+                .background(matchCase ? DS.Colors.accent.opacity(0.2) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                .help("Match Case")
+                
+                Spacer()
+            }
+            .foregroundStyle(DS.Colors.secondaryText)
+            .padding(.horizontal, DS.Spacing.sm)
             .background(DS.Colors.tertiaryBackground)
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
             .padding(DS.Spacing.sm)
@@ -905,15 +944,60 @@ struct SearchSidebarView: View {
         
         isSearching = true
         Task {
-            // Use FileIndexer's content search
-            let results = await appState.fileIndexer.searchContent(searchText, maxResults: 100)
-            await MainActor.run {
-                searchResults = results.map { (url, _) in
-                    SearchResult(file: url, match: searchText)
+            let results: [SearchResult]
+            
+            if useRegex {
+                // Regex search
+                results = await performRegexSearch(searchText, matchCase: matchCase)
+            } else {
+                // Standard search
+                let searchResults = await appState.fileIndexer.searchContent(searchText, maxResults: 100)
+                results = searchResults.map { (url, _) in
+                    SearchResult(file: url, match: searchText, lineNumber: nil, lineContent: nil)
                 }
+            }
+            
+            await MainActor.run {
+                searchResults = results
                 isSearching = false
             }
         }
+    }
+    
+    private func performRegexSearch(_ pattern: String, matchCase: Bool) async -> [SearchResult] {
+        guard let root = appState.rootFolder else { return [] }
+        
+        var results: [SearchResult] = []
+        let options: NSRegularExpression.Options = matchCase ? [] : [.caseInsensitive]
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else {
+            return []
+        }
+        
+        // Get all files
+        let fileItems = appState.fileSystemService.getAllFiles(in: root)
+        
+        for fileItem in fileItems.prefix(500) { // Limit to prevent hanging
+            guard !fileItem.isDirectory,
+                  let content = appState.fileSystemService.readFile(at: fileItem.url) else { continue }
+            
+            let lines = content.components(separatedBy: CharacterSet.newlines)
+            for (index, line) in lines.enumerated() {
+                let range = NSRange(line.startIndex..., in: line)
+                if regex.firstMatch(in: line, range: range) != nil {
+                    results.append(SearchResult(
+                        file: fileItem.url,
+                        match: pattern,
+                        lineNumber: index + 1,
+                        lineContent: String(line.prefix(100))
+                    ))
+                    
+                    if results.count >= 100 { return results }
+                }
+            }
+        }
+        
+        return results
     }
 }
 
@@ -921,6 +1005,8 @@ struct SearchResult: Identifiable {
     let id = UUID()
     let file: URL
     let match: String
+    var lineNumber: Int?
+    var lineContent: String?
 }
 
 struct SearchResultRow: View {
@@ -929,22 +1015,37 @@ struct SearchResultRow: View {
     @State private var isHovered = false
     
     var body: some View {
-        HStack(spacing: DS.Spacing.sm) {
-            Image(systemName: "doc.text")
-                .font(.caption)
-                .foregroundStyle(DS.Colors.secondaryText)
-            
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: DS.Spacing.sm) {
+                Image(systemName: "doc.text")
+                    .font(.caption)
+                    .foregroundStyle(DS.Colors.secondaryText)
+                
                 Text(result.file.lastPathComponent)
                     .font(DS.Typography.caption)
                     .lineLimit(1)
                 
+                if let lineNum = result.lineNumber {
+                    Text(":\(lineNum)")
+                        .font(DS.Typography.mono(10))
+                        .foregroundStyle(DS.Colors.accent)
+                }
+                
+                Spacer()
+            }
+            
+            if let lineContent = result.lineContent {
+                Text(lineContent)
+                    .font(DS.Typography.mono(10))
+                    .foregroundStyle(DS.Colors.tertiaryText)
+                    .lineLimit(1)
+                    .padding(.leading, DS.Spacing.lg + DS.Spacing.sm)
+            } else {
                 Text(result.file.deletingLastPathComponent().lastPathComponent)
                     .font(DS.Typography.caption2)
                     .foregroundStyle(DS.Colors.tertiaryText)
+                    .padding(.leading, DS.Spacing.lg + DS.Spacing.sm)
             }
-            
-            Spacer()
         }
         .padding(.horizontal, DS.Spacing.sm)
         .padding(.vertical, DS.Spacing.xs)
@@ -953,6 +1054,10 @@ struct SearchResultRow: View {
         .onTapGesture {
             let file = FileItem(url: result.file, isDirectory: false)
             appState.openFile(file)
+            // Jump to line if available
+            if let line = result.lineNumber {
+                appState.goToLine = line
+            }
         }
         .onHover { isHovered = $0 }
     }
@@ -1113,14 +1218,22 @@ struct GitSidebarView: View {
     
     private var commitSection: some View {
         VStack(spacing: DS.Spacing.sm) {
-            TextField("Commit message...", text: $commitMessage, axis: .vertical)
-                .font(DS.Typography.caption)
-                .textFieldStyle(.plain)
-                .foregroundStyle(DS.Colors.text)
-                .padding(DS.Spacing.sm)
-                .background(DS.Colors.tertiaryBackground)
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
-                .lineLimit(3...5)
+            ZStack(alignment: .topLeading) {
+                if commitMessage.isEmpty {
+                    Text("Commit message...")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.tertiaryText)
+                        .padding(DS.Spacing.sm)
+                }
+                TextField("", text: $commitMessage, axis: .vertical)
+                    .font(DS.Typography.caption)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(DS.Colors.text)
+                    .padding(DS.Spacing.sm)
+                    .lineLimit(3...5)
+            }
+            .background(DS.Colors.tertiaryBackground)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
             
             HStack {
                 DSButton("Stage All", style: .secondary, size: .sm) {

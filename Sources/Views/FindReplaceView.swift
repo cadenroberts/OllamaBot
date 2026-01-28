@@ -24,21 +24,27 @@ struct FindBarView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(DS.Colors.secondaryText)
                     
-                    TextField("Find", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .foregroundStyle(DS.Colors.text)
-                        .focused($isSearchFocused)
-                        .onChange(of: searchText) { _, _ in
-                            updateMatches()
+                    ZStack(alignment: .leading) {
+                        if searchText.isEmpty {
+                            Text("Find")
+                                .foregroundStyle(DS.Colors.tertiaryText)
                         }
-                        .onSubmit {
-                            findNext()
-                        }
+                        TextField("", text: $searchText)
+                            .textFieldStyle(.plain)
+                            .foregroundStyle(DS.Colors.text)
+                            .focused($isSearchFocused)
+                            .onChange(of: searchText) { _, _ in
+                                updateMatches()
+                            }
+                            .onSubmit {
+                                findNext()
+                            }
+                    }
                 }
                 .padding(6)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(nsColor: .textBackgroundColor))
+                        .fill(DS.Colors.tertiaryBackground)
                 )
                 .frame(width: 200)
                 
@@ -116,17 +122,23 @@ struct FindBarView: View {
                         Image(systemName: "arrow.left.arrow.right")
                             .foregroundStyle(DS.Colors.secondaryText)
                         
-                        TextField("Replace", text: $replaceText)
-                            .textFieldStyle(.plain)
-                            .foregroundStyle(DS.Colors.text)
-                            .onSubmit {
-                                replaceOne()
+                        ZStack(alignment: .leading) {
+                            if replaceText.isEmpty {
+                                Text("Replace")
+                                    .foregroundStyle(DS.Colors.tertiaryText)
                             }
+                            TextField("", text: $replaceText)
+                                .textFieldStyle(.plain)
+                                .foregroundStyle(DS.Colors.text)
+                                .onSubmit {
+                                    replaceOne()
+                                }
+                        }
                     }
                     .padding(6)
                     .background(
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(nsColor: .textBackgroundColor))
+                            .fill(DS.Colors.tertiaryBackground)
                     )
                     .frame(width: 200)
                     
