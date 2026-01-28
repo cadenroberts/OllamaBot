@@ -126,7 +126,8 @@ struct MainView: View {
                             .environment(appState)
                     }
                 }
-                .frame(width: rightPanelWidth)
+                .frame(width: rightPanelWidth, alignment: .leading)
+                .zIndex(1)
             }
             .frame(width: contentWidth, height: geometry.size.height, alignment: .leading)
         }
