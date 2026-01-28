@@ -190,17 +190,21 @@ RECOMMENDED_RAM_GB=32
 MIN_DISK_GB=25
 RECOMMENDED_DISK_GB=100
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# Colors - Blue-only palette for consistent branding
+# All user-facing colors are blue variants for visual consistency
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
+LIGHT_BLUE='\033[1;34m'
 WHITE='\033[1;37m'
 GRAY='\033[0;90m'
 NC='\033[0m'
 BOLD='\033[1m'
+
+# Legacy color aliases - all map to blue variants
+RED="$CYAN"           # Use cyan instead of red
+GREEN="$LIGHT_BLUE"   # Use light blue instead of green
+YELLOW="$CYAN"        # Use cyan instead of yellow
+PURPLE="$BLUE"        # Use blue instead of purple
 
 # Symbols
 CHECK="✓"

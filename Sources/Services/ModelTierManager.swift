@@ -298,6 +298,7 @@ final class ModelTierManager {
     let recommendedTier: ModelTier
     var selectedTier: ModelTier
     var forceSmallModels: Bool = false
+    private var _customConfiguration: CustomConfiguration?
     
     // MARK: - Computed Properties
     
@@ -722,5 +723,275 @@ extension ModelTierManager {
             isRecommended: tier == recommendedTier,
             isAvailable: systemRAM >= tier.minRAM
         )
+    }
+}
+
+// MARK: - Custom Model Configuration (1-4 models)
+
+extension ModelTierManager {
+    
+    /// Represents a custom model configuration with 1-4 models
+    struct CustomConfiguration: Identifiable, Codable {
+        let id: UUID
+        var name: String
+        var selectedModels: [ModelSelection]
+        var createdAt: Date
+        
+        struct ModelSelection: Identifiable, Codable {
+            let id: UUID
+            var role: ModelRole
+            var tier: String  // Store tier as string for Codable
+            var enabled: Bool
+            
+            var tierEnum: ModelTier? {
+                ModelTier.allCases.first { $0.rawValue.lowercased().contains(tier.lowercased()) }
+            }
+        }
+        
+        enum ModelRole: String, CaseIterable, Codable {
+            case orchestrator = "Orchestrator"
+            case coder = "Coder"
+            case researcher = "Researcher"
+            case vision = "Vision"
+            
+            var icon: String {
+                switch self {
+                case .orchestrator: return "brain"
+                case .coder: return "chevron.left.forwardslash.chevron.right"
+                case .researcher: return "magnifyingglass.circle"
+                case .vision: return "eye"
+                }
+            }
+            
+            var description: String {
+                switch self {
+                case .orchestrator: return "Orchestrates complex tasks and delegates to specialists"
+                case .coder: return "Writes, reviews, and refactors code"
+                case .researcher: return "Searches, analyzes, and synthesizes information"
+                case .vision: return "Analyzes images, screenshots, and visual content"
+                }
+            }
+        }
+        
+        /// Total RAM required for this configuration
+        func estimatedRAMUsage() -> Double {
+            var total: Double = 0
+            for selection in selectedModels where selection.enabled {
+                if let tier = selection.tierEnum {
+                    switch selection.role {
+                    case .orchestrator:
+                        total += ModelTierManager.orchestratorVariants[tier]?.sizeGB ?? 0
+                    case .coder:
+                        total += ModelTierManager.coderVariants[tier]?.sizeGB ?? 0
+                    case .researcher:
+                        total += ModelTierManager.researcherVariants[tier]?.sizeGB ?? 0
+                    case .vision:
+                        total += ModelTierManager.visionVariants[tier]?.sizeGB ?? 0
+                    }
+                }
+            }
+            // Estimate RAM usage as ~1.5x model size when loaded
+            return total * 1.5
+        }
+        
+        /// Total disk space required
+        func totalDiskSpace() -> Double {
+            var total: Double = 0
+            for selection in selectedModels where selection.enabled {
+                if let tier = selection.tierEnum {
+                    switch selection.role {
+                    case .orchestrator:
+                        total += ModelTierManager.orchestratorVariants[tier]?.sizeGB ?? 0
+                    case .coder:
+                        total += ModelTierManager.coderVariants[tier]?.sizeGB ?? 0
+                    case .researcher:
+                        total += ModelTierManager.researcherVariants[tier]?.sizeGB ?? 0
+                    case .vision:
+                        total += ModelTierManager.visionVariants[tier]?.sizeGB ?? 0
+                    }
+                }
+            }
+            return total
+        }
+        
+        /// Number of enabled models
+        var enabledModelCount: Int {
+            selectedModels.filter { $0.enabled }.count
+        }
+    }
+    
+    /// Current custom configuration (if using custom mode)
+    var customConfiguration: CustomConfiguration? {
+        get { _customConfiguration }
+        set {
+            _customConfiguration = newValue
+            if let config = newValue {
+                saveCustomConfiguration(config)
+            }
+        }
+    }
+    
+    /// Create default custom configuration
+    func createDefaultCustomConfiguration() -> CustomConfiguration {
+        let defaultTier = selectedTier.rawValue.lowercased().components(separatedBy: " ").first ?? "performance"
+        
+        return CustomConfiguration(
+            id: UUID(),
+            name: "Custom Setup",
+            selectedModels: [
+                CustomConfiguration.ModelSelection(id: UUID(), role: .orchestrator, tier: defaultTier, enabled: true),
+                CustomConfiguration.ModelSelection(id: UUID(), role: .coder, tier: defaultTier, enabled: true),
+                CustomConfiguration.ModelSelection(id: UUID(), role: .researcher, tier: defaultTier, enabled: true),
+                CustomConfiguration.ModelSelection(id: UUID(), role: .vision, tier: defaultTier, enabled: false)
+            ],
+            createdAt: Date()
+        )
+    }
+    
+    /// Analyze a custom configuration and return performance description
+    func analyzeConfiguration(_ config: CustomConfiguration) -> ConfigurationAnalysis {
+        let enabledModels = config.selectedModels.filter { $0.enabled }
+        let modelCount = enabledModels.count
+        let totalRAM = config.estimatedRAMUsage()
+        let totalDisk = config.totalDiskSpace()
+        let availableRAM = Double(systemRAM)
+        
+        // Check feasibility
+        let canFit = totalRAM <= availableRAM * 0.8  // Leave 20% headroom
+        let canRunParallel = availableRAM >= 64 && totalRAM <= availableRAM * 0.6
+        
+        // Performance analysis
+        let performanceDescription: String
+        let recommendation: String
+        let speedRating: Int
+        let qualityRating: Int
+        
+        if modelCount == 0 {
+            performanceDescription = "No models selected."
+            recommendation = "Select at least one model to use OllamaBot."
+            speedRating = 0
+            qualityRating = 0
+        } else if !canFit {
+            performanceDescription = "⚠️ This configuration may not fit in memory (\(String(format: "%.1f", totalRAM))GB needed, \(systemRAM)GB available)."
+            recommendation = "Consider using smaller models or enabling fewer models."
+            speedRating = 2
+            qualityRating = 5
+        } else if modelCount == 1 {
+            let model = enabledModels[0]
+            let variant = getVariantForRole(model.role, tier: model.tierEnum ?? .compact)
+            performanceDescription = "Single-model mode: \(variant.name) handles all tasks. Fast model switching (none needed), but limited specialization."
+            recommendation = "Best for: Quick tasks, simple code assistance, learning. Add a coder model for better code quality."
+            speedRating = variant.speed
+            qualityRating = variant.quality - 1  // Slight penalty for no specialization
+        } else if modelCount == 2 {
+            performanceDescription = "Dual-model setup. Good balance of specialization and speed. Models switch as needed."
+            recommendation = "Best for: General development, code reviews, research-assisted coding."
+            speedRating = 7
+            qualityRating = 8
+        } else if modelCount == 3 {
+            performanceDescription = "Full specialist setup (no vision). Excellent for code-focused work with research capabilities."
+            recommendation = "Best for: Professional development, complex multi-file refactoring, documentation."
+            speedRating = 6
+            qualityRating = 9
+        } else {
+            performanceDescription = canRunParallel
+                ? "Full 4-model configuration with parallel execution. Maximum capability with minimal wait times."
+                : "Full 4-model configuration. Maximum capability but models must swap sequentially."
+            recommendation = canRunParallel
+                ? "Best for: Complex AI tasks, vision analysis, parallel multi-agent workflows."
+                : "Best for: Everything, but expect ~30-60s model switch times."
+            speedRating = canRunParallel ? 8 : 4
+            qualityRating = 10
+        }
+        
+        // Generate detailed model descriptions
+        var modelDescriptions: [String] = []
+        for selection in enabledModels {
+            let variant = getVariantForRole(selection.role, tier: selection.tierEnum ?? .compact)
+            modelDescriptions.append("\(selection.role.rawValue): \(variant.name) (\(variant.parameters))")
+        }
+        
+        return ConfigurationAnalysis(
+            canFit: canFit,
+            canRunParallel: canRunParallel,
+            estimatedRAM: totalRAM,
+            totalDisk: totalDisk,
+            modelCount: modelCount,
+            performanceDescription: performanceDescription,
+            recommendation: recommendation,
+            speedRating: speedRating,
+            qualityRating: qualityRating,
+            modelDescriptions: modelDescriptions
+        )
+    }
+    
+    private func getVariantForRole(_ role: CustomConfiguration.ModelRole, tier: ModelTier) -> ModelVariant {
+        switch role {
+        case .orchestrator: return Self.orchestratorVariants[tier] ?? Self.orchestratorVariants[.compact]!
+        case .coder: return Self.coderVariants[tier] ?? Self.coderVariants[.compact]!
+        case .researcher: return Self.researcherVariants[tier] ?? Self.researcherVariants[.compact]!
+        case .vision: return Self.visionVariants[tier] ?? Self.visionVariants[.compact]!
+        }
+    }
+    
+    struct ConfigurationAnalysis {
+        let canFit: Bool
+        let canRunParallel: Bool
+        let estimatedRAM: Double
+        let totalDisk: Double
+        let modelCount: Int
+        let performanceDescription: String
+        let recommendation: String
+        let speedRating: Int      // 1-10
+        let qualityRating: Int    // 1-10
+        let modelDescriptions: [String]
+    }
+    
+    /// Get all available model options for a role (different sizes)
+    func getModelOptions(for role: CustomConfiguration.ModelRole) -> [(tier: ModelTier, variant: ModelVariant)] {
+        ModelTier.allCases.compactMap { tier in
+            guard systemRAM >= tier.minRAM else { return nil }
+            let variant: ModelVariant
+            switch role {
+            case .orchestrator: variant = Self.orchestratorVariants[tier]!
+            case .coder: variant = Self.coderVariants[tier]!
+            case .researcher: variant = Self.researcherVariants[tier]!
+            case .vision: variant = Self.visionVariants[tier]!
+            }
+            return (tier, variant)
+        }
+    }
+    
+    /// Save custom configuration to disk
+    private func saveCustomConfiguration(_ config: CustomConfiguration) {
+        let configDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/ollamabot")
+        try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+        
+        let configPath = configDir.appendingPathComponent("custom_config.json")
+        
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = .prettyPrinted
+        
+        if let data = try? encoder.encode(config) {
+            try? data.write(to: configPath)
+        }
+    }
+    
+    /// Load custom configuration from disk
+    func loadCustomConfiguration() -> CustomConfiguration? {
+        let configPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/ollamabot/custom_config.json")
+        
+        guard FileManager.default.fileExists(atPath: configPath.path),
+              let data = try? Data(contentsOf: configPath) else {
+            return nil
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        return try? decoder.decode(CustomConfiguration.self, from: data)
     }
 }

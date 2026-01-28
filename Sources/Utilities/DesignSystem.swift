@@ -26,7 +26,7 @@ enum DS {
         )
     }
     
-    // MARK: - Color Palette (Tokyo Night inspired - distinctive, not generic)
+    // MARK: - Color Palette (Blue-focused design system)
     
     enum Colors {
         // Core backgrounds - deep, rich darks
@@ -35,43 +35,45 @@ enum DS {
         static let tertiaryBackground = Color(hex: "414868")
         static let surface = Color(hex: "1f2335")
         
-        // Text hierarchy
+        // Text hierarchy - blue-tinted for consistency
         static let text = Color(hex: "c0caf5")
         static let secondaryText = Color(hex: "9aa5ce")
         static let tertiaryText = Color(hex: "565f89")
         static let mutedText = Color(hex: "3b4261")
         
-        // Brand accent - vibrant cyan/teal (distinctive, not purple)
-        static let accent = Color(hex: "7dcfff")
-        static let accentAlt = Color(hex: "2ac3de")
+        // Brand accent - vibrant blue palette
+        static let accent = Color(hex: "7dcfff")        // Primary cyan-blue
+        static let accentAlt = Color(hex: "2ac3de")     // Secondary teal-blue
+        static let accentLight = Color(hex: "a9d4ff")   // Light blue for highlights
+        static let accentDark = Color(hex: "4a9fcf")    // Darker blue for depth
         
-        // Semantic colors
-        static let success = Color(hex: "9ece6a")
-        static let warning = Color(hex: "e0af68")
-        static let error = Color(hex: "f7768e")
-        static let info = Color(hex: "7aa2f7")
+        // Semantic colors (system indicators only - not for user-facing text)
+        static let success = Color(hex: "73c0ff")       // Blue-success (was green)
+        static let warning = Color(hex: "7dcfff")       // Blue-warning (same as accent)
+        static let error = Color(hex: "5a8fd4")         // Muted blue for errors
+        static let info = Color(hex: "7aa2f7")          // Info blue
         
-        // Model colors - each AI has a distinct personality
-        static let orchestrator = Color(hex: "bb9af7")  // Qwen3 - purple, the thinker
-        static let researcher = Color(hex: "7aa2f7")    // Command-R - blue, analytical
-        static let coder = Color(hex: "ff9e64")         // Qwen-Coder - orange, creative
-        static let vision = Color(hex: "9ece6a")        // Qwen-VL - green, perceptive
+        // Model colors - blue spectrum differentiation
+        static let orchestrator = Color(hex: "7aa2f7")  // Qwen3 - royal blue
+        static let researcher = Color(hex: "2ac3de")    // Command-R - teal blue
+        static let coder = Color(hex: "7dcfff")         // Qwen-Coder - cyan blue
+        static let vision = Color(hex: "5a8fd4")        // Qwen-VL - steel blue
         
-        // Syntax highlighting (editor)
+        // Syntax highlighting (editor) - blue-themed
         static let codeBackground = Color(hex: "1a1b26")
         static let codeBorder = Color(hex: "3b4261")
         static let lineNumbers = Color(hex: "3b4261")
         static let currentLine = Color(hex: "292e42")
         
-        // Syntax tokens
-        static let keyword = Color(hex: "bb9af7")
-        static let string = Color(hex: "9ece6a")
-        static let number = Color(hex: "ff9e64")
-        static let comment = Color(hex: "565f89")
-        static let function = Color(hex: "7aa2f7")
-        static let type = Color(hex: "2ac3de")
-        static let variable = Color(hex: "c0caf5")
-        static let constant = Color(hex: "ff9e64")
+        // Syntax tokens - harmonized blue palette
+        static let keyword = Color(hex: "7aa2f7")       // Blue for keywords
+        static let string = Color(hex: "73c0ff")        // Light blue for strings
+        static let number = Color(hex: "7dcfff")        // Cyan for numbers
+        static let comment = Color(hex: "565f89")       // Muted for comments
+        static let function = Color(hex: "2ac3de")      // Teal for functions
+        static let type = Color(hex: "5a8fd4")          // Steel blue for types
+        static let variable = Color(hex: "c0caf5")      // Text color for variables
+        static let constant = Color(hex: "a9d4ff")      // Light blue for constants
         
         // UI Elements
         static let border = Color(hex: "3b4261")
@@ -79,9 +81,9 @@ enum DS {
         static let selection = Color(hex: "33467c")
         static let hover = Color(hex: "292e42")
         
-        // Gradients
+        // Gradients - blue spectrum
         static let infinityGradient = LinearGradient(
-            colors: [orchestrator, accentAlt],
+            colors: [Color(hex: "7aa2f7"), Color(hex: "2ac3de")],
             startPoint: .leading,
             endPoint: .trailing
         )
@@ -90,6 +92,13 @@ enum DS {
             colors: [surface, background],
             startPoint: .top,
             endPoint: .bottom
+        )
+        
+        // Explore mode gradient - deeper blues
+        static let exploreGradient = LinearGradient(
+            colors: [Color(hex: "5a8fd4"), Color(hex: "7dcfff")],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
         )
     }
     
@@ -333,7 +342,7 @@ struct DSButton: View {
         switch style {
         case .primary: return AnyShapeStyle(DS.Colors.accent)
         case .secondary: return AnyShapeStyle(DS.Colors.secondaryBackground)
-        case .destructive: return AnyShapeStyle(DS.Colors.error)
+        case .destructive: return AnyShapeStyle(DS.Colors.accentDark)  // Blue for destructive
         case .ghost: return AnyShapeStyle(Color.clear)
         case .accent: return AnyShapeStyle(DS.Colors.infinityGradient)
         }
@@ -750,12 +759,12 @@ struct DSErrorView: View {
         VStack(spacing: DS.Spacing.lg) {
             ZStack {
                 Circle()
-                    .fill(DS.Colors.error.opacity(0.1))
+                    .fill(DS.Colors.accent.opacity(0.1))
                     .frame(width: 64, height: 64)
                 
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(DS.Colors.error)
+                    .foregroundStyle(DS.Colors.accent)
             }
             
             VStack(spacing: DS.Spacing.sm) {

@@ -19,12 +19,15 @@
 
 ## ✨ What Makes OllamaBot Different
 
-Traditional AI coding tools wait for your commands. **OllamaBot's Infinite Mode** flips this paradigm:
+Traditional AI coding tools wait for your commands. **OllamaBot's AI Modes** flip this paradigm:
 
-- 🔄 **Autonomous Operation** — Give it a task, watch it work until completion
+- 🔄 **Infinite Mode** — Give it a task, watch it work until completion
+- ✨ **Explore Mode** — Continuous autonomous improvement of your project
 - 🧠 **Multi-Model Orchestration** — 4 specialized AI models working in coordination  
 - 💻 **100% Local** — No API costs, no usage limits, complete privacy
 - ⚡ **Apple Silicon Optimized** — Built for M1/M2/M3 performance
+- 🛡️ **Safely Infinite** — Power loss recovery, checkpoints, resilient operation
+- 🌐 **Works Offline** — All models run locally, no internet required
 
 ---
 
@@ -91,6 +94,43 @@ OllamaBot coordinates four specialized 32B parameter models, each excelling at d
 | | `git_diff` | View file or repo diffs |
 | | `git_commit` | Stage and commit changes |
 
+### ✨ Explore Mode (New!)
+
+Where Infinite Mode completes a single task, **Explore Mode** continuously improves your project:
+
+```
+Original Goal: "Build a sandwich app"
+     │
+     ▼  EXPLORE CYCLE
+┌────────────────────────────────────┐
+│  1. UNDERSTANDING - Analyze codebase│
+│  2. EXPANDING - Add new features    │
+│  3. SPECIFYING - Edge cases, errors │
+│  4. STANDARDIZING - Apply patterns  │
+│  5. DOCUMENTING - Auto-update docs  │
+│  6. REFLECTING - Plan next cycle    │
+└────────────────────────────────────┘
+     │
+     ▼  REPEAT FOREVER
+Basic deli app → Ordering system → Route optimization → ...
+```
+
+**Key Features:**
+- **Autonomous expansion** — keeps adding features aligned with your goal
+- **Auto-documentation** — generates docs every N changes
+- **Configurable style** — Conservative, Balanced, or Aggressive exploration
+- **Pausable** — pause and redirect focus anytime
+- **Ground truth** — always stays true to your original goal
+
+Configure via `.obotrules`:
+```markdown
+## Explore Mode Rules
+- Maximum expansion depth: 3 levels
+- Focus areas: [performance, features, testing]
+- Auto-document after: 5 changes
+- Expansion style: balanced
+```
+
 ### 💬 Chat Mode
 
 - Quick conversations with any model
@@ -132,6 +172,22 @@ OllamaBot coordinates four specialized 32B parameter models, each excelling at d
 - **Global Search** (`⌘⇧F`)
 - **Find & Replace** (`⌘F` / `⌘⌥F`)
 - **Go to Line** (`⌃G`)
+
+### 🖥️ System Integration
+
+- **RAM Monitoring** — Real-time memory tracking with Activity Monitor-like interface
+- **Process Manager** — Force quit memory-hungry apps directly from OllamaBot
+- **Network Aware** — Detects WiFi/Ethernet, gracefully degrades offline
+- **Power Loss Recovery** — Auto-save state, recover interrupted sessions
+- **Model Configuration** — Custom 1-4 model setups with performance analysis
+
+### 🛡️ Resilience Features
+
+- **Checkpoints** — Save/restore code states (like Windsurf)
+- **Autosave** — State saved every 30 seconds while agents run
+- **Graceful Degradation** — Works offline (all models are local)
+- **Recovery Alert** — Offers to restore interrupted work on launch
+- **Safe Operations** — Confirmation before destructive actions
 
 ### ⚡ Performance Optimized
 
@@ -555,24 +611,24 @@ Access settings via `⌘,` or the menu bar.
 
 ## 🎨 Design System
 
-OllamaBot uses a **Tokyo Night**-inspired color palette:
+OllamaBot uses a **Tokyo Night**-inspired color palette with a **blue-only** unified theme:
 
 ```swift
 // Core Colors
 background:     #1a1b26  // Deep background
 surface:        #1f2335  // Cards, panels
-accent:         #7dcfff  // Brand cyan
+accent:         #7dcfff  // Brand cyan-blue
+accentAlt:      #2ac3de  // Teal-blue
 
-// Model Colors  
-orchestrator:   #bb9af7  // Purple (Qwen3)
-researcher:     #7aa2f7  // Blue (Command-R)
-coder:          #ff9e64  // Orange (Qwen-Coder)
-vision:         #9ece6a  // Green (Qwen-VL)
+// Model Colors (Blue Spectrum)
+orchestrator:   #7aa2f7  // Royal blue (Qwen3)
+researcher:     #2ac3de  // Teal blue (Command-R)
+coder:          #7dcfff  // Cyan blue (Qwen-Coder)
+vision:         #5a8fd4  // Steel blue (Qwen-VL)
 
-// Semantic
-success:        #9ece6a
-warning:        #e0af68
-error:          #f7768e
+// Semantic (Blue variants)
+success:        #73c0ff  // Light blue
+info:           #7aa2f7  // Info blue
 ```
 
 ---

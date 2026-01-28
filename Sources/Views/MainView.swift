@@ -603,7 +603,9 @@ struct FileTreeNode: View {
             Divider()
         }
         
-        Button("Rename...") { /* TODO */ }
+        Button("Rename...") {
+            appState.initiateRename(for: url)
+        }
         Button("Duplicate") {
             _ = appState.fileSystemService.duplicate(at: url)
         }
@@ -684,15 +686,16 @@ struct FileTreeNode: View {
         let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
         if isDir { return DS.Colors.info }
         
+        // All file type colors use blue spectrum for consistency
         switch url.pathExtension.lowercased() {
-        case "swift": return .orange
-        case "py": return .green
-        case "js": return .yellow
-        case "ts", "tsx": return DS.Colors.info
-        case "json": return Color.purple
-        case "md": return DS.Colors.accent
-        case "html": return DS.Colors.error
-        case "css", "scss": return DS.Colors.info
+        case "swift": return DS.Colors.accent           // Cyan blue
+        case "py": return DS.Colors.accentAlt           // Teal blue
+        case "js": return DS.Colors.accentLight         // Light blue
+        case "ts", "tsx": return DS.Colors.info         // Royal blue
+        case "json": return DS.Colors.accentDark        // Dark blue
+        case "md": return DS.Colors.accent              // Cyan blue
+        case "html": return DS.Colors.researcher        // Teal blue
+        case "css", "scss": return DS.Colors.info       // Royal blue
         default: return DS.Colors.secondaryText
         }
     }

@@ -296,6 +296,7 @@ class AppState {
     let intentRouter: IntentRouter
     let contextManager: ContextManager          // Unified context (SINGLE SOURCE OF TRUTH)
     let agentExecutor: AgentExecutor            // Single-task agent (Infinite Mode)
+    let exploreExecutor: ExploreAgentExecutor   // Explore Mode - autonomous improvement
     let cycleAgentManager: CycleAgentManager    // Multi-agent orchestration (Cycle Mode)
     let obotService: OBotService                // Rules, bots, context, templates
     let mentionService: MentionService          // @mention support for chat
@@ -307,6 +308,11 @@ class AppState {
     let chatHistoryService: ChatHistoryService
     let gitService: GitService
     let webSearchService: WebSearchService
+    
+    // MARK: - System Services
+    let systemMonitor: SystemMonitorService     // RAM & process monitoring
+    let networkMonitor: NetworkMonitorService   // Network status & resilience
+    let resilienceService: ResilienceService    // Power loss & crash recovery
     
     // MARK: - Model Tier Management (RAM-aware model selection)
     let modelTierManager: ModelTierManager
@@ -329,6 +335,13 @@ class AppState {
         
         // Agents - ALL share the same ContextManager (SINGLE SOURCE OF TRUTH)
         self.agentExecutor = AgentExecutor(
+            ollamaService: ollamaService,
+            fileSystemService: fileSystemService,
+            contextManager: contextManager
+        )
+        
+        // Explore Mode executor - autonomous project improvement
+        self.exploreExecutor = ExploreAgentExecutor(
             ollamaService: ollamaService,
             fileSystemService: fileSystemService,
             contextManager: contextManager
@@ -369,6 +382,15 @@ class AppState {
             gitService: gitService
         )
         
+        // System services - monitoring and resilience
+        self.systemMonitor = SystemMonitorService()
+        self.networkMonitor = NetworkMonitorService()
+        self.resilienceService = ResilienceService()
+        
+        // Wire up resilience service to agents
+        self.resilienceService.agentExecutor = agentExecutor
+        self.resilienceService.exploreExecutor = exploreExecutor
+        
         // Monitor memory pressure and clear caches when needed
         self.memoryMonitor = MemoryPressureMonitor()
         self.memoryMonitor?.onHighPressure = { [weak self] in
@@ -381,11 +403,24 @@ class AppState {
         // Configure OllamaService with tier-appropriate model tags
         ollamaService.configureTier(modelTierManager)
         
+        // Start system monitoring
+        systemMonitor.startMonitoring()
+        networkMonitor.startMonitoring()
+        resilienceService.startAutosave()
+        
+        // Check for recovery data on launch
+        Task { @MainActor in
+            if await resilienceService.checkForRecoveryData() {
+                // Recovery alert will be shown by the view
+            }
+        }
+        
         // Log system configuration
         print("🚀 OllamaBot initialized")
         print("   RAM: \(modelTierManager.systemRAM)GB")
         print("   Tier: \(modelTierManager.selectedTier.rawValue)")
         print("   Parallel: \(modelTierManager.canRunParallel ? "Yes" : "No")")
+        print("   Network: \(networkMonitor.status.isConnected ? "Connected" : "Offline")")
     }
     
     // MARK: - File Operations
@@ -467,6 +502,42 @@ class AppState {
         guard let file = selectedFile else { return }
         fileSystemService.writeFile(content: editorContent, to: file.url)
         showToast(.success, "Saved \(file.name)")
+    }
+    
+    /// Initiate a rename operation for a file or folder
+    func initiateRename(for url: URL) {
+        let alert = NSAlert()
+        alert.messageText = "Rename"
+        alert.informativeText = "Enter a new name for '\(url.lastPathComponent)'"
+        
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        textField.stringValue = url.lastPathComponent
+        alert.accessoryView = textField
+        
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+        
+        alert.window.initialFirstResponder = textField
+        
+        if alert.runModal() == .alertFirstButtonReturn {
+            let newName = textField.stringValue
+            if !newName.isEmpty && newName != url.lastPathComponent {
+                let newURL = url.deletingLastPathComponent().appendingPathComponent(newName)
+                do {
+                    try FileManager.default.moveItem(at: url, to: newURL)
+                    // Update open files if needed
+                    if let index = openFiles.firstIndex(where: { $0.url == url }) {
+                        openFiles[index] = FileItem(url: newURL, isDirectory: openFiles[index].isDirectory)
+                        if selectedFile?.url == url {
+                            selectedFile = openFiles[index]
+                        }
+                    }
+                    showSuccess("Renamed to '\(newName)'")
+                } catch {
+                    showError("Failed to rename: \(error.localizedDescription)")
+                }
+            }
+        }
     }
     
     // MARK: - Toast Notifications

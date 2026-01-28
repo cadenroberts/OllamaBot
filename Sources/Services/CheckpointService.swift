@@ -605,7 +605,7 @@ struct CheckpointPreviewSheet: View {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(changes, id: \.relativePath) { change in
-                            FileChangeRow(
+                            CheckpointFileChangeRow(
                                 change: change,
                                 isSelected: selectedFiles.contains(change.relativePath)
                             ) {
@@ -647,7 +647,7 @@ struct CheckpointPreviewSheet: View {
     }
 }
 
-struct FileChangeRow: View {
+struct CheckpointFileChangeRow: View {
     let change: CheckpointService.FileChange
     let isSelected: Bool
     let onToggle: () -> Void

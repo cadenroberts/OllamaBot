@@ -10,11 +10,13 @@ struct AgentView: View {
     
     enum AgentMode: String, CaseIterable {
         case infinite = "Infinite Mode"
+        case explore = "Explore Mode"
         case cycle = "Cycle Agents"
         
         var icon: String {
             switch self {
             case .infinite: return "infinity"
+            case .explore: return "sparkles"
             case .cycle: return "circle.hexagongrid.fill"
             }
         }
@@ -31,6 +33,8 @@ struct AgentView: View {
             switch selectedMode {
             case .infinite:
                 infiniteModeContent
+            case .explore:
+                ExploreView()
             case .cycle:
                 CycleAgentView()
             }
@@ -65,13 +69,15 @@ struct AgentView: View {
             
             Spacer()
             
-            // Help button
+            // Help button - shows tooltip via .help modifier
             DSIconButton(icon: "questionmark.circle", size: 14) {
-                // Show help
+                if let helpURL = URL(string: "https://github.com/ollamabot/ollamabot#readme") {
+                    NSWorkspace.shared.open(helpURL)
+                }
             }
             .help(selectedMode == .infinite 
-                ? "Single agent loop until task complete" 
-                : "Multi-model orchestration with specialists")
+                ? "Infinite Mode: Single agent runs until task complete. Click for docs." 
+                : "Cycle Mode: Multi-model orchestration with specialists. Click for docs.")
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.sm)

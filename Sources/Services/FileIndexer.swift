@@ -322,6 +322,168 @@ actor FileIndexer {
     }
 }
 
+// MARK: - Persistent Index Storage
+
+extension FileIndexer {
+    
+    /// Persistent index data structure
+    struct PersistentIndex: Codable {
+        let version: Int
+        let rootPath: String
+        let indexedAt: Date
+        let files: [PersistentFileEntry]
+        
+        struct PersistentFileEntry: Codable {
+            let path: String
+            let modificationDate: Date
+            let size: Int
+            let lineCount: Int
+        }
+        
+        static let currentVersion = 1
+    }
+    
+    /// Get path for persistent index
+    private func getIndexPath(for root: URL) -> URL {
+        let configDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/ollamabot/index")
+        
+        try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+        
+        // Create hash from path for filename
+        let pathHash = root.path.data(using: .utf8)?.base64EncodedString()
+            .replacingOccurrences(of: "/", with: "_")
+            .prefix(32) ?? "default"
+        
+        return configDir.appendingPathComponent("index_\(pathHash).json")
+    }
+    
+    /// Save current index to disk
+    func saveIndex() async {
+        guard let root = rootURL else { return }
+        
+        let entries = fileIndex.values.map { file in
+            PersistentIndex.PersistentFileEntry(
+                path: file.url.path,
+                modificationDate: file.modificationDate,
+                size: file.size,
+                lineCount: file.lineCount
+            )
+        }
+        
+        let index = PersistentIndex(
+            version: PersistentIndex.currentVersion,
+            rootPath: root.path,
+            indexedAt: Date(),
+            files: entries
+        )
+        
+        let indexPath = getIndexPath(for: root)
+        
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(index)
+            try data.write(to: indexPath)
+            print("📁 Index saved: \(entries.count) files")
+        } catch {
+            print("Failed to save index: \(error)")
+        }
+    }
+    
+    /// Load index from disk if valid
+    func loadIndex(for root: URL) async -> Bool {
+        let indexPath = getIndexPath(for: root)
+        
+        guard FileManager.default.fileExists(atPath: indexPath.path),
+              let data = try? Data(contentsOf: indexPath) else {
+            return false
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        guard let saved = try? decoder.decode(PersistentIndex.self, from: data),
+              saved.version == PersistentIndex.currentVersion,
+              saved.rootPath == root.path else {
+            return false
+        }
+        
+        // Check if index is recent (within 24 hours)
+        guard Date().timeIntervalSince(saved.indexedAt) < 86400 else {
+            return false
+        }
+        
+        print("📁 Loaded cached index: \(saved.files.count) files")
+        
+        // Perform incremental update - only reindex modified files
+        await incrementalUpdate(from: saved, root: root)
+        
+        return true
+    }
+    
+    /// Incrementally update index based on file changes
+    private func incrementalUpdate(from saved: PersistentIndex, root: URL) async {
+        let savedFiles = Dictionary(uniqueKeysWithValues: saved.files.map { ($0.path, $0) })
+        let currentFiles = collectFiles(in: root)
+        
+        var filesToIndex: [URL] = []
+        var unchangedCount = 0
+        
+        for file in currentFiles {
+            if let savedEntry = savedFiles[file.path] {
+                // Check if modified
+                let currentMod = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date()
+                
+                if currentMod > savedEntry.modificationDate {
+                    filesToIndex.append(file)
+                } else {
+                    unchangedCount += 1
+                }
+            } else {
+                // New file
+                filesToIndex.append(file)
+            }
+        }
+        
+        print("📁 Incremental update: \(filesToIndex.count) changed, \(unchangedCount) unchanged")
+        
+        // Index only changed files
+        if !filesToIndex.isEmpty {
+            await withTaskGroup(of: [(URL, IndexedFile)].self) { group in
+                let chunkSize = max(10, filesToIndex.count / ProcessInfo.processInfo.activeProcessorCount)
+                
+                for chunk in filesToIndex.chunked(into: chunkSize) {
+                    group.addTask { [self] in
+                        var results: [(URL, IndexedFile)] = []
+                        for file in chunk {
+                            if let indexed = self.indexFile(file) {
+                                results.append((file, indexed))
+                            }
+                        }
+                        return results
+                    }
+                }
+                
+                for await results in group {
+                    for (url, indexed) in results {
+                        fileIndex[url] = indexed
+                        for word in indexed.words {
+                            wordIndex[word, default: Set()].insert(url)
+                        }
+                        for trigram in indexed.trigrams {
+                            trigramIndex[trigram, default: Set()].insert(url)
+                        }
+                    }
+                }
+            }
+        }
+        
+        lastIndexTime = Date()
+        rootURL = root
+    }
+}
+
 // MARK: - Array Chunking
 
 extension Array {

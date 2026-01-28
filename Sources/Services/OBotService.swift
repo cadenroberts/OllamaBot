@@ -750,9 +750,43 @@ struct ProjectRules {
     let source: URL
     let sections: [RulesSection]
     
+    // Mode-specific rules
+    var infiniteModeRules: InfiniteModeRules?
+    var exploreModeRules: ExploreModeRules?
+    var generalRules: [String] = []
+    
     struct RulesSection {
         let title: String
         let content: String
+    }
+    
+    /// Rules specific to Infinite Mode
+    struct InfiniteModeRules {
+        var alwaysVerifyCompiles: Bool = true
+        var createCheckpointBeforeDestructive: Bool = true
+        var maxStepsPerTask: Int = 50
+        var requireUserApprovalForDestructive: Bool = false
+        var preferredTools: [String] = []
+        var disabledTools: [String] = []
+        var customInstructions: String = ""
+    }
+    
+    /// Rules specific to Explore Mode
+    struct ExploreModeRules {
+        var maxExpansionDepth: Int = 3
+        var focusAreas: [String] = []  // e.g., ["performance", "features", "testing"]
+        var autoDocumentAfterChanges: Int = 5
+        var explorationStyle: ExplorationStyle = .balanced
+        var pauseBetweenCycles: Double = 2.0
+        var excludedPaths: [String] = []
+        var priorityAreas: [String] = []
+        var customInstructions: String = ""
+        
+        enum ExplorationStyle: String {
+            case conservative
+            case balanced
+            case aggressive
+        }
     }
     
     static func parse(_ content: String, source: URL) -> ProjectRules {
@@ -778,7 +812,126 @@ struct ProjectRules {
             sections.append(RulesSection(title: currentTitle, content: currentContent.trimmingCharacters(in: .whitespacesAndNewlines)))
         }
         
-        return ProjectRules(content: content, source: source, sections: sections)
+        var rules = ProjectRules(content: content, source: source, sections: sections)
+        
+        // Parse mode-specific rules
+        rules.infiniteModeRules = parseInfiniteModeRules(sections)
+        rules.exploreModeRules = parseExploreModeRules(sections)
+        rules.generalRules = parseGeneralRules(sections)
+        
+        return rules
+    }
+    
+    private static func parseInfiniteModeRules(_ sections: [RulesSection]) -> InfiniteModeRules? {
+        guard let section = sections.first(where: { $0.title.lowercased().contains("infinite mode") }) else {
+            return nil
+        }
+        
+        var rules = InfiniteModeRules()
+        
+        for line in section.content.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("-") else { continue }
+            
+            let rule = String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces).lowercased()
+            
+            if rule.contains("verify") && rule.contains("compile") {
+                rules.alwaysVerifyCompiles = !rule.contains("never") && !rule.contains("don't")
+            } else if rule.contains("checkpoint") && rule.contains("destructive") {
+                rules.createCheckpointBeforeDestructive = !rule.contains("never") && !rule.contains("don't")
+            } else if rule.contains("max") && rule.contains("step") {
+                if let match = rule.range(of: #"\d+"#, options: .regularExpression),
+                   let value = Int(rule[match]) {
+                    rules.maxStepsPerTask = value
+                }
+            } else if rule.contains("approval") && rule.contains("destructive") {
+                rules.requireUserApprovalForDestructive = rule.contains("require") || rule.contains("always")
+            }
+            
+            // Store as custom instruction if not parsed
+            if !rule.isEmpty {
+                rules.customInstructions += "- \(trimmed.dropFirst())\n"
+            }
+        }
+        
+        return rules
+    }
+    
+    private static func parseExploreModeRules(_ sections: [RulesSection]) -> ExploreModeRules? {
+        guard let section = sections.first(where: { $0.title.lowercased().contains("explore mode") }) else {
+            return nil
+        }
+        
+        var rules = ExploreModeRules()
+        
+        for line in section.content.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("-") else { continue }
+            
+            let rule = String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces)
+            let ruleLower = rule.lowercased()
+            
+            if ruleLower.contains("max") && ruleLower.contains("depth") {
+                if let match = ruleLower.range(of: #"\d+"#, options: .regularExpression),
+                   let value = Int(ruleLower[match]) {
+                    rules.maxExpansionDepth = value
+                }
+            } else if ruleLower.contains("focus") && ruleLower.contains("area") {
+                // Parse: Focus areas: [performance, features, testing]
+                if let start = rule.firstIndex(of: "["),
+                   let end = rule.firstIndex(of: "]") {
+                    let areasStr = String(rule[rule.index(after: start)..<end])
+                    rules.focusAreas = areasStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                }
+            } else if ruleLower.contains("auto") && ruleLower.contains("document") {
+                if let match = ruleLower.range(of: #"\d+"#, options: .regularExpression),
+                   let value = Int(ruleLower[match]) {
+                    rules.autoDocumentAfterChanges = value
+                }
+            } else if ruleLower.contains("style") {
+                if ruleLower.contains("conservative") {
+                    rules.explorationStyle = .conservative
+                } else if ruleLower.contains("aggressive") {
+                    rules.explorationStyle = .aggressive
+                } else {
+                    rules.explorationStyle = .balanced
+                }
+            } else if ruleLower.contains("exclude") {
+                if let start = rule.firstIndex(of: "["),
+                   let end = rule.firstIndex(of: "]") {
+                    let pathsStr = String(rule[rule.index(after: start)..<end])
+                    rules.excludedPaths = pathsStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                }
+            }
+            
+            // Store as custom instruction
+            if !rule.isEmpty {
+                rules.customInstructions += "- \(rule)\n"
+            }
+        }
+        
+        return rules
+    }
+    
+    private static func parseGeneralRules(_ sections: [RulesSection]) -> [String] {
+        var rules: [String] = []
+        
+        for section in sections {
+            let titleLower = section.title.lowercased()
+            // Skip mode-specific sections
+            if titleLower.contains("infinite") || titleLower.contains("explore") {
+                continue
+            }
+            
+            for line in section.content.components(separatedBy: "\n") {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("-") {
+                    rules.append(String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces))
+                }
+            }
+        }
+        
+        return rules
     }
 }
 
