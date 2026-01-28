@@ -45,71 +45,76 @@ struct MainView: View {
     
     @ViewBuilder
     private var mainContentArea: some View {
-        HStack(spacing: 0) {
-            // Activity Bar (left edge) - if sidebar is on left
-            // Highest priority - stays visible longest
-            if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
-                ActivityBarView(panels: panels)
-                    .environment(appState)
-                    .layoutPriority(3)
-            }
-            
-            // Primary Sidebar (left) - High priority, persists
-            if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
-                primarySidebar
-                    .layoutPriority(2)
-                PanelResizer(
-                    axis: .vertical,
-                    size: $panels.primarySidebarWidth,
-                    minSize: PanelState.minSidebarWidth,
-                    maxSize: PanelState.maxSidebarWidth
-                ) {
-                    panels.saveState()
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                // LEFT SIDE - Fixed, never clips
+                HStack(spacing: 0) {
+                    // Activity Bar (left edge)
+                    if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
+                        ActivityBarView(panels: panels)
+                            .environment(appState)
+                    }
+                    
+                    // Primary Sidebar (left)
+                    if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
+                        primarySidebar
+                        PanelResizer(
+                            axis: .vertical,
+                            size: $panels.primarySidebarWidth,
+                            minSize: PanelState.minSidebarWidth,
+                            maxSize: PanelState.maxSidebarWidth
+                        ) {
+                            panels.saveState()
+                        }
+                    }
                 }
-            }
-            
-            // Editor + Bottom Panel Area - Medium priority, compresses first
-            editorArea
-                .layoutPriority(1)
-            
-            // Primary Sidebar (right position) - Low priority
-            if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
-                PanelResizer(
-                    axis: .vertical,
-                    size: $panels.primarySidebarWidth,
-                    minSize: PanelState.minSidebarWidth,
-                    maxSize: PanelState.maxSidebarWidth,
-                    isRightSide: true
-                ) {
-                    panels.saveState()
+                .fixedSize(horizontal: true, vertical: false)
+                
+                // MIDDLE + RIGHT - Flexible, clips from right
+                HStack(spacing: 0) {
+                    // Editor + Bottom Panel Area
+                    editorArea
+                        .layoutPriority(1)
+                    
+                    // Primary Sidebar (right position)
+                    if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
+                        PanelResizer(
+                            axis: .vertical,
+                            size: $panels.primarySidebarWidth,
+                            minSize: PanelState.minSidebarWidth,
+                            maxSize: PanelState.maxSidebarWidth,
+                            isRightSide: true
+                        ) {
+                            panels.saveState()
+                        }
+                        primarySidebar
+                    }
+                    
+                    // Secondary Sidebar (always right, for chat)
+                    if panels.showSecondarySidebar && !panels.zenMode {
+                        PanelResizer(
+                            axis: .vertical,
+                            size: $panels.secondarySidebarWidth,
+                            minSize: PanelState.minSidebarWidth,
+                            maxSize: PanelState.maxSidebarWidth,
+                            isRightSide: true
+                        ) {
+                            panels.saveState()
+                        }
+                        secondarySidebar
+                    }
+                    
+                    // Activity Bar (right edge) - if sidebar is on right
+                    if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
+                        ActivityBarView(panels: panels)
+                            .environment(appState)
+                    }
                 }
-                primarySidebar
-                    .layoutPriority(0)
+                .frame(maxWidth: .infinity)
+                .clipped()
             }
-            
-            // Secondary Sidebar (always right, for chat) - Lowest priority, clips first
-            if panels.showSecondarySidebar && !panels.zenMode {
-                PanelResizer(
-                    axis: .vertical,
-                    size: $panels.secondarySidebarWidth,
-                    minSize: PanelState.minSidebarWidth,
-                    maxSize: PanelState.maxSidebarWidth,
-                    isRightSide: true
-                ) {
-                    panels.saveState()
-                }
-                secondarySidebar
-                    .layoutPriority(-1)
-            }
-            
-            // Activity Bar (right edge) - if sidebar is on right
-            if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
-                ActivityBarView(panels: panels)
-                    .environment(appState)
-                    .layoutPriority(-1)
-            }
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
         }
-        .clipped()  // Clip content that overflows during resize
     }
     
     // MARK: - Primary Sidebar
