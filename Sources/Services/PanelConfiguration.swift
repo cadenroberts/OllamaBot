@@ -450,19 +450,27 @@ struct PanelResizer: View {
     var onResizeEnd: (() -> Void)?
     
     @State private var isDragging = false
+    @State private var isHovering = false
     @State private var baseSize: CGFloat = 0
+    
+    private var isActive: Bool { isDragging || isHovering }
     
     var body: some View {
         Rectangle()
-            .fill(isDragging ? DS.Colors.accent.opacity(0.5) : Color.clear)
+            .fill(isActive ? DS.Colors.accent.opacity(isDragging ? 0.6 : 0.3) : Color.clear)
             .frame(
                 width: axis == .vertical ? 6 : nil,
                 height: axis == .horizontal ? 6 : nil
             )
             .contentShape(Rectangle())
             .onHover { hovering in
+                isHovering = hovering
                 if hovering {
-                    NSCursor.resizeLeftRight.push()
+                    if axis == .vertical {
+                        NSCursor.resizeLeftRight.push()
+                    } else {
+                        NSCursor.resizeUpDown.push()
+                    }
                 } else {
                     NSCursor.pop()
                 }
@@ -471,11 +479,9 @@ struct PanelResizer: View {
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { value in
                         if !isDragging {
-                            // Capture the size at drag start
                             isDragging = true
                             baseSize = size
                         }
-                        // Use translation from drag start point
                         let delta = axis == .vertical ? value.translation.width : value.translation.height
                         let adjustedDelta = isRightSide ? -delta : delta
                         let newSize = baseSize + adjustedDelta
@@ -486,6 +492,7 @@ struct PanelResizer: View {
                         onResizeEnd?()
                     }
             )
+            .animation(DS.Animation.fast, value: isActive)
     }
 }
 

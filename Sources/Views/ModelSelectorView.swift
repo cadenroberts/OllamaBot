@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ModelSelectorView: View {
     @Environment(AppState.self) private var appState
+    @State private var isHovering = false
     
     var body: some View {
         Menu {
@@ -40,23 +41,33 @@ struct ModelSelectorView: View {
                     Image(systemName: model.icon)
                         .foregroundStyle(model.color)
                     Text(model.displayName)
-                        .font(.caption)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.text)
                 } else {
                     Image(systemName: "sparkles")
-                        .foregroundStyle(DS.Colors.secondaryText)
+                        .foregroundStyle(DS.Colors.accent)
                     Text("Auto")
-                        .font(.caption)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.text)
                 }
                 Image(systemName: "chevron.down")
                     .font(.caption2)
+                    .foregroundStyle(DS.Colors.secondaryText)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(DS.Colors.tertiaryBackground)
+                    .fill(isHovering ? DS.Colors.tertiaryBackground : DS.Colors.surface)
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(DS.Colors.border, lineWidth: 1)
+                    )
             )
         }
-        .menuStyle(.borderlessButton)
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovering = hovering
+        }
     }
 }
