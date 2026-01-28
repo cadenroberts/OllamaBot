@@ -86,12 +86,10 @@ struct MainView: View {
                     }
                 }
                 .frame(width: leftPanelWidth)
-                .zIndex(1) // Ensure left panel stays on top if anything weird happens
                 
                 // MIDDLE PANEL - Flexible (stretches to fill space)
                 editorArea
                     .frame(width: currentEditorWidth)
-                    .zIndex(0)
                 
                 // RIGHT PANELS - Fixed width
                 HStack(spacing: 0) {
@@ -129,7 +127,6 @@ struct MainView: View {
                     }
                 }
                 .frame(width: rightPanelWidth)
-                .zIndex(1)
             }
             .frame(width: contentWidth, height: geometry.size.height, alignment: .leading)
         }
@@ -143,7 +140,7 @@ struct MainView: View {
             width += 48 // ActivityBar
         }
         if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
-            width += panels.primarySidebarWidth + 4 // Sidebar + Resizer
+            width += panels.primarySidebarWidth + 6 // Sidebar + Resizer (6px)
         }
         return width
     }
@@ -152,10 +149,10 @@ struct MainView: View {
     private func calculateRightPanelWidth() -> CGFloat {
         var width: CGFloat = 0
         if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
-            width += panels.primarySidebarWidth + 4 // Sidebar + Resizer
+            width += panels.primarySidebarWidth + 6 // Sidebar + Resizer (6px)
         }
         if panels.showSecondarySidebar && !panels.zenMode {
-            width += panels.secondarySidebarWidth + 4 // Sidebar + Resizer
+            width += panels.secondarySidebarWidth + 6 // Sidebar + Resizer (6px)
         }
         if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
             width += 48 // ActivityBar
