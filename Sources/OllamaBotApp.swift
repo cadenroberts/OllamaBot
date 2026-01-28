@@ -8,7 +8,7 @@ struct OllamaBotApp: App {
         WindowGroup {
             MainView()
                 .environment(appState)
-                .frame(minWidth: 900, minHeight: 600)
+                .frame(minWidth: 400, minHeight: 300)
                 .foregroundStyle(DS.Colors.text)  // Default all text to light blue/white
         }
         .windowStyle(.automatic)

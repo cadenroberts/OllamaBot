@@ -146,6 +146,9 @@ chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 # Touch the app to update Finder
 touch "$APP_BUNDLE"
 
+# Ad-hoc code signing to prevent caching issues
+codesign --force --deep --sign - "$APP_BUNDLE"
+
 echo -e "\n${GREEN}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║                    ✅ Build Complete!                         ║"

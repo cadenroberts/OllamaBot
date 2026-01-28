@@ -323,7 +323,6 @@ struct MainView: View {
                 }
             }
         }
-        .frame(minWidth: 200)  // Allow editor to compress more before sidebars clip
     }
     
     @ViewBuilder
