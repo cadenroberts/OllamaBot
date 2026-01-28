@@ -72,43 +72,47 @@ struct MainView: View {
                 
                 // MIDDLE + RIGHT - Flexible, clips from right
                 HStack(spacing: 0) {
-                    // Editor + Bottom Panel Area
+                    // Editor + Bottom Panel Area - compresses first, then sidebars clip
                     editorArea
-                        .layoutPriority(1)
+                        .layoutPriority(2)  // Higher priority: keeps space longer
                     
-                    // Primary Sidebar (right position)
-                    if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
-                        PanelResizer(
-                            axis: .vertical,
-                            size: $panels.primarySidebarWidth,
-                            minSize: PanelState.minSidebarWidth,
-                            maxSize: PanelState.maxSidebarWidth,
-                            isRightSide: true
-                        ) {
-                            panels.saveState()
+                    // Right sidebars group - clips off screen when editor at minWidth
+                    HStack(spacing: 0) {
+                        // Primary Sidebar (right position)
+                        if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
+                            PanelResizer(
+                                axis: .vertical,
+                                size: $panels.primarySidebarWidth,
+                                minSize: PanelState.minSidebarWidth,
+                                maxSize: PanelState.maxSidebarWidth,
+                                isRightSide: true
+                            ) {
+                                panels.saveState()
+                            }
+                            primarySidebar
                         }
-                        primarySidebar
-                    }
-                    
-                    // Secondary Sidebar (always right, for chat)
-                    if panels.showSecondarySidebar && !panels.zenMode {
-                        PanelResizer(
-                            axis: .vertical,
-                            size: $panels.secondarySidebarWidth,
-                            minSize: PanelState.minSidebarWidth,
-                            maxSize: PanelState.maxSidebarWidth,
-                            isRightSide: true
-                        ) {
-                            panels.saveState()
+                        
+                        // Secondary Sidebar (always right, for chat)
+                        if panels.showSecondarySidebar && !panels.zenMode {
+                            PanelResizer(
+                                axis: .vertical,
+                                size: $panels.secondarySidebarWidth,
+                                minSize: PanelState.minSidebarWidth,
+                                maxSize: PanelState.maxSidebarWidth,
+                                isRightSide: true
+                            ) {
+                                panels.saveState()
+                            }
+                            secondarySidebar
                         }
-                        secondarySidebar
+                        
+                        // Activity Bar (right edge) - if sidebar is on right
+                        if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
+                            ActivityBarView(panels: panels)
+                                .environment(appState)
+                        }
                     }
-                    
-                    // Activity Bar (right edge) - if sidebar is on right
-                    if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
-                        ActivityBarView(panels: panels)
-                            .environment(appState)
-                    }
+                    .layoutPriority(0)  // Lower priority: clips off when no space
                 }
                 .frame(maxWidth: .infinity)
                 .clipped()
