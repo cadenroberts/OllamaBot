@@ -105,6 +105,8 @@ struct OBotPanelView: View {
                             .font(.caption)
                         Text(tab.rawValue)
                             .font(DS.Typography.caption)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                     .foregroundStyle(selectedTab == tab ? DS.Colors.accent : DS.Colors.secondaryText)
                     .padding(.horizontal, DS.Spacing.md)
