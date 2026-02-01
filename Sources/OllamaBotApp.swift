@@ -698,6 +698,24 @@ class AppState {
         isGenerating = false
     }
     
+    /// Stop the current generation
+    func stopGeneration() {
+        guard isGenerating else { return }
+        
+        // Cancel the stream
+        ollamaService.cancelStream()
+        
+        // Update last message to indicate it was stopped
+        if !chatMessages.isEmpty {
+            let lastIndex = chatMessages.count - 1
+            if chatMessages[lastIndex].role == .assistant {
+                chatMessages[lastIndex].content += "\n\n*[Generation stopped]*"
+            }
+        }
+        
+        isGenerating = false
+    }
+    
     // MARK: - Code Application
     
     func applyCodeToEditor(_ code: String, replace: Bool = false) {

@@ -343,14 +343,21 @@ struct ChatView: View {
                     return .ignored
                 }
             
-            // Send button
-            Button(action: sendMessage) {
+            // Send/Stop button
+            Button(action: {
+                if appState.isGenerating {
+                    appState.stopGeneration()
+                } else {
+                    sendMessage()
+                }
+            }) {
                 Image(systemName: appState.isGenerating ? "stop.circle.fill" : "arrow.up.circle.fill")
                     .font(.title)
-                    .foregroundStyle(canSend ? DS.Colors.accent : DS.Colors.secondaryText)
+                    .foregroundStyle(appState.isGenerating ? DS.Colors.error : (canSend ? DS.Colors.accent : DS.Colors.secondaryText))
             }
             .buttonStyle(.plain)
             .disabled(!canSend && !appState.isGenerating)
+            .help(appState.isGenerating ? "Stop generation" : "Send message")
         }
         .padding(DS.Spacing.md)
     }

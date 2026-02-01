@@ -26,6 +26,20 @@ class OllamaService {
     /// Performance tracker for benchmarks and cost savings
     var performanceTracker: PerformanceTrackingService?
     
+    // MARK: - Stream Cancellation
+    private var currentStreamTask: Task<Void, Never>?
+    private var streamContinuation: AsyncThrowingStream<String, Error>.Continuation?
+    var isCancelled: Bool = false
+    
+    /// Cancel the current streaming generation
+    func cancelStream() {
+        isCancelled = true
+        streamContinuation?.finish()
+        streamContinuation = nil
+        currentStreamTask?.cancel()
+        currentStreamTask = nil
+    }
+    
     struct CachedResponse {
         let content: String
         let timestamp: Date
@@ -329,13 +343,26 @@ class OllamaService {
         images: [Data] = [],
         taskType: TaskType? = nil
     ) -> AsyncThrowingStream<String, Error> {
+        // Reset cancellation state
+        isCancelled = false
+        
         // Infer task type from model if not specified
         let task = taskType ?? inferTaskType(for: model)
         
         return AsyncThrowingStream { continuation in
-            Task(priority: .userInitiated) {
+            // Store continuation for cancellation
+            self.streamContinuation = continuation
+            
+            // Handle termination
+            continuation.onTermination = { [weak self] _ in
+                self?.streamContinuation = nil
+                self?.currentStreamTask = nil
+            }
+            
+            self.currentStreamTask = Task(priority: .userInitiated) { [weak self] in
+                guard let self = self else { return }
                 do {
-                    try await streamChat(
+                    try await self.streamChat(
                         model: model,
                         messages: messages,
                         context: context,
@@ -344,7 +371,9 @@ class OllamaService {
                         continuation: continuation
                     )
                 } catch {
-                    continuation.finish(throwing: error)
+                    if !Task.isCancelled && !self.isCancelled {
+                        continuation.finish(throwing: error)
+                    }
                 }
             }
         }
@@ -437,6 +466,12 @@ class OllamaService {
         var totalTokensGenerated = 0
         
         for try await line in bytes.lines {
+            // Check for cancellation
+            if Task.isCancelled || isCancelled {
+                continuation.finish()
+                return
+            }
+            
             guard let data = line.data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let message = json["message"] as? [String: Any],
