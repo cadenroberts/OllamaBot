@@ -28,7 +28,7 @@ class AgentExecutor {
     var waitingForUser = false
     var userPrompt = ""
     private var pendingUserResponse: String?
-    private var workingDirectory: URL?
+    var workingDirectory: URL?  // Internal for extension access
     
     // Limits
     var maxSteps = 50
@@ -301,8 +301,13 @@ class AgentExecutor {
         case "git_commit":
             result = await executeGitCommit(call)
         default:
-            addStep(.error("Unknown tool: \(call.name)"))
-            result = ToolResult(toolCallId: call.id, success: false, output: "Unknown tool: \(call.name)")
+            // Try advanced tools
+            if let advancedResult = await executeAdvancedTool(call) {
+                result = advancedResult
+            } else {
+                addStep(.error("Unknown tool: \(call.name)"))
+                result = ToolResult(toolCallId: call.id, success: false, output: "Unknown tool: \(call.name)")
+            }
         }
         
         // Cache successful read-only results

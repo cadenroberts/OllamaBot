@@ -7,10 +7,11 @@ import SwiftUI
 struct CycleAgentView: View {
     @Environment(AppState.self) private var appState
     @State private var taskInput: String = ""
-    @State private var selectedStrategy: CycleAgentManager.CycleStrategy = .adaptive
+    @State private var usePipelineMode: Bool = false  // false = Auto, true = Pipeline
     @State private var isExecuting: Bool = false
     @State private var results: [CycleAgentManager.TaskResult] = []
     @State private var showStatistics: Bool = false
+    @State private var selectedAgentIds: Set<String> = []  // Empty = all agents
     
     // Use shared instance from AppState
     private var cycleManager: CycleAgentManager {
@@ -18,231 +19,108 @@ struct CycleAgentView: View {
     }
     
     var body: some View {
+        // No internal header - tab bar shows "Agents", matches other panes like Composer
+        HStack(spacing: 0) {
+            // Left: Agent configuration + Task input + Strategy
+            configurationPanel
+                .frame(minWidth: 160, idealWidth: 200, maxWidth: 260)
+            
+            // Vertical divider
+            Rectangle()
+                .fill(DS.Colors.border)
+                .frame(width: 1)
+            
+            // Right: Multi-Agent Execution visual - expands to fill
+            executionVisualPanel
+                .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS.Colors.background)
+    }
+    
+    // MARK: - Configuration Panel (Left Side)
+    
+    private var configurationPanel: some View {
         VStack(spacing: 0) {
-            // Header with system info
-            headerSection
+            // 1. Agents Section (multi-select)
+            agentsSection
             
             DSDivider()
             
-            // Main content
-            HSplitView {
-                // Left: Agent configuration
-                agentConfigPanel
-                    .frame(minWidth: 250, idealWidth: 300, maxWidth: 400)
-                
-                // Right: Task execution
-                executionPanel
-            }
-        }
-    }
-    
-    // MARK: - Header
-    
-    private var headerSection: some View {
-        HStack(spacing: DS.Spacing.lg) {
-            // Title
-            HStack(spacing: DS.Spacing.sm) {
-                Image(systemName: "circle.hexagongrid.fill")
-                    .font(.title2)
-                    .foregroundStyle(DS.Colors.accent)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Cycle Agents")
-                        .font(DS.Typography.headline)
-                    Text("Multi-model orchestration")
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(DS.Colors.secondaryText)
-                }
-            }
-            
-            Spacer()
-            
-            // System status
-            systemStatusBadge(cycleManager)
-            
-            // Statistics button
-            DSIconButton(icon: "chart.bar", size: 16) {
-                showStatistics.toggle()
-            }
-            .popover(isPresented: $showStatistics) {
-                statisticsPopover
-            }
-        }
-        .padding(DS.Spacing.md)
-        .background(DS.Colors.surface)
-    }
-    
-    private func systemStatusBadge(_ manager: CycleAgentManager) -> some View {
-        let stats = manager.getStatistics()
-        
-        return HStack(spacing: DS.Spacing.md) {
-            // RAM indicator
-            HStack(spacing: DS.Spacing.xs) {
-                Image(systemName: "memorychip")
-                    .font(.caption)
-                Text("\(stats.availableRAM)GB")
-                    .font(DS.Typography.mono(11))
-            }
-            .foregroundStyle(stats.canRunParallel ? DS.Colors.success : DS.Colors.warning)
-            
-            // Parallel capability
-            HStack(spacing: DS.Spacing.xs) {
-                Image(systemName: stats.canRunParallel ? "bolt.fill" : "bolt.slash")
-                    .font(.caption)
-                Text(stats.canRunParallel ? "Parallel" : "Sequential")
-                    .font(DS.Typography.caption)
-            }
-            .foregroundStyle(stats.canRunParallel ? DS.Colors.success : DS.Colors.secondaryText)
-            
-            // Warm model indicator
-            if let warm = stats.warmAgent {
-                HStack(spacing: DS.Spacing.xs) {
-                    Circle()
-                        .fill(DS.Colors.success)
-                        .frame(width: 6, height: 6)
-                    Text(warm)
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(DS.Colors.secondaryText)
-                }
-            }
-        }
-        .padding(.horizontal, DS.Spacing.sm)
-        .padding(.vertical, DS.Spacing.xs)
-        .background(DS.Colors.tertiaryBackground)
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
-    }
-    
-    // MARK: - Agent Config Panel
-    
-    private var agentConfigPanel: some View {
-        VStack(spacing: 0) {
-            DSSectionHeader(title: "AGENTS")
-            
-            DSDivider()
-            
-            ScrollView {
-                VStack(spacing: DS.Spacing.sm) {
-                    ForEach(cycleManager.agents) { agent in
-                        AgentCard(agent: agent, isWarm: cycleManager.getStatistics().warmAgent == agent.role.rawValue)
-                    }
-                }
-                .padding(DS.Spacing.sm)
-            }
-            
-            DSDivider()
-            
-            // Strategy selector
-            strategySelector
-        }
-        .background(DS.Colors.secondaryBackground)
-    }
-    
-    private var strategySelector: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            Text("Execution Strategy")
-                .font(DS.Typography.caption.weight(.semibold))
-                .foregroundStyle(DS.Colors.secondaryText)
-            
-            Menu {
-                Button { selectedStrategy = .adaptive } label: {
-                    HStack {
-                        Text("Adaptive (Recommended)")
-                        if selectedStrategy == .adaptive { Image(systemName: "checkmark") }
-                    }
-                }
-                Button { selectedStrategy = .specialist } label: {
-                    HStack {
-                        Text("Specialist (Batched)")
-                        if selectedStrategy == .specialist { Image(systemName: "checkmark") }
-                    }
-                }
-                Button { selectedStrategy = .pipeline } label: {
-                    HStack {
-                        Text("Pipeline (Sequential)")
-                        if selectedStrategy == .pipeline { Image(systemName: "checkmark") }
-                    }
-                }
-                Button { selectedStrategy = .roundRobin } label: {
-                    HStack {
-                        Text("Round Robin")
-                        if selectedStrategy == .roundRobin { Image(systemName: "checkmark") }
-                    }
-                }
-                if cycleManager.getStatistics().canRunParallel {
-                    Button { selectedStrategy = .parallel } label: {
-                        HStack {
-                            Text("Parallel (64GB+ RAM)")
-                            if selectedStrategy == .parallel { Image(systemName: "checkmark") }
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: DS.Spacing.xs) {
-                    Text(strategyLabel)
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(DS.Colors.text)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption2)
-                        .foregroundStyle(DS.Colors.secondaryText)
-                }
-                .padding(.horizontal, DS.Spacing.sm)
-                .padding(.vertical, DS.Spacing.xs)
-                .background(DS.Colors.tertiaryBackground)
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
-            }
-            .buttonStyle(.plain)
-            
-            Text(strategyDescription)
-                .font(DS.Typography.caption2)
-                .foregroundStyle(DS.Colors.tertiaryText)
-        }
-        .padding(DS.Spacing.sm)
-    }
-    
-    private var strategyLabel: String {
-        switch selectedStrategy {
-        case .adaptive: return "Adaptive (Recommended)"
-        case .specialist: return "Specialist (Batched)"
-        case .pipeline: return "Pipeline (Sequential)"
-        case .roundRobin: return "Round Robin"
-        case .parallel: return "Parallel (64GB+ RAM)"
-        }
-    }
-    
-    private var strategyDescription: String {
-        switch selectedStrategy {
-        case .adaptive:
-            return "Automatically chooses the best strategy based on task analysis"
-        case .specialist:
-            return "Groups tasks by agent to minimize model switches"
-        case .pipeline:
-            return "Tasks flow through agents, each building on previous results"
-        case .roundRobin:
-            return "Agents take turns handling tasks in sequence"
-        case .parallel:
-            return "Executes compatible tasks simultaneously (requires 64GB+ RAM)"
-        }
-    }
-    
-    // MARK: - Execution Panel
-    
-    private var executionPanel: some View {
-        VStack(spacing: 0) {
-            // Task input
+            // 2. Task Input (chat box)
             taskInputSection
             
             DSDivider()
             
-            // Results
-            if isExecuting {
-                executionProgress
-            } else if !results.isEmpty {
-                resultsSection
-            } else {
-                emptyState
-            }
+            // 3. Execution Strategy Toggle
+            strategyToggle
         }
-        .background(DS.Colors.background)
+        .background(DS.Colors.secondaryBackground)
+    }
+    
+    private var agentsSection: some View {
+        VStack(spacing: 0) {
+            // Header with RAM status and selection info
+            HStack(spacing: DS.Spacing.xs) {
+                Text("AGENTS")
+                    .font(DS.Typography.caption.weight(.semibold))
+                    .foregroundStyle(DS.Colors.secondaryText)
+                
+                // RAM indicator
+                let stats = cycleManager.getStatistics()
+                HStack(spacing: 2) {
+                    Image(systemName: "memorychip")
+                        .font(.system(size: 8))
+                    Text("\(stats.availableRAM)GB")
+                        .font(DS.Typography.mono(8))
+                }
+                .foregroundStyle(stats.canRunParallel ? DS.Colors.success : DS.Colors.warning)
+                
+                Spacer()
+                
+                // Selection indicator
+                Text(selectedAgentIds.isEmpty ? "All" : "\(selectedAgentIds.count)")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.secondaryText)
+            }
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, DS.Spacing.xs)
+            
+            ScrollView {
+                VStack(spacing: DS.Spacing.xs) {
+                    ForEach(cycleManager.agents) { agent in
+                        SelectableAgentCard(
+                            agent: agent,
+                            isSelected: selectedAgentIds.contains(agent.id),
+                            isWarm: cycleManager.getStatistics().warmAgent == agent.role.rawValue
+                        ) {
+                            toggleAgentSelection(agent.id)
+                        }
+                    }
+                }
+                .padding(DS.Spacing.sm)
+            }
+            .frame(maxHeight: 200)
+            
+            // Helper text
+            Text(selectedAgentIds.isEmpty 
+                 ? "Tap to select specific agents, or leave empty to use all"
+                 : usePipelineMode 
+                    ? "Selected agents will run sequentially in order"
+                    : "Auto mode will intelligently use selected agents")
+                .font(DS.Typography.caption2)
+                .foregroundStyle(DS.Colors.tertiaryText)
+                .padding(.horizontal, DS.Spacing.sm)
+                .padding(.bottom, DS.Spacing.sm)
+        }
+    }
+    
+    private func toggleAgentSelection(_ agentId: String) {
+        if selectedAgentIds.contains(agentId) {
+            selectedAgentIds.remove(agentId)
+        } else {
+            selectedAgentIds.insert(agentId)
+        }
     }
     
     private var taskInputSection: some View {
@@ -254,32 +132,21 @@ struct CycleAgentView: View {
                 
                 Spacer()
                 
-                // Quick task buttons
+                // Quick task templates
                 Menu {
-                    Button("Code Review Task") {
-                        taskInput = "Review this codebase for potential bugs, security issues, and performance improvements. Provide specific recommendations with code examples."
+                    Button("Code Review") {
+                        taskInput = "Review this codebase for potential bugs, security issues, and performance improvements."
                     }
                     Button("Research Task") {
-                        taskInput = "Research best practices for [topic] and provide a comprehensive summary with examples and recommendations."
+                        taskInput = "Research best practices for [topic] and provide a comprehensive summary."
                     }
                     Button("Multi-step Analysis") {
-                        taskInput = "Analyze this project: 1) Review code quality, 2) Research similar implementations, 3) Suggest improvements with implementation plan."
+                        taskInput = "Analyze this project: 1) Review code, 2) Research alternatives, 3) Suggest improvements."
                     }
                 } label: {
-                    HStack(spacing: DS.Spacing.xs) {
-                        Image(systemName: "text.badge.plus")
-                        Text("Templates")
-                    }
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(DS.Colors.accent)
-                    .padding(.horizontal, DS.Spacing.sm)
-                    .padding(.vertical, DS.Spacing.xs)
-                    .background(DS.Colors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DS.Radius.sm)
-                            .strokeBorder(DS.Colors.border, lineWidth: 1)
-                    )
+                    Image(systemName: "text.badge.plus")
+                        .font(.caption)
+                        .foregroundStyle(DS.Colors.accent)
                 }
                 .buttonStyle(.plain)
             }
@@ -288,7 +155,7 @@ struct CycleAgentView: View {
                 .font(DS.Typography.callout)
                 .foregroundStyle(DS.Colors.text)
                 .scrollContentBackground(.hidden)
-                .frame(minHeight: 80, maxHeight: 150)
+                .frame(minHeight: 60, maxHeight: 120)
                 .padding(DS.Spacing.xs)
                 .background(DS.Colors.tertiaryBackground)
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
@@ -311,30 +178,115 @@ struct CycleAgentView: View {
                 
                 Spacer()
                 
+                // Send button
                 Button {
                     Task { await executeCycle() }
                 } label: {
                     Image(systemName: isExecuting ? "stop.circle.fill" : "arrow.up.circle.fill")
-                        .font(.title)
+                        .font(.title2)
                         .foregroundStyle((!taskInput.isEmpty && !isExecuting) ? DS.Colors.accent : DS.Colors.secondaryText)
                 }
                 .buttonStyle(.plain)
                 .disabled(taskInput.isEmpty && !isExecuting)
             }
         }
-        .padding(DS.Spacing.md)
+        .padding(DS.Spacing.sm)
+    }
+    
+    private var strategyToggle: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            Text("Execution Mode")
+                .font(DS.Typography.caption.weight(.semibold))
+                .foregroundStyle(DS.Colors.secondaryText)
+            
+            // Simple toggle between Auto and Pipeline
+            HStack(spacing: DS.Spacing.sm) {
+                // Auto button
+                Button {
+                    usePipelineMode = false
+                } label: {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: "sparkles")
+                            .font(.caption)
+                        Text("Auto")
+                            .font(DS.Typography.caption)
+                    }
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.vertical, DS.Spacing.sm)
+                    .background(!usePipelineMode ? DS.Colors.accent.opacity(0.2) : DS.Colors.tertiaryBackground)
+                    .foregroundStyle(!usePipelineMode ? DS.Colors.accent : DS.Colors.secondaryText)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.sm)
+                            .stroke(!usePipelineMode ? DS.Colors.accent : Color.clear, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                // Pipeline button
+                Button {
+                    usePipelineMode = true
+                } label: {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: "arrow.right.arrow.right.circle")
+                            .font(.caption)
+                        Text("Pipeline")
+                            .font(DS.Typography.caption)
+                    }
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.vertical, DS.Spacing.sm)
+                    .background(usePipelineMode ? DS.Colors.accent.opacity(0.2) : DS.Colors.tertiaryBackground)
+                    .foregroundStyle(usePipelineMode ? DS.Colors.accent : DS.Colors.secondaryText)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.sm)
+                            .stroke(usePipelineMode ? DS.Colors.accent : Color.clear, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                Spacer()
+            }
+            
+            // Description
+            Text(usePipelineMode 
+                 ? "Tasks flow through agents sequentially, each building on previous results"
+                 : "Automatically chooses the optimal execution strategy")
+                .font(DS.Typography.caption2)
+                .foregroundStyle(DS.Colors.tertiaryText)
+        }
+        .padding(DS.Spacing.sm)
+    }
+    
+    // MARK: - Execution Visual Panel (Right Side)
+    
+    private var executionVisualPanel: some View {
+        // Single solid background - no headers or dividers
+        ScrollView {
+            VStack(spacing: 0) {
+                if isExecuting {
+                    executionProgress
+                } else if !results.isEmpty {
+                    resultsSection
+                } else {
+                    emptyState
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS.Colors.background)
     }
     
     private var executionProgress: some View {
         VStack(spacing: DS.Spacing.lg) {
-            Spacer()
-            
-            // Animated agent visualization
+            // Animated agent visualization with selected agents - at top
             CycleVisualization(
-                agents: cycleManager.agents,
+                agents: getActiveAgents(),
                 currentAgent: cycleManager.currentTask?.assignedAgent,
                 progress: cycleManager.progress
             )
+            .padding(.top, DS.Spacing.xl)
             
             // Status
             VStack(spacing: DS.Spacing.sm) {
@@ -345,26 +297,38 @@ struct CycleAgentView: View {
                 ProgressView(value: cycleManager.progress)
                     .tint(DS.Colors.accent)
                     .frame(maxWidth: 300)
+                
+                // Show mode
+                Text(usePipelineMode ? "Pipeline Mode" : "Auto Mode")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.secondaryText)
             }
             
-            Spacer()
+            Spacer() // Push content to top
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, DS.Spacing.md)
     }
     
     private var resultsSection: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                // Summary
+                // Summary header
                 HStack {
-                    Text("Results")
-                        .font(DS.Typography.headline)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Results")
+                            .font(DS.Typography.headline)
+                        Text(usePipelineMode ? "Pipeline execution" : "Auto execution")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.Colors.secondaryText)
+                    }
                     
                     Spacer()
                     
-                    Text("\(results.count) tasks completed")
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(DS.Colors.secondaryText)
+                    // Clear results button
+                    DSIconButton(icon: "xmark.circle", size: 14) {
+                        results = []
+                    }
                 }
                 .padding(.horizontal, DS.Spacing.md)
                 .padding(.top, DS.Spacing.md)
@@ -379,37 +343,57 @@ struct CycleAgentView: View {
     
     private var emptyState: some View {
         VStack(spacing: DS.Spacing.lg) {
-            Spacer()
-            
-            Image(systemName: "circle.hexagongrid")
-                .font(.system(size: 48))
-                .foregroundStyle(DS.Colors.tertiaryText)
+            // Visual showing selected agents or all agents - at top with padding
+            CycleVisualization(
+                agents: getActiveAgents(),
+                currentAgent: nil,
+                progress: 0
+            )
+            .opacity(0.6)
+            .padding(.top, DS.Spacing.xl)
             
             Text("Multi-Agent Execution")
                 .font(DS.Typography.headline)
                 .foregroundStyle(DS.Colors.secondaryText)
             
-            Text("Enter a complex task and let multiple specialized\nagents collaborate to solve it")
-                .font(DS.Typography.caption)
-                .foregroundStyle(DS.Colors.tertiaryText)
-                .multilineTextAlignment(.center)
-            
-            // Performance note
-            VStack(spacing: DS.Spacing.xs) {
-                let stats = cycleManager.getStatistics()
-                if stats.canRunParallel {
-                    Label("Parallel execution enabled (64GB+ RAM)", systemImage: "bolt.fill")
-                        .foregroundStyle(DS.Colors.success)
+            // Dynamic description based on selection
+            Group {
+                if selectedAgentIds.isEmpty {
+                    Text("All agents available • Enter a task to begin")
                 } else {
-                    Label("Smart sequential mode (optimized for \(stats.availableRAM)GB RAM)", systemImage: "bolt")
-                        .foregroundStyle(DS.Colors.warning)
+                    let count = selectedAgentIds.count
+                    Text("\(count) agent\(count == 1 ? "" : "s") selected • \(usePipelineMode ? "Sequential" : "Auto") mode")
                 }
             }
             .font(DS.Typography.caption)
+            .foregroundStyle(DS.Colors.tertiaryText)
+            .multilineTextAlignment(.center)
             
-            Spacer()
+            // Sent tasks will appear here
+            VStack(spacing: DS.Spacing.xs) {
+                Image(systemName: "tray.and.arrow.down")
+                    .font(.caption)
+                Text("Tasks will appear here")
+                    .font(DS.Typography.caption2)
+            }
+            .foregroundStyle(DS.Colors.tertiaryText)
+            .padding(.top, DS.Spacing.md)
+            
+            Spacer() // Push content to top, fill remaining space
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, DS.Spacing.md)
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Get agents to use based on selection
+    private func getActiveAgents() -> [CycleAgentManager.AgentDefinition] {
+        if selectedAgentIds.isEmpty {
+            return cycleManager.agents
+        } else {
+            return cycleManager.agents.filter { selectedAgentIds.contains($0.id) }
+        }
     }
     
     // MARK: - Statistics Popover
@@ -475,26 +459,149 @@ struct CycleAgentView: View {
         context.workingDirectory = appState.rootFolder
         
         do {
-            // Use plan-and-execute for complex tasks
-            let result = try await manager.planAndExecute(task: taskInput, context: context)
-            
-            // Convert to result format
-            results = [CycleAgentManager.TaskResult(
-                output: result,
-                agentId: "synthesis",
-                executionTime: 0,
-                modelSwitchTime: 0,
-                tokensUsed: result.count / 4
-            )]
+            // If specific agents selected, use custom execution
+            if !selectedAgentIds.isEmpty {
+                let activeAgents = getActiveAgents()
+                
+                if usePipelineMode {
+                    // Pipeline: run through selected agents sequentially
+                    var allResults: [CycleAgentManager.TaskResult] = []
+                    var previousOutput = ""
+                    
+                    for (index, agent) in activeAgents.enumerated() {
+                        manager.statusMessage = "Running \(agent.role.rawValue) (\(index + 1)/\(activeAgents.count))..."
+                        manager.progress = Double(index) / Double(activeAgents.count)
+                        
+                        let taskWithContext = previousOutput.isEmpty 
+                            ? taskInput 
+                            : "\(taskInput)\n\nPrevious result:\n\(previousOutput)"
+                        
+                        let result = try await manager.planAndExecute(task: taskWithContext, context: context)
+                        
+                        let taskResult = CycleAgentManager.TaskResult(
+                            output: result,
+                            agentId: agent.id,
+                            executionTime: 0,
+                            modelSwitchTime: 0,
+                            tokensUsed: result.count / 4
+                        )
+                        allResults.append(taskResult)
+                        previousOutput = result
+                    }
+                    
+                    results = allResults
+                } else {
+                    // Auto mode with selected agents - let manager decide best approach
+                    let result = try await manager.planAndExecute(task: taskInput, context: context)
+                    
+                    results = [CycleAgentManager.TaskResult(
+                        output: result,
+                        agentId: "auto",
+                        executionTime: 0,
+                        modelSwitchTime: 0,
+                        tokensUsed: result.count / 4
+                    )]
+                }
+            } else {
+                // No agents selected - use all agents with plan-and-execute
+                let result = try await manager.planAndExecute(task: taskInput, context: context)
+                
+                results = [CycleAgentManager.TaskResult(
+                    output: result,
+                    agentId: "synthesis",
+                    executionTime: 0,
+                    modelSwitchTime: 0,
+                    tokensUsed: result.count / 4
+                )]
+            }
         } catch {
             appState.showError("Cycle execution failed: \(error.localizedDescription)")
         }
         
         isExecuting = false
+        taskInput = ""  // Clear input after execution
     }
 }
 
-// MARK: - Agent Card
+// MARK: - Selectable Agent Card (for multi-select)
+
+struct SelectableAgentCard: View {
+    let agent: CycleAgentManager.AgentDefinition
+    let isSelected: Bool
+    let isWarm: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: DS.Spacing.sm) {
+                // Selection indicator
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? agentColor : agentColor.opacity(0.2))
+                        .frame(width: 32, height: 32)
+                    
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                    } else {
+                        Image(systemName: agentIcon)
+                            .font(.system(size: 14))
+                            .foregroundStyle(agentColor)
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Text(agent.role.rawValue)
+                            .font(DS.Typography.caption.weight(.medium))
+                            .foregroundStyle(DS.Colors.text)
+                        
+                        if isWarm {
+                            Circle()
+                                .fill(DS.Colors.success)
+                                .frame(width: 5, height: 5)
+                        }
+                    }
+                    
+                    Text(agent.model.displayName)
+                        .font(DS.Typography.caption2)
+                        .foregroundStyle(DS.Colors.secondaryText)
+                }
+                
+                Spacer()
+            }
+            .padding(DS.Spacing.xs)
+            .background(isSelected ? agentColor.opacity(0.15) : DS.Colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .stroke(isSelected ? agentColor : DS.Colors.border.opacity(0.5), lineWidth: isSelected ? 1.5 : 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var agentColor: Color {
+        switch agent.role {
+        case .orchestrator: return DS.Colors.orchestrator
+        case .coder: return DS.Colors.coder
+        case .researcher: return DS.Colors.researcher
+        case .vision: return DS.Colors.vision
+        }
+    }
+    
+    private var agentIcon: String {
+        switch agent.role {
+        case .orchestrator: return "brain"
+        case .coder: return "chevron.left.forwardslash.chevron.right"
+        case .researcher: return "magnifyingglass"
+        case .vision: return "eye"
+        }
+    }
+}
+
+// MARK: - Agent Card (display only, used in visualization)
 
 struct AgentCard: View {
     let agent: CycleAgentManager.AgentDefinition

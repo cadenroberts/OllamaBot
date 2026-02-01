@@ -90,6 +90,13 @@ struct StatusBarView: View {
             // Model indicator
             modelIndicator
             
+            statusDivider
+            
+            // Savings indicator (opens Performance Dashboard)
+            savingsIndicator
+            
+            statusDivider
+            
             // Ollama status
             connectionStatus
         }
@@ -121,6 +128,26 @@ struct StatusBarView: View {
             .foregroundStyle(DS.Colors.secondaryText)
         }
         .buttonStyle(.plain)
+    }
+    
+    private var savingsIndicator: some View {
+        Button(action: { appState.showPerformanceDashboard = true }) {
+            let savings = appState.performanceTracker.getCostSavingsSummary()
+            HStack(spacing: DS.Spacing.xs) {
+                Image(systemName: "chart.bar.fill")
+                    .foregroundStyle(DS.Colors.success)
+                
+                Text(PerformanceTrackingService.formatCurrency(savings.gpt4Savings))
+                    .font(DS.Typography.mono(10))
+                    .foregroundStyle(DS.Colors.success)
+                
+                Text("saved")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+        }
+        .buttonStyle(.plain)
+        .help("View Performance Dashboard (⌘⇧D)")
     }
     
     private var connectionStatus: some View {

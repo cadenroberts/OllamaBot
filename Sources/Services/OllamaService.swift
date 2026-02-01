@@ -23,6 +23,9 @@ class OllamaService {
     private let requestCounter = AtomicInt()
     private let totalLatency = AtomicInt()
     
+    /// Performance tracker for benchmarks and cost savings
+    var performanceTracker: PerformanceTrackingService?
+    
     struct CachedResponse {
         let content: String
         let timestamp: Date
@@ -412,6 +415,10 @@ class OllamaService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
+        // Start performance tracking
+        let inputTokenEstimate = PerformanceTrackingService.estimateTokens(from: messages)
+        performanceTracker?.startInference(model: model.displayName, inputTokenEstimate: inputTokenEstimate)
+        
         let (bytes, response) = try await session.bytes(for: request)
         
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -426,6 +433,8 @@ class OllamaService {
         
         var lastYieldTime = CFAbsoluteTimeGetCurrent()
         let minYieldInterval = 0.016 // ~60fps UI updates
+        var isFirstToken = true
+        var totalTokensGenerated = 0
         
         for try await line in bytes.lines {
             guard let data = line.data(using: .utf8),
@@ -433,7 +442,14 @@ class OllamaService {
                   let message = json["message"] as? [String: Any],
                   let content = message["content"] as? String else { continue }
             
+            // Track first token for TTFT
+            if isFirstToken && !content.isEmpty {
+                performanceTracker?.recordFirstToken()
+                isFirstToken = false
+            }
+            
             buffer.append(content)
+            totalTokensGenerated += 1  // Rough estimate: each chunk ≈ 1 token
             
             let now = CFAbsoluteTimeGetCurrent()
             let isDone = json["done"] as? Bool == true
@@ -441,6 +457,11 @@ class OllamaService {
             // Yield when: buffer is large enough, enough time passed, or stream done
             if buffer.count >= 50 || (now - lastYieldTime) >= minYieldInterval || isDone {
                 continuation.yield(buffer)
+                
+                // Track tokens (better estimate from character count)
+                let chunkTokens = PerformanceTrackingService.estimateTokens(from: buffer)
+                performanceTracker?.incrementTokens(chunkTokens)
+                
                 buffer.removeAll(keepingCapacity: true)
                 lastYieldTime = now
             }
@@ -450,7 +471,12 @@ class OllamaService {
         
         if !buffer.isEmpty {
             continuation.yield(buffer)
+            let chunkTokens = PerformanceTrackingService.estimateTokens(from: buffer)
+            performanceTracker?.incrementTokens(chunkTokens)
         }
+        
+        // End performance tracking
+        performanceTracker?.endInference()
         
         // Track performance
         requestCounter.increment()

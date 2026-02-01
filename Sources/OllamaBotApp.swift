@@ -105,6 +105,14 @@ struct OllamaBotApp: App {
                 
                 Divider()
                 
+                // Performance Dashboard
+                Button("Performance Dashboard") {
+                    appState.showPerformanceDashboard = true
+                }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
+                
+                Divider()
+                
                 // Editor layout
                 Menu("Editor Layout") {
                     Button("Single") {
@@ -294,6 +302,7 @@ class AppState {
     var showSettings: Bool = false
     var showGitStatus: Bool = false
     var showGitCommit: Bool = false
+    var showPerformanceDashboard: Bool = false
     
     // MARK: - UI State - Focus
     var focusChat: Bool = false
@@ -327,6 +336,7 @@ class AppState {
     let systemMonitor: SystemMonitorService     // RAM & process monitoring
     let networkMonitor: NetworkMonitorService   // Network status & resilience
     let resilienceService: ResilienceService    // Power loss & crash recovery
+    let performanceTracker: PerformanceTrackingService  // Benchmarks & cost savings
     
     // MARK: - Model Tier Management (RAM-aware model selection)
     let modelTierManager: ModelTierManager
@@ -400,6 +410,10 @@ class AppState {
         self.systemMonitor = SystemMonitorService()
         self.networkMonitor = NetworkMonitorService()
         self.resilienceService = ResilienceService()
+        self.performanceTracker = PerformanceTrackingService()
+        
+        // Wire performance tracker to OllamaService
+        self.ollamaService.performanceTracker = performanceTracker
         
         // Wire up resilience service to agents
         self.resilienceService.agentExecutor = agentExecutor

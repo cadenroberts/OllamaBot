@@ -120,7 +120,7 @@ final class PanelState {
     
     // MARK: - Secondary Sidebar (Right)
     var showSecondarySidebar: Bool = true
-    var secondarySidebarWidth: CGFloat = 380
+    var secondarySidebarWidth: CGFloat = 450  // Default wider for CycleAgents
     var secondarySidebarTab: SecondarySidebarTab = .chat
     
     // MARK: - Bottom Panel
@@ -148,8 +148,9 @@ final class PanelState {
     var tabBarStyle: TabBarStyle = .standard
     
     // MARK: - Panel Constraints
-    static let minSidebarWidth: CGFloat = 180
-    static let maxSidebarWidth: CGFloat = 500
+    static let minSidebarWidth: CGFloat = 180          // Primary sidebar min
+    static let minSecondarySidebarWidth: CGFloat = 400 // Secondary sidebar min (needs space for CycleAgents)
+    static let maxSidebarWidth: CGFloat = 800          // Allow wide sidebars for heavy workflows
     static let minPanelHeight: CGFloat = 100
     static let maxPanelHeight: CGFloat = 600
     
@@ -202,7 +203,7 @@ final class PanelState {
         }
         
         showSecondarySidebar = defaults.object(forKey: Keys.showSecondarySidebar) as? Bool ?? true
-        secondarySidebarWidth = defaults.double(forKey: Keys.secondarySidebarWidth).nonZeroOr(380)
+        secondarySidebarWidth = defaults.double(forKey: Keys.secondarySidebarWidth).nonZeroOr(450)
         if let tab = defaults.string(forKey: Keys.secondarySidebarTab),
            let secTab = SecondarySidebarTab(rawValue: tab) {
             secondarySidebarTab = secTab
@@ -393,7 +394,7 @@ final class PanelState {
         activityBarPosition = .side
         
         showSecondarySidebar = true
-        secondarySidebarWidth = 380
+        secondarySidebarWidth = 450
         secondarySidebarTab = .chat
         
         showBottomPanel = false

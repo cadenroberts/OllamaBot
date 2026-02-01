@@ -371,7 +371,7 @@ struct WelcomeView: View {
 // MARK: - Layout Preferences
 
 struct MinEditorWidthKey: PreferenceKey {
-    static var defaultValue: CGFloat = 200
+    static var defaultValue: CGFloat = 520  // Matches Quick Start/Available Models bubble width
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
     }

@@ -7,6 +7,7 @@ struct AgentTools {
     
     /// All available tools for the orchestrator
     static let all: [[String: Any]] = [
+        // Core file tools
         readFileTool,
         writeFileTool,
         editFileTool,
@@ -28,7 +29,7 @@ struct AgentTools {
         gitStatusTool,
         gitDiffTool,
         gitCommitTool
-    ]
+    ] + AdvancedAgentTools.all  // Include advanced tools
     
     // MARK: - File Tools
     

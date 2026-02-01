@@ -6,7 +6,27 @@ import SwiftUI
 struct MainView: View {
     @Environment(AppState.self) private var appState
     @State private var panels = PanelState.shared
-    @State private var minEditorWidth: CGFloat = 200
+    @State private var contentMinEditorWidth: CGFloat = 520  // Updated via preference from content
+    
+    // Minimum width per pane - MUST match Quick Start/Available Models bubble (~520px)
+    private let minPaneWidth: CGFloat = 520
+    
+    // Calculate effective minimum editor width based on layout
+    private var minEditorWidth: CGFloat {
+        switch panels.editorLayout {
+        case .single:
+            return max(contentMinEditorWidth, 520)
+        case .splitVertical:
+            // Two panes side by side + divider - each pane gets Quick Start width
+            return (minPaneWidth * 2) + 1
+        case .splitHorizontal:
+            // Panes stacked vertically, width is single pane width
+            return minPaneWidth
+        case .grid:
+            // 2x2 needs room for two columns + divider
+            return (minPaneWidth * 2) + 1
+        }
+    }
     
     var body: some View {
         @Bindable var state = appState
@@ -49,20 +69,29 @@ struct MainView: View {
         GeometryReader { geometry in
             // 1. Calculate the fixed widths of side panels
             let leftPanelWidth = calculateLeftPanelWidth()
-            let rightPanelWidth = calculateRightPanelWidth()
             
-            // 2. Define the minimum width for the middle editor
-            // minEditorWidth is tracked via @State from preference key
+            // 2. Calculate max available width for secondary sidebar
+            // This prevents the resizer from increasing beyond available space
+            let maxSecondaryWidth = max(
+                PanelState.minSecondarySidebarWidth,
+                geometry.size.width - leftPanelWidth - minEditorWidth - 6  // 6px for resizer
+            )
             
-            // 3. Calculate the minimum total width required for the entire layout
+            // 3. Clamp secondary sidebar width to available space
+            let clampedSecondaryWidth = min(panels.secondarySidebarWidth, maxSecondaryWidth)
+            
+            // 4. Calculate right panel width using clamped value
+            let rightPanelWidth = calculateRightPanelWidth(clampedSecondaryWidth: clampedSecondaryWidth)
+            
+            // 5. Calculate the minimum total width required for the entire layout
             let minTotalWidth = leftPanelWidth + minEditorWidth + rightPanelWidth
             
-            // 4. Calculate the actual width the content should take
+            // 6. Calculate the actual width the content should take
             // If window is wider than minTotal, we use window width (editor stretches)
             // If window is narrower, we use minTotal (editor stays at min, right clips)
             let contentWidth = max(geometry.size.width, minTotalWidth)
             
-            // 5. Calculate the flexible editor width based on the content width
+            // 7. Calculate the flexible editor width based on the content width
             let currentEditorWidth = contentWidth - leftPanelWidth - rightPanelWidth
             
             HStack(spacing: 0) {
@@ -93,8 +122,9 @@ struct MainView: View {
                     .frame(width: currentEditorWidth)
                     .clipped() // Prevent visual bleed
                     .onPreferenceChange(MinEditorWidthKey.self) { width in
-                        if abs(minEditorWidth - width) > 1 && width > 0 {
-                            minEditorWidth = width
+                        // Update content-based minimum (used for single pane)
+                        if abs(contentMinEditorWidth - width) > 1 && width > 0 {
+                            contentMinEditorWidth = max(520, width) // Never go below Quick Start width
                         }
                     }
                 
@@ -118,14 +148,14 @@ struct MainView: View {
                         PanelResizer(
                             axis: .vertical,
                             size: $panels.secondarySidebarWidth,
-                            minSize: PanelState.minSidebarWidth,
-                            maxSize: PanelState.maxSidebarWidth,
+                            minSize: PanelState.minSecondarySidebarWidth,
+                            maxSize: maxSecondaryWidth,  // Dynamic max based on available space
                             isRightSide: true
                         ) {
                             panels.saveState()
                         }
                         secondarySidebar
-                            .frame(width: panels.secondarySidebarWidth)
+                            .frame(width: clampedSecondaryWidth)  // Use clamped width
                     }
                     
                     if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
@@ -154,13 +184,15 @@ struct MainView: View {
     }
     
     // Calculate total width of right panel components
-    private func calculateRightPanelWidth() -> CGFloat {
+    private func calculateRightPanelWidth(clampedSecondaryWidth: CGFloat? = nil) -> CGFloat {
         var width: CGFloat = 0
         if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
             width += panels.primarySidebarWidth + 6 // Sidebar + Resizer (6px)
         }
         if panels.showSecondarySidebar && !panels.zenMode {
-            width += panels.secondarySidebarWidth + 6 // Sidebar + Resizer (6px)
+            // Use clamped width if provided, otherwise use stored value
+            let secondaryWidth = clampedSecondaryWidth ?? panels.secondarySidebarWidth
+            width += secondaryWidth + 6 // Sidebar + Resizer (6px)
         }
         if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
             width += 48 // ActivityBar
@@ -285,7 +317,7 @@ struct MainView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: panels.secondarySidebarWidth)
+        // Width is set externally where secondarySidebar is used
         .background(DS.Colors.secondaryBackground)
     }
     
@@ -342,24 +374,75 @@ struct MainView: View {
             case .single:
                 EditorView()
             case .splitVertical:
-                HSplitView {
-                    EditorView()
-                    EditorView() // Second editor (would need separate state)
+                // Two editors side by side with proper sizing
+                GeometryReader { geometry in
+                    HStack(spacing: 0) {
+                        EditorView()
+                            .frame(minWidth: 200)
+                            .frame(width: geometry.size.width / 2)
+                        
+                        // Divider
+                        Rectangle()
+                            .fill(DS.Colors.border)
+                            .frame(width: 1)
+                        
+                        EditorView()
+                            .frame(minWidth: 200)
+                    }
                 }
             case .splitHorizontal:
-                VSplitView {
-                    EditorView()
-                    EditorView()
+                // Two editors stacked vertically
+                GeometryReader { geometry in
+                    VStack(spacing: 0) {
+                        EditorView()
+                            .frame(minHeight: 100)
+                            .frame(height: geometry.size.height / 2)
+                        
+                        // Divider
+                        Rectangle()
+                            .fill(DS.Colors.border)
+                            .frame(height: 1)
+                        
+                        EditorView()
+                            .frame(minHeight: 100)
+                    }
                 }
             case .grid:
-                VStack(spacing: 1) {
-                    HSplitView {
-                        EditorView()
-                        EditorView()
-                    }
-                    HSplitView {
-                        EditorView()
-                        EditorView()
+                // 2x2 grid layout
+                GeometryReader { geometry in
+                    let halfWidth = geometry.size.width / 2
+                    let halfHeight = geometry.size.height / 2
+                    
+                    VStack(spacing: 0) {
+                        // Top row
+                        HStack(spacing: 0) {
+                            EditorView()
+                                .frame(width: halfWidth, height: halfHeight)
+                            
+                            Rectangle()
+                                .fill(DS.Colors.border)
+                                .frame(width: 1)
+                            
+                            EditorView()
+                                .frame(height: halfHeight)
+                        }
+                        
+                        // Horizontal divider
+                        Rectangle()
+                            .fill(DS.Colors.border)
+                            .frame(height: 1)
+                        
+                        // Bottom row
+                        HStack(spacing: 0) {
+                            EditorView()
+                                .frame(width: halfWidth)
+                            
+                            Rectangle()
+                                .fill(DS.Colors.border)
+                                .frame(width: 1)
+                            
+                            EditorView()
+                        }
                     }
                 }
             }
@@ -443,6 +526,27 @@ struct MainView: View {
                     .overlay(
                         // Close button
                         Button(action: { appState.showSettings = false }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(DS.Colors.secondaryText)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(DS.Spacing.md),
+                        alignment: .topTrailing
+                    )
+            }
+        }
+        
+        if appState.showPerformanceDashboard {
+            DialogOverlay {
+                PerformanceDashboardView()
+                    .environment(appState)
+                    .frame(width: 800, height: 600)
+                    .background(DS.Colors.background)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+                    .overlay(
+                        // Close button
+                        Button(action: { appState.showPerformanceDashboard = false }) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.title2)
                                 .foregroundStyle(DS.Colors.secondaryText)
