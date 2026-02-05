@@ -26,7 +26,7 @@ struct ModelConfigurationView: View {
             DSDivider()
             
             // Content
-            ScrollView {
+            DSScrollView {
                 VStack(spacing: DS.Spacing.xl) {
                     // System info
                     systemInfoCard
@@ -406,20 +406,8 @@ struct ModelSelectionRow: View {
             }
             
             // Tier picker
-            Menu {
-                ForEach(tierManager.getModelOptions(for: selection.role), id: \.tier) { option in
-                    Button {
-                        selection.tier = option.tier.rawValue.lowercased().components(separatedBy: " ").first ?? ""
-                        onUpdate()
-                    } label: {
-                        HStack {
-                            Text("\(option.variant.name)")
-                            Spacer()
-                            Text("\(option.variant.parameters)")
-                                .foregroundStyle(DS.Colors.secondaryText)
-                        }
-                    }
-                }
+            Button {
+                showTierPicker.toggle()
             } label: {
                 HStack(spacing: DS.Spacing.xs) {
                     Text(selection.tier.capitalized)
@@ -434,11 +422,69 @@ struct ModelSelectionRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
             }
             .disabled(!selection.enabled)
+            .buttonStyle(.plain)
+            .popover(isPresented: $showTierPicker, arrowEdge: .trailing) {
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                    ForEach(tierManager.getModelOptions(for: selection.role), id: \.tier) { option in
+                        TierMenuRow(
+                            title: option.variant.name,
+                            subtitle: option.variant.parameters,
+                            isSelected: selection.tier == option.tier.rawValue.lowercased().components(separatedBy: " ").first ?? ""
+                        ) {
+                            selection.tier = option.tier.rawValue.lowercased().components(separatedBy: " ").first ?? ""
+                            onUpdate()
+                            showTierPicker = false
+                        }
+                    }
+                }
+                .padding(DS.Spacing.sm)
+                .background(DS.Colors.surface)
+            }
         }
         .padding(DS.Spacing.md)
         .background(selection.enabled ? DS.Colors.surface : DS.Colors.secondaryBackground)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         .opacity(selection.enabled ? 1.0 : 0.6)
+    }
+}
+
+private struct TierMenuRow: View {
+    let title: String
+    let subtitle: String
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DS.Spacing.sm) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(DS.Typography.callout)
+                        .foregroundStyle(DS.Colors.text)
+                    Text(subtitle)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.secondaryText)
+                }
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(DS.Colors.accent)
+                        .font(.caption)
+                }
+            }
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, DS.Spacing.xs)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .fill(isHovered ? DS.Colors.tertiaryBackground : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }
 

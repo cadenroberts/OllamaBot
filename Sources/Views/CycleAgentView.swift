@@ -12,6 +12,7 @@ struct CycleAgentView: View {
     @State private var results: [CycleAgentManager.TaskResult] = []
     @State private var showStatistics: Bool = false
     @State private var selectedAgentIds: Set<String> = []  // Empty = all agents
+    @State private var showTemplateMenu: Bool = false
     
     // Use shared instance from AppState
     private var cycleManager: CycleAgentManager {
@@ -20,22 +21,27 @@ struct CycleAgentView: View {
     
     var body: some View {
         // No internal header - tab bar shows "Agents", matches other panes like Composer
-        HStack(spacing: 0) {
-            // Left: Agent configuration + Task input + Strategy
-            configurationPanel
-                .frame(minWidth: 160, idealWidth: 200, maxWidth: 260)
-            
-            // Vertical divider
-            Rectangle()
-                .fill(DS.Colors.border)
-                .frame(width: 1)
-            
-            // Right: Multi-Agent Execution visual - expands to fill
-            executionVisualPanel
-                .frame(maxWidth: .infinity)
+        GeometryReader { geometry in
+            let taskPanelWidth = PanelState.minSecondarySidebarWidth * 0.5
+            let agentsPanelWidth = max(geometry.size.width - taskPanelWidth, taskPanelWidth)
+            HStack(spacing: 0) {
+                // Left: Agent configuration + Task input + Strategy
+                // Agents panel stretches, task panel stays fixed
+                configurationPanel
+                    .frame(width: agentsPanelWidth)
+                
+                // Vertical divider
+                Rectangle()
+                    .fill(DS.Colors.border)
+                    .frame(width: 1)
+                
+                // Right: Multi-Agent Execution visual - expands to fill remaining space
+                executionVisualPanel
+                    .frame(width: taskPanelWidth)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DS.Colors.background)
+        .background(DS.Colors.secondaryBackground)
     }
     
     // MARK: - Configuration Panel (Left Side)
@@ -86,7 +92,7 @@ struct CycleAgentView: View {
             .padding(.horizontal, DS.Spacing.sm)
             .padding(.vertical, DS.Spacing.xs)
             
-            ScrollView {
+            DSScrollView {
                 VStack(spacing: DS.Spacing.xs) {
                     ForEach(cycleManager.agents) { agent in
                         SelectableAgentCard(
@@ -133,22 +139,31 @@ struct CycleAgentView: View {
                 Spacer()
                 
                 // Quick task templates
-                Menu {
-                    Button("Code Review") {
+                DSIconButton(icon: "text.badge.plus", size: 16) {
+                    withAnimation(DS.Animation.fast) {
+                        showTemplateMenu.toggle()
+                    }
+                }
+            }
+            
+            if showTemplateMenu {
+                VStack(spacing: 0) {
+                    templateButton(title: "Code Review") {
                         taskInput = "Review this codebase for potential bugs, security issues, and performance improvements."
                     }
-                    Button("Research Task") {
+                    templateButton(title: "Research Task") {
                         taskInput = "Research best practices for [topic] and provide a comprehensive summary."
                     }
-                    Button("Multi-step Analysis") {
+                    templateButton(title: "Multi-step Analysis") {
                         taskInput = "Analyze this project: 1) Review code, 2) Research alternatives, 3) Suggest improvements."
                     }
-                } label: {
-                    Image(systemName: "text.badge.plus")
-                        .font(.caption)
-                        .foregroundStyle(DS.Colors.accent)
                 }
-                .buttonStyle(.plain)
+                .background(DS.Colors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.sm)
+                        .stroke(DS.Colors.border, lineWidth: 1)
+                )
             }
             
             TextEditor(text: $taskInput)
@@ -262,7 +277,7 @@ struct CycleAgentView: View {
     
     private var executionVisualPanel: some View {
         // Single solid background - no headers or dividers
-        ScrollView {
+        DSScrollView {
             VStack(spacing: 0) {
                 if isExecuting {
                     executionProgress
@@ -275,7 +290,7 @@ struct CycleAgentView: View {
             .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DS.Colors.background)
+        .background(DS.Colors.secondaryBackground)
     }
     
     private var executionProgress: some View {
@@ -294,8 +309,7 @@ struct CycleAgentView: View {
                     .font(DS.Typography.callout)
                     .foregroundStyle(DS.Colors.text)
                 
-                ProgressView(value: cycleManager.progress)
-                    .tint(DS.Colors.accent)
+                DSProgressBar(progress: cycleManager.progress, showPercentage: true, color: DS.Colors.accent, height: 6)
                     .frame(maxWidth: 300)
                 
                 // Show mode
@@ -309,9 +323,28 @@ struct CycleAgentView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, DS.Spacing.md)
     }
+
+    private func templateButton(title: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            withAnimation(DS.Animation.fast) {
+                showTemplateMenu = false
+            }
+        } label: {
+            HStack {
+                Text(title)
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.text)
+                Spacer()
+            }
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, DS.Spacing.xs)
+        }
+        .buttonStyle(.plain)
+    }
     
     private var resultsSection: some View {
-        ScrollView {
+        DSScrollView {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 // Summary header
                 HStack {

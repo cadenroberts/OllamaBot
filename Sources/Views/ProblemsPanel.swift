@@ -42,10 +42,27 @@ struct ProblemsPanel: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("Problems")
-                    .font(DS.Typography.headline)
+            // Header / Filter Bar
+            HStack(spacing: DS.Spacing.md) {
+                // Filter Tabs
+                HStack(spacing: 0) {
+                    ForEach(ProblemFilter.allCases, id: \.self) { f in
+                        Button {
+                            filter = f
+                        } label: {
+                            Text(f.displayName)
+                                .font(DS.Typography.caption.weight(filter == f ? .semibold : .regular))
+                                .foregroundStyle(filter == f ? DS.Colors.accent : DS.Colors.secondaryText)
+                                .padding(.horizontal, DS.Spacing.md)
+                                .padding(.vertical, DS.Spacing.sm)
+                                .background(filter == f ? DS.Colors.accent.opacity(0.1) : Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .background(DS.Colors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
                 
                 Spacer()
                 
@@ -56,33 +73,25 @@ struct ProblemsPanel: View {
                     ProblemCountBadge(count: infoCount, severity: .info)
                 }
                 
-                DSIconButton(icon: "arrow.clockwise") {
+                DSIconButton(icon: "arrow.clockwise", size: 14) {
                     refreshProblems()
                 }
             }
-            .padding(DS.Spacing.md)
+            .padding(DS.Spacing.sm)
             .background(DS.Colors.secondaryBackground)
             
             DSDivider()
             
-            // Filter and Search
-            HStack(spacing: DS.Spacing.sm) {
-                Picker("Filter", selection: $filter) {
-                    ForEach(ProblemFilter.allCases, id: \.self) { f in
-                        Text(f.displayName).tag(f)
-                    }
+            // Search (if needed, or integrate into header)
+            if filter == .all || !searchText.isEmpty {
+                HStack {
+                    DSTextField(placeholder: "Filter problems...", text: $searchText, icon: "magnifyingglass")
                 }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 300)
+                .padding(DS.Spacing.sm)
+                .background(DS.Colors.background)
                 
-                Spacer()
-                
-                DSTextField(placeholder: "Filter problems...", text: $searchText, icon: "magnifyingglass")
-                    .frame(maxWidth: 200)
+                DSDivider()
             }
-            .padding(DS.Spacing.sm)
-            
-            DSDivider()
             
             // Problems List
             if isLoading {
@@ -96,7 +105,7 @@ struct ProblemsPanel: View {
                     message: filter == .all ? "Your code looks great!" : "No \(filter.displayName.lowercased()) found"
                 )
             } else {
-                ScrollView {
+                DSScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(filteredProblems) { problem in
                             ProblemRow(problem: problem) {
@@ -105,6 +114,7 @@ struct ProblemsPanel: View {
                         }
                     }
                 }
+                .background(DS.Colors.background) // Ensure dark background
             }
         }
         .background(DS.Colors.background)

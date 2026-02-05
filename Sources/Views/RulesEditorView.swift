@@ -138,7 +138,7 @@ struct RulesEditorView: View {
     }
     
     private var templatesView: some View {
-        ScrollView {
+        DSScrollView {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 TemplateButton(
                     title: "Basic Rules",
@@ -181,7 +181,7 @@ struct RulesEditorView: View {
     }
     
     private var documentationView: some View {
-        ScrollView {
+        DSScrollView {
             VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 docSection(
                     title: "General Rules",

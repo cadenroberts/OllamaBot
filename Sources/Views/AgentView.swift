@@ -5,6 +5,7 @@ struct AgentView: View {
     @State private var taskInput = ""
     @State private var userResponse = ""
     @State private var selectedMode: AgentMode = .infinite
+    @State private var stepsScrollTrigger = 0
     
     private var executor: AgentExecutor { appState.agentExecutor }
     
@@ -153,27 +154,20 @@ struct AgentView: View {
     // MARK: - Steps List
     
     private var stepsList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                if executor.steps.isEmpty && !executor.isRunning {
-                    emptyState
-                } else {
-                    LazyVStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                        ForEach(executor.steps) { step in
-                            StepCard(step: step)
-                                .id(step.id)
-                        }
-                    }
-                    .padding(DS.Spacing.md)
-                }
-            }
-            .onChange(of: executor.steps.count) { _, _ in
-                if let last = executor.steps.last {
-                    withAnimation(DS.Animation.fast) {
-                        proxy.scrollTo(last.id, anchor: .bottom)
+        DSAutoScrollView(scrollTrigger: $stepsScrollTrigger) {
+            if executor.steps.isEmpty && !executor.isRunning {
+                emptyState
+            } else {
+                LazyVStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    ForEach(executor.steps) { step in
+                        StepCard(step: step)
                     }
                 }
+                .padding(DS.Spacing.md)
             }
+        }
+        .onChange(of: executor.steps.count) { _, _ in
+            stepsScrollTrigger += 1
         }
     }
     

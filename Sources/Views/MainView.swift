@@ -71,104 +71,128 @@ struct MainView: View {
             let leftPanelWidth = calculateLeftPanelWidth()
             
             // 2. Calculate max available width for secondary sidebar
-            // This prevents the resizer from increasing beyond available space
             let maxSecondaryWidth = max(
                 PanelState.minSecondarySidebarWidth,
-                geometry.size.width - leftPanelWidth - minEditorWidth - 6  // 6px for resizer
+                geometry.size.width - leftPanelWidth - minEditorWidth - 6
             )
             
-            // 3. Clamp secondary sidebar width to available space
+            // 3. Clamp secondary sidebar width
             let clampedSecondaryWidth = min(panels.secondarySidebarWidth, maxSecondaryWidth)
             
-            // 4. Calculate right panel width using clamped value
+            // 4. Calculate right panel width
             let rightPanelWidth = calculateRightPanelWidth(clampedSecondaryWidth: clampedSecondaryWidth)
             
-            // 5. Calculate the minimum total width required for the entire layout
+            // 5. Calculate minimum total width
             let minTotalWidth = leftPanelWidth + minEditorWidth + rightPanelWidth
             
-            // 6. Calculate the actual width the content should take
-            // If window is wider than minTotal, we use window width (editor stretches)
-            // If window is narrower, we use minTotal (editor stays at min, right clips)
+            // 6. Calculate content width
             let contentWidth = max(geometry.size.width, minTotalWidth)
             
-            // 7. Calculate the flexible editor width based on the content width
+            // 7. Calculate editor width
             let currentEditorWidth = contentWidth - leftPanelWidth - rightPanelWidth
             
-            HStack(spacing: 0) {
-                // LEFT PANEL - Fixed width, anchored to left
+            ZStack(alignment: .bottomLeading) {
                 HStack(spacing: 0) {
-                    if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
-                        ActivityBarView(panels: panels)
-                            .environment(appState)
+                    // LEFT PANEL
+                    HStack(spacing: 0) {
+                        if panels.primarySidebarPosition == .left && panels.activityBarPosition == .side && !panels.zenMode {
+                            ActivityBarView(panels: panels)
+                                .environment(appState)
+                        }
+                        
+                        if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
+                            primarySidebar
+                                .frame(width: panels.primarySidebarWidth)
+                            PanelResizer(
+                                axis: .vertical,
+                                size: $panels.primarySidebarWidth,
+                                minSize: PanelState.minSidebarWidth,
+                                maxSize: PanelState.maxSidebarWidth
+                            ) {
+                                panels.saveState()
+                            }
+                        }
                     }
+                    .frame(width: leftPanelWidth)
                     
-                    if panels.showPrimarySidebar && panels.primarySidebarPosition == .left && !panels.zenMode {
-                        primarySidebar
-                            .frame(width: panels.primarySidebarWidth)
+                    // MIDDLE PANEL
+                    editorArea
+                        .frame(width: currentEditorWidth)
+                        .clipped()
+                        .onPreferenceChange(MinEditorWidthKey.self) { width in
+                            if abs(contentMinEditorWidth - width) > 1 && width > 0 {
+                                contentMinEditorWidth = max(520, width)
+                            }
+                        }
+                    
+                    // RIGHT PANELS
+                    HStack(spacing: 0) {
+                        if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
+                            PanelResizer(
+                                axis: .vertical,
+                                size: $panels.primarySidebarWidth,
+                                minSize: PanelState.minSidebarWidth,
+                                maxSize: PanelState.maxSidebarWidth,
+                                isRightSide: true
+                            ) {
+                                panels.saveState()
+                            }
+                            primarySidebar
+                                .frame(width: panels.primarySidebarWidth)
+                        }
+                        
+                        if panels.showSecondarySidebar && !panels.zenMode {
+                            PanelResizer(
+                                axis: .vertical,
+                                size: $panels.secondarySidebarWidth,
+                                minSize: PanelState.minSecondarySidebarWidth,
+                                maxSize: maxSecondaryWidth,
+                                isRightSide: true
+                            ) {
+                                panels.saveState()
+                            }
+                            secondarySidebar
+                                .frame(width: clampedSecondaryWidth)
+                        }
+                        
+                        if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
+                            ActivityBarView(panels: panels)
+                                .environment(appState)
+                        }
+                    }
+                    .frame(width: rightPanelWidth, alignment: .leading)
+                    .zIndex(1)
+                }
+                .frame(width: contentWidth, height: geometry.size.height, alignment: .leading)
+                
+                // Bottom Panel Overlay - Confined to editor region
+                if panels.showBottomPanel && !panels.zenMode {
+                    VStack(spacing: 0) {
+                        // Horizontal resizer
                         PanelResizer(
-                            axis: .vertical,
-                            size: $panels.primarySidebarWidth,
-                            minSize: PanelState.minSidebarWidth,
-                            maxSize: PanelState.maxSidebarWidth
+                            axis: .horizontal,
+                            size: $panels.bottomPanelHeight,
+                            minSize: PanelState.minPanelHeight,
+                            maxSize: geometry.size.height,
+                            isRightSide: true
                         ) {
                             panels.saveState()
                         }
+                        
+                        bottomPanel
                     }
-                }
-                .frame(width: leftPanelWidth)
-                
-                // MIDDLE PANEL - Flexible (stretches to fill space)
-                editorArea
+                    .frame(height: panels.bottomPanelMaximized 
+                        ? geometry.size.height 
+                        : min(panels.bottomPanelHeight, geometry.size.height))
                     .frame(width: currentEditorWidth)
-                    .clipped() // Prevent visual bleed
-                    .onPreferenceChange(MinEditorWidthKey.self) { width in
-                        // Update content-based minimum (used for single pane)
-                        if abs(contentMinEditorWidth - width) > 1 && width > 0 {
-                            contentMinEditorWidth = max(520, width) // Never go below Quick Start width
-                        }
-                    }
-                
-                // RIGHT PANELS - Fixed width
-                HStack(spacing: 0) {
-                    if panels.showPrimarySidebar && panels.primarySidebarPosition == .right && !panels.zenMode {
-                        PanelResizer(
-                            axis: .vertical,
-                            size: $panels.primarySidebarWidth,
-                            minSize: PanelState.minSidebarWidth,
-                            maxSize: PanelState.maxSidebarWidth,
-                            isRightSide: true
-                        ) {
-                            panels.saveState()
-                        }
-                        primarySidebar
-                            .frame(width: panels.primarySidebarWidth)
-                    }
-                    
-                    if panels.showSecondarySidebar && !panels.zenMode {
-                        PanelResizer(
-                            axis: .vertical,
-                            size: $panels.secondarySidebarWidth,
-                            minSize: PanelState.minSecondarySidebarWidth,
-                            maxSize: maxSecondaryWidth,  // Dynamic max based on available space
-                            isRightSide: true
-                        ) {
-                            panels.saveState()
-                        }
-                        secondarySidebar
-                            .frame(width: clampedSecondaryWidth)  // Use clamped width
-                    }
-                    
-                    if panels.primarySidebarPosition == .right && panels.activityBarPosition == .side && !panels.zenMode {
-                        ActivityBarView(panels: panels)
-                            .environment(appState)
-                    }
+                    .offset(x: leftPanelWidth)
+                    .background(DS.Colors.secondaryBackground)
+                    .transition(.move(edge: .bottom))
+                    .zIndex(100) // Ensure it's on top
                 }
-                .frame(width: rightPanelWidth, alignment: .leading)
-                .zIndex(1)
             }
-            .frame(width: contentWidth, height: geometry.size.height, alignment: .leading)
         }
-        .clipped() // Clip any overflow (right side goes off screen)
+        .clipped()
     }
     
     // Calculate total width of left panel components
@@ -341,27 +365,9 @@ struct MainView: View {
                 FindBarView(isPresented: $state.showFindInFile)
             }
             
-            // Editor + Bottom Panel
-            if panels.bottomPanelMaximized && panels.showBottomPanel {
-                // Maximized bottom panel takes full space
-                bottomPanel
-            } else {
-                VSplitView {
-                    // Main editor content
-                    editorContent
-                        .frame(minHeight: 200)
-                    
-                    // Bottom Panel
-                    if panels.showBottomPanel && !panels.zenMode {
-                        bottomPanel
-                            .frame(
-                                minHeight: PanelState.minPanelHeight,
-                                idealHeight: panels.bottomPanelHeight,
-                                maxHeight: PanelState.maxPanelHeight
-                            )
-                    }
-                }
-            }
+            // Editor content - always present, never resizes
+            editorContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
     
@@ -381,9 +387,9 @@ struct MainView: View {
                             .frame(minWidth: 200)
                             .frame(width: geometry.size.width / 2)
                         
-                        // Divider
+                        // Divider - Transparent/Removed
                         Rectangle()
-                            .fill(DS.Colors.border)
+                            .fill(Color.clear)
                             .frame(width: 1)
                         
                         EditorView()
@@ -398,9 +404,9 @@ struct MainView: View {
                             .frame(minHeight: 100)
                             .frame(height: geometry.size.height / 2)
                         
-                        // Divider
+                        // Divider - Transparent/Removed
                         Rectangle()
-                            .fill(DS.Colors.border)
+                            .fill(Color.clear)
                             .frame(height: 1)
                         
                         EditorView()
@@ -420,7 +426,7 @@ struct MainView: View {
                                 .frame(width: halfWidth, height: halfHeight)
                             
                             Rectangle()
-                                .fill(DS.Colors.border)
+                                .fill(Color.clear)
                                 .frame(width: 1)
                             
                             EditorView()
@@ -429,7 +435,7 @@ struct MainView: View {
                         
                         // Horizontal divider
                         Rectangle()
-                            .fill(DS.Colors.border)
+                            .fill(Color.clear)
                             .frame(height: 1)
                         
                         // Bottom row
@@ -438,7 +444,7 @@ struct MainView: View {
                                 .frame(width: halfWidth)
                             
                             Rectangle()
-                                .fill(DS.Colors.border)
+                                .fill(Color.clear)
                                 .frame(width: 1)
                             
                             EditorView()
@@ -463,7 +469,7 @@ struct MainView: View {
             
             DSDivider()
             
-            // Content
+            // Content - fills all remaining space
             Group {
                 switch panels.bottomPanelTab {
                 case .terminal:
@@ -476,6 +482,7 @@ struct MainView: View {
                     DebugConsoleView()
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(DS.Colors.secondaryBackground)
     }
@@ -573,6 +580,7 @@ struct MainView: View {
 struct MainToolbarContent: ToolbarContent {
     @Bindable var appState: AppState
     var panels: PanelState
+    @State private var showLayoutMenu = false
     
     var body: some ToolbarContent {
         // Left side - sidebar toggles
@@ -593,17 +601,40 @@ struct MainToolbarContent: ToolbarContent {
         
         // Center - editor layout controls
         ToolbarItem(placement: .principal) {
-            Menu {
-                Button("Single Editor") { panels.setEditorLayout(.single) }
-                Button("Split Vertical") { panels.setEditorLayout(.splitVertical) }
-                Button("Split Horizontal") { panels.setEditorLayout(.splitHorizontal) }
-                Button("Grid (2x2)") { panels.setEditorLayout(.grid) }
-                Divider()
-                Button("Zen Mode (⌘K Z)") { panels.toggleZenMode() }
+            Button {
+                showLayoutMenu.toggle()
             } label: {
                 Image(systemName: layoutIcon)
             }
+            .buttonStyle(.plain)
             .help("Editor Layout")
+            .popover(isPresented: $showLayoutMenu, arrowEdge: .top) {
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                    LayoutMenuRow(title: "Single Editor") {
+                        showLayoutMenu = false
+                        panels.setEditorLayout(.single)
+                    }
+                    LayoutMenuRow(title: "Split Vertical") {
+                        showLayoutMenu = false
+                        panels.setEditorLayout(.splitVertical)
+                    }
+                    LayoutMenuRow(title: "Split Horizontal") {
+                        showLayoutMenu = false
+                        panels.setEditorLayout(.splitHorizontal)
+                    }
+                    LayoutMenuRow(title: "Grid (2x2)") {
+                        showLayoutMenu = false
+                        panels.setEditorLayout(.grid)
+                    }
+                    DSDivider()
+                    LayoutMenuRow(title: "Zen Mode (⌘K Z)") {
+                        showLayoutMenu = false
+                        panels.toggleZenMode()
+                    }
+                }
+                .padding(DS.Spacing.sm)
+                .background(DS.Colors.surface)
+            }
         }
         
         // Right side - actions
@@ -647,6 +678,32 @@ struct MainToolbarContent: ToolbarContent {
     }
 }
 
+private struct LayoutMenuRow: View {
+    let title: String
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .font(DS.Typography.callout)
+                    .foregroundStyle(DS.Colors.text)
+                Spacer()
+            }
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, DS.Spacing.xs)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .fill(isHovered ? DS.Colors.tertiaryBackground : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+}
+
 // MARK: - Dialog Overlay
 
 struct DialogOverlay<Content: View>: View {
@@ -680,7 +737,7 @@ struct FileTreeView: View {
             
             // File tree
             if let root = appState.rootFolder {
-                ScrollView {
+                DSScrollView {
                     FileTreeNode(url: root, level: 0)
                         .padding(.vertical, DS.Spacing.xs)
                 }
@@ -1091,7 +1148,7 @@ struct SearchSidebarView: View {
                     Spacer()
                 }
             } else {
-                ScrollView {
+                DSScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(searchResults) { result in
                             SearchResultRow(result: result)
@@ -1259,7 +1316,7 @@ struct GitSidebarView: View {
                     Spacer()
                 }
             } else {
-                ScrollView {
+                DSScrollView {
                     VStack(alignment: .leading, spacing: DS.Spacing.md) {
                         branchSection
                         
@@ -1508,7 +1565,7 @@ struct GitTimelineView: View {
                 Spacer()
             }
         } else {
-            ScrollView {
+            DSScrollView {
                 VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                     Text("Git history for \(appState.selectedFile?.name ?? "")")
                         .font(DS.Typography.caption)
@@ -1569,7 +1626,7 @@ struct DebugConsoleView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
+            DSScrollView {
                 Text(debugOutput.isEmpty ? "Debug console - no output" : debugOutput)
                     .font(DS.Typography.mono(11))
                     .foregroundStyle(debugOutput.isEmpty ? DS.Colors.tertiaryText : DS.Colors.text)
@@ -1617,26 +1674,14 @@ struct GitStatusView: View {
                 // File list
                 VStack(alignment: .leading, spacing: 0) {
                     if let status = git.status {
-                        List {
-                            Section("Staged (\(status.staged.count))") {
-                                ForEach(status.staged) { change in
-                                    fileRow(change.filename, status: change.status)
-                                }
+                        DSScrollView {
+                            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                                fileSection(title: "Staged (\(status.staged.count))", changes: status.staged)
+                                fileSection(title: "Modified (\(status.unstaged.count))", changes: status.unstaged)
+                                fileSection(title: "Untracked (\(status.untracked.count))", files: status.untracked, status: .untracked)
                             }
-                            
-                            Section("Modified (\(status.unstaged.count))") {
-                                ForEach(status.unstaged) { change in
-                                    fileRow(change.filename, status: change.status)
-                                }
-                            }
-                            
-                            Section("Untracked (\(status.untracked.count))") {
-                                ForEach(status.untracked, id: \.self) { file in
-                                    fileRow(file, status: .untracked)
-                                }
-                            }
+                            .padding(DS.Spacing.sm)
                         }
-                        .listStyle(.sidebar)
                     }
                 }
                 .frame(width: 200)
@@ -1644,7 +1689,7 @@ struct GitStatusView: View {
                 DSDivider()
                 
                 // Diff view
-                ScrollView {
+                DSScrollView {
                     Text(diffContent.isEmpty ? "Select a file to view diff" : diffContent)
                         .font(DS.Typography.mono(11))
                         .foregroundStyle(diffContent.isEmpty ? DS.Colors.tertiaryText : DS.Colors.text)
@@ -1673,6 +1718,42 @@ struct GitStatusView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             diffContent = git.getDiff(file: file)
+        }
+    }
+    
+    @ViewBuilder
+    private func fileSection(title: String, changes: [GitFileChange]) -> some View {
+        if !changes.isEmpty {
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                Text(title)
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+                
+                ForEach(changes) { change in
+                    fileRow(change.filename, status: change.status)
+                }
+            }
+            .padding(DS.Spacing.sm)
+            .background(DS.Colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+        }
+    }
+    
+    @ViewBuilder
+    private func fileSection(title: String, files: [String], status: GitChangeStatus) -> some View {
+        if !files.isEmpty {
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                Text(title)
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+                
+                ForEach(files, id: \.self) { file in
+                    fileRow(file, status: status)
+                }
+            }
+            .padding(DS.Spacing.sm)
+            .background(DS.Colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
         }
     }
 }

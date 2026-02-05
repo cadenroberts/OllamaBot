@@ -1,0 +1,4 @@
+module SwiftTerm {
+    header "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SwiftTerm-Swift.h"
+    requires objc
+}

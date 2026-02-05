@@ -105,6 +105,7 @@ struct CommandPaletteView: View {
                     }
                     .padding(DS.Spacing.sm)
                 }
+                .dsScrollbars()
                 .onChange(of: selected) { _, idx in
                     withAnimation(DS.Animation.fast) { proxy.scrollTo(idx, anchor: .center) }
                 }
@@ -348,6 +349,7 @@ struct QuickOpenView: View {
                         }
                         .padding(DS.Spacing.sm)
                     }
+                    .dsScrollbars()
                     .onChange(of: selected) { _, idx in
                         withAnimation(DS.Animation.fast) { proxy.scrollTo(idx, anchor: .center) }
                     }
@@ -473,6 +475,7 @@ struct GlobalSearchView: View {
                     }
                     .padding(DS.Spacing.md)
                 }
+                .dsScrollbars()
             }
             
             HStack {

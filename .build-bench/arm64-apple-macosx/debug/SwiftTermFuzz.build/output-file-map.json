@@ -1,0 +1,11 @@
+{
+  "": {
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTermFuzz.build/master.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTermFuzz/main.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTermFuzz.build/main.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTermFuzz.build/main.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTermFuzz.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTermFuzz.build/main.swiftdeps"
+  }
+}

@@ -50,7 +50,7 @@ struct OutlineView: View {
                     Spacer()
                 }
             } else {
-                ScrollView {
+                DSScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(groupedSymbols, id: \.0) { kind, syms in
                             SymbolGroupView(

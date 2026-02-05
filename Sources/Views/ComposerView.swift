@@ -51,15 +51,13 @@ struct ComposerView: View {
             
             if !composerState.changes.isEmpty {
                 HStack(spacing: DS.Spacing.sm) {
-                    Button("Accept All") {
+                    DSButton("Accept All", style: .primary, size: .sm) {
                         acceptAllChanges()
                     }
-                    .buttonStyle(.borderedProminent)
                     
-                    Button("Reject All") {
+                    DSButton("Reject All", style: .secondary, size: .sm) {
                         rejectAllChanges()
                     }
-                    .buttonStyle(.bordered)
                 }
             }
         }
@@ -171,7 +169,7 @@ struct ComposerView: View {
                 
                 DSDivider()
                 
-                ScrollView {
+                DSScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(composerState.changes) { change in
                             ComposerFileChangeRow(
@@ -647,7 +645,7 @@ struct DiffPreviewView: View {
             DSDivider()
             
             // Diff content
-            ScrollView {
+            DSScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(change.hunks.indices, id: \.self) { hunkIndex in
                         let hunk = change.hunks[hunkIndex]

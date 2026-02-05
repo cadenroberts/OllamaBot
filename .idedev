@@ -1,0 +1,258 @@
+# IDEDEV: OllamaBot IDE Panel Layout System
+# Version: 1.0 | SwiftUI macOS | Three-Pane IDE Architecture
+# Purpose: Agent instruction file for panel/layout modifications
+
+## ARCHITECTURE OVERVIEW
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Window (OllamaBotApp.swift:11) minWidth:400 minHeight:300       │
+├────────┬────────────────────────────────┬───────────────────────┤
+│ LEFT   │ MIDDLE                         │ RIGHT                 │
+│ Panel  │ Panel (Editor)                 │ Panel (Secondary)     │
+├────────┼────────────────────────────────┼───────────────────────┤
+│Activity│                                │ Tab Bar               │
+│Bar 48px│ EditorView                     │ ─────────────────     │
+│        │ minWidth: 520px                │ ChatView              │
+│Primary │                                │ ComposerView          │
+│Sidebar │ Layouts:                       │ CycleAgentView ←──┐   │
+│260px   │ - single                       │ OutlineView      │   │
+│        │ - splitVertical                │ TimelineView     │   │
+│min:180 │ - splitHorizontal              │                  │   │
+│max:800 │ - grid (2x2)                   │ default: 450px   │   │
+│        │                                │ min: 400px       │   │
+│        │                                │ max: dynamic     │   │
+├────────┴────────────────────────────────┴───────────────────────┤
+│ BOTTOM Panel (Terminal/Problems) height:200 min:100 max:600     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## FILE INDEX
+
+### F1: Sources/Services/PanelConfiguration.swift
+ROLE: Single source of truth for panel state and constraints
+CONTAINS: PanelState class, PanelResizer component, all static constraints
+EDIT FOR: Changing min/max/default values, adding new panel types
+
+### F2: Sources/Views/MainView.swift
+ROLE: Main layout implementation, panel arrangement, resize logic
+CONTAINS: GeometryReader layout, width calculations, VSplitView for bottom
+EDIT FOR: Layout algorithm changes, new panel positions, editor splits
+
+### F3: Sources/Views/CycleAgentView.swift
+ROLE: Internal two-pane layout within secondary sidebar
+CONTAINS: Configuration panel (left), Execution panel (right)
+EDIT FOR: CycleAgent internal layout, agent visualization
+
+### F4: Sources/OllamaBotApp.swift
+ROLE: Window-level constraints, menu commands
+CONTAINS: WindowGroup frame constraints
+EDIT FOR: Window min/max size, resizability behavior
+
+---
+
+## CONSTRAINT REFERENCE TABLE
+
+| ID  | File | Line | Constant                    | Value | Unit  |
+|-----|------|------|-----------------------------|-------|-------|
+| C01 | F4   | 11   | window.minWidth             | 400   | px    |
+| C02 | F4   | 11   | window.minHeight            | 300   | px    |
+| C03 | F1   | 117  | primarySidebarWidth         | 260   | px    |
+| C04 | F1   | 123  | secondarySidebarWidth       | 450   | px    |
+| C05 | F1   | 129  | bottomPanelHeight           | 200   | px    |
+| C06 | F1   | 151  | minSidebarWidth             | 180   | px    |
+| C07 | F1   | 152  | minSecondarySidebarWidth    | 400   | px    |
+| C08 | F1   | 153  | maxSidebarWidth             | 800   | px    |
+| C09 | F1   | 154  | minPanelHeight              | 100   | px    |
+| C10 | F1   | 155  | maxPanelHeight              | 600   | px    |
+| C11 | F1   | 463  | resizerWidth                | 6     | px    |
+| C12 | F2   | 9    | contentMinEditorWidth       | 520   | px    |
+| C13 | F2   | 12   | minPaneWidth                | 520   | px    |
+| C14 | F2   | 178  | activityBarWidth            | 48    | px    |
+| C15 | F3   | 28   | cycleConfigPanelMin         | 160   | px    |
+| C16 | F3   | 28   | cycleConfigPanelMax         | 260   | px    |
+| C17 | F3   | 28   | cycleConfigPanelRatio       | 0.4   | %     |
+| C18 | F3   | 105  | agentListMaxHeight          | 200   | px    |
+| C19 | F3   | 160  | taskInputMinHeight          | 60    | px    |
+| C20 | F3   | 160  | taskInputMaxHeight          | 120   | px    |
+| C21 | F3   | 749  | cycleVisualizationSize      | 200   | px    |
+
+---
+
+## LAYOUT CALCULATION FORMULAS
+
+### Left Panel Width (F2:174-184)
+```
+leftPanelWidth = 
+  (activityBar.visible ? 48 : 0) +
+  (primarySidebar.visible ? primarySidebarWidth + 6 : 0)
+```
+
+### Right Panel Width (F2:186-201)
+```
+rightPanelWidth =
+  (primarySidebar.right ? primarySidebarWidth + 6 : 0) +
+  (secondarySidebar.visible ? clampedSecondaryWidth + 6 : 0) +
+  (activityBar.right ? 48 : 0)
+```
+
+### Secondary Sidebar Max (F2:75-81)
+```
+maxSecondaryWidth = max(
+  minSecondarySidebarWidth,
+  windowWidth - leftPanelWidth - minEditorWidth - 6
+)
+clampedSecondaryWidth = min(secondarySidebarWidth, maxSecondaryWidth)
+```
+
+### Editor Width (F2:95)
+```
+currentEditorWidth = contentWidth - leftPanelWidth - rightPanelWidth
+```
+
+### CycleAgent Config Panel (F3:28)
+```
+configPanelWidth = min(max(160, parentWidth * 0.4), 260)
+```
+
+---
+
+## COMPONENT GRAPH
+
+```
+PanelState (F1:110) ──────────────────────────────────────────────┐
+│ @Observable singleton, persists to UserDefaults                 │
+├─────────────────────────────────────────────────────────────────┤
+│ primarySidebarWidth ──→ MainView.primarySidebar.frame           │
+│ secondarySidebarWidth ──→ MainView.secondarySidebar.frame       │
+│ bottomPanelHeight ──→ MainView.bottomPanel.frame                │
+│ showPrimarySidebar ──→ HStack includes/excludes primarySidebar  │
+│ showSecondarySidebar ──→ HStack includes/excludes secondary     │
+│ showBottomPanel ──→ VSplitView includes/excludes bottom         │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+PanelResizer (F1:445) ────────────────────────────────────────────┐
+│ Draggable 6px handle between panels                             │
+├─────────────────────────────────────────────────────────────────┤
+│ axis: .vertical (width) or .horizontal (height)                 │
+│ size: Binding<CGFloat> to PanelState property                   │
+│ minSize/maxSize: Clamp bounds from static constraints           │
+│ isRightSide: Inverts drag delta direction                       │
+│ onResizeEnd: Callback to save state                             │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+MainView (F2:6) ──────────────────────────────────────────────────┐
+│ GeometryReader → HStack → left | middle | right                 │
+├─────────────────────────────────────────────────────────────────┤
+│ F2:97-168: HStack(spacing:0) with three regions                 │
+│ F2:349-364: VSplitView for editor + bottom panel                │
+│ F2:373-448: Editor layout switch (single/split/grid)            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## EDIT PATTERNS
+
+### PATTERN: Change default panel width
+```swift
+// F1:117 or F1:123 or F1:129
+var [property]Width: CGFloat = [NEW_VALUE]
+```
+
+### PATTERN: Change min/max constraint
+```swift
+// F1:151-155
+static let [constraint]: CGFloat = [NEW_VALUE]
+```
+
+### PATTERN: Add new resizable divider
+```swift
+// Insert in F2 layout HStack:
+PanelResizer(
+    axis: .vertical,
+    size: $panels.[newProperty],
+    minSize: PanelState.[minConstant],
+    maxSize: PanelState.[maxConstant],
+    isRightSide: [true if right-anchored]
+) { panels.saveState() }
+```
+
+### PATTERN: Make CycleAgent internal divider draggable
+```swift
+// F3:24-37, replace hardcoded .frame(width:) with:
+@State private var configPanelWidth: CGFloat = 200
+// Add PanelResizer between configurationPanel and executionVisualPanel
+// Persist via UserDefaults key "cycle.configPanelWidth"
+```
+
+### PATTERN: Add new panel state property
+```swift
+// F1: Add property (line ~130)
+var newPanelWidth: CGFloat = [DEFAULT]
+
+// F1: Add constraint if needed (line ~155)
+static let minNewPanelWidth: CGFloat = [VALUE]
+
+// F1: Add persistence key (line ~177)
+static let newPanelWidth = prefix + "newPanelWidth"
+
+// F1: Load in loadState() (line ~230)
+newPanelWidth = defaults.double(forKey: Keys.newPanelWidth).nonZeroOr([DEFAULT])
+
+// F1: Save in saveState() (line ~256)
+defaults.set(newPanelWidth, forKey: Keys.newPanelWidth)
+```
+
+---
+
+## SEMANTIC KEYWORDS
+panel width height resize drag constraint minimum maximum default
+sidebar primary secondary bottom editor split vertical horizontal
+layout frame geometry HStack VStack VSplitView GeometryReader
+PanelState PanelResizer MainView CycleAgentView activityBar
+UserDefaults persistence save load toggle show hide zen mode
+minWidth maxWidth minHeight maxHeight idealWidth idealHeight
+clamp bounds overflow clip alignment spacing divider handle
+SwiftUI macOS IDE three-pane layout responsive adaptive flexible
+
+---
+
+## QUICK TASKS
+
+TASK: "Make right panel wider by default"
+→ Edit F1:123, change 450 to new value
+
+TASK: "Allow sidebar to shrink smaller"
+→ Edit F1:151, reduce minSidebarWidth
+
+TASK: "Fix CycleAgent cramped layout"
+→ Edit F1:152 (minSecondarySidebarWidth) OR F3:28 (internal ratio)
+
+TASK: "Add draggable divider to CycleAgentView"
+→ See PATTERN above, requires F3 modification + new @State
+
+TASK: "Increase window minimum size"
+→ Edit F4:11, change minWidth/minHeight values
+
+TASK: "Change resize handle thickness"
+→ Edit F1:463, change 6 to new value (also update +6 in F2 calculations)
+
+---
+
+## DEPENDENCIES
+- SwiftUI framework (macOS 14+)
+- @Observable macro (requires Swift 5.9+)
+- DS (DesignSystem) for colors/spacing: Sources/Utilities/DesignSystem.swift
+
+## RELATED FILES (non-layout)
+- Sources/Views/ChatView.swift - Chat panel content
+- Sources/Views/ComposerView.swift - Composer panel content  
+- Sources/Views/EditorView.swift - Editor panel content
+- Sources/Views/TerminalView.swift - Bottom panel terminal
+- Sources/Views/ProblemsPanel.swift - Bottom panel problems
+
+---
+# END IDEDEV
+# To modify panel layout: Read this file → Find constraint/pattern → Edit target file

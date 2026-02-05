@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct OllamaBotApp: App {
     @State private var appState = AppState()
+    @Environment(\.scenePhase) private var scenePhase
     
     var body: some Scene {
         WindowGroup {
@@ -10,6 +11,11 @@ struct OllamaBotApp: App {
                 .environment(appState)
                 .frame(minWidth: 400, minHeight: 300)
                 .foregroundStyle(DS.Colors.text)  // Default all text to light blue/white
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                    // Save session state before app terminates
+                    appState.saveSession()
+                    PanelState.shared.saveState()
+                }
         }
         .windowStyle(.automatic)
         .windowResizability(.contentSize)
@@ -340,6 +346,9 @@ class AppState {
     
     // MARK: - Model Tier Management (RAM-aware model selection)
     let modelTierManager: ModelTierManager
+    let externalModelConfig: ExternalModelConfigurationService
+    let apiKeyStore: APIKeyStore
+    let pricingService: PricingService
     
     // Performance caches
     private let fileContentCache = LRUCache<URL, String>(capacity: 50_000_000) // ~50MB
@@ -350,6 +359,9 @@ class AppState {
     init() {
         // Model tier management (RAM-aware model selection) - MUST BE FIRST
         self.modelTierManager = ModelTierManager()
+        self.externalModelConfig = ExternalModelConfigurationService()
+        self.apiKeyStore = APIKeyStore.shared
+        self.pricingService = PricingService()
         
         // Core services
         self.ollamaService = OllamaService()
@@ -414,6 +426,10 @@ class AppState {
         
         // Wire performance tracker to OllamaService
         self.ollamaService.performanceTracker = performanceTracker
+        self.ollamaService.externalModelConfig = externalModelConfig
+        self.ollamaService.apiKeyStore = apiKeyStore
+        self.ollamaService.pricingService = pricingService
+        self.performanceTracker.pricingService = pricingService
         
         // Wire up resilience service to agents
         self.resilienceService.agentExecutor = agentExecutor
@@ -448,6 +464,81 @@ class AppState {
         print("   Tier: \(modelTierManager.selectedTier.rawValue)")
         print("   Parallel: \(modelTierManager.canRunParallel ? "Yes" : "No")")
         print("   Network: \(networkMonitor.status.isConnected ? "Connected" : "Offline")")
+        
+        // Restore session state (open files, project folder) if available
+        if let session = SessionStateService.shared.loadSession() {
+            restoreSession(session)
+        }
+    }
+    
+    // MARK: - Session Management
+    
+    /// Save current session state for restoration after updates/restarts
+    func saveSession() {
+        SessionStateService.shared.saveSession(
+            rootFolder: rootFolder,
+            openFiles: openFiles,
+            selectedFile: selectedFile
+        )
+    }
+    
+    /// Restore session state from saved data
+    private func restoreSession(_ session: SessionState) {
+        print("📂 Restoring session...")
+        
+        // Restore root folder
+        if let rootPath = session.rootFolder {
+            let url = URL(fileURLWithPath: rootPath)
+            if FileManager.default.fileExists(atPath: rootPath) {
+                rootFolder = url
+                
+                // Re-index project in background
+                Task(priority: .background) {
+                    await fileIndexer.indexDirectory(url)
+                }
+                
+                // Update project context
+                let files = fileSystemService.getAllFiles(in: url)
+                contextManager.updateProjectCache(root: url, files: files)
+                
+                // Load OBot configuration
+                Task {
+                    await obotService.loadProject(url)
+                }
+                
+                // Load checkpoints
+                checkpointService.setProject(url)
+                
+                print("   Project: \(url.lastPathComponent)")
+            }
+        }
+        
+        // Restore open files
+        for path in session.openFiles {
+            let url = URL(fileURLWithPath: path)
+            if FileManager.default.fileExists(atPath: path) {
+                let file = FileItem(url: url, isDirectory: false)
+                if !openFiles.contains(where: { $0.url == url }) {
+                    openFiles.append(file)
+                }
+            }
+        }
+        print("   Open files: \(openFiles.count)")
+        
+        // Restore selected file
+        if let selectedPath = session.selectedFile {
+            let url = URL(fileURLWithPath: selectedPath)
+            if let file = openFiles.first(where: { $0.url == url }) {
+                selectedFile = file
+                if let content = fileSystemService.readFile(at: url) {
+                    editorContent = content
+                }
+                print("   Selected: \(url.lastPathComponent)")
+            }
+        }
+        
+        // Clear the session file after successful restore
+        SessionStateService.shared.clearSession()
     }
     
     // MARK: - File Operations

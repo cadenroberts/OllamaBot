@@ -5,14 +5,21 @@ import SwiftUI
 
 struct PerformanceDashboardView: View {
     @Environment(AppState.self) private var appState
-    @State private var selectedTab: DashboardTab = .overview
+    @State private var selectedTab: DashboardTab = .memory
     @State private var refreshTrigger = false
+    @State private var processToKill: SystemMonitorService.ProcessInfo? = nil
+    @State private var showKillConfirmation = false
     
     enum DashboardTab: String, CaseIterable {
+        case memory = "Memory"
         case overview = "Overview"
         case models = "Models"
         case savings = "Savings"
         case history = "History"
+    }
+    
+    private var systemMonitor: SystemMonitorService {
+        appState.systemMonitor
     }
     
     private var tracker: PerformanceTrackingService {
@@ -32,9 +39,11 @@ struct PerformanceDashboardView: View {
             DSDivider()
             
             // Content
-            ScrollView {
+            DSScrollView {
                 VStack(spacing: DS.Spacing.lg) {
                     switch selectedTab {
+                    case .memory:
+                        memorySection
                     case .overview:
                         overviewSection
                     case .models:
@@ -50,9 +59,24 @@ struct PerformanceDashboardView: View {
         }
         .background(DS.Colors.background)
         .onAppear {
+            // Start system monitoring when dashboard opens
+            systemMonitor.startMonitoring()
             // Refresh periodically
             Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
                 refreshTrigger.toggle()
+            }
+        }
+        .alert("Force Quit Process?", isPresented: $showKillConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Force Quit", role: .destructive) {
+                if let process = processToKill {
+                    _ = systemMonitor.forceQuitProcess(pid: process.id)
+                }
+                processToKill = nil
+            }
+        } message: {
+            if let process = processToKill {
+                Text("Are you sure you want to force quit \"\(process.name)\"? Any unsaved changes will be lost.")
             }
         }
     }
@@ -222,10 +246,10 @@ struct PerformanceDashboardView: View {
             HStack {
                 Image(systemName: "dollarsign.circle.fill")
                     .foregroundStyle(DS.Colors.success)
-                Text("Cost Savings This Session")
+                Text("Net Savings This Session")
                     .font(DS.Typography.callout.weight(.semibold))
                 Spacer()
-                Text(PerformanceTrackingService.formatCurrency(savings.gpt4Savings))
+                Text(PerformanceTrackingService.formatCurrency(savings.netSavings))
                     .font(DS.Typography.headline)
                     .foregroundStyle(DS.Colors.success)
             }
@@ -406,15 +430,15 @@ struct PerformanceDashboardView: View {
                     .font(.system(size: 40))
                     .foregroundStyle(DS.Colors.success)
                 
-                Text("Total Savings This Session")
+                Text("Net Savings This Session")
                     .font(DS.Typography.callout)
                     .foregroundStyle(DS.Colors.secondaryText)
                 
-                Text(PerformanceTrackingService.formatCurrency(savings.gpt4Savings))
+                Text(PerformanceTrackingService.formatCurrency(savings.netSavings))
                     .font(.system(size: 48, weight: .bold, design: .rounded))
                     .foregroundStyle(DS.Colors.success)
                 
-                Text("vs GPT-4 API pricing")
+                Text("Local savings minus external spend")
                     .font(DS.Typography.caption)
                     .foregroundStyle(DS.Colors.tertiaryText)
             }
@@ -422,10 +446,16 @@ struct PerformanceDashboardView: View {
             .padding(DS.Spacing.xl)
             .background(DS.Colors.success.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+
+            // Local vs external totals
+            HStack(spacing: DS.Spacing.md) {
+                summaryPill(title: "Local Savings", value: savings.gpt4Savings, color: DS.Colors.success)
+                summaryPill(title: "External Spend", value: savings.externalSpend, color: DS.Colors.warning)
+            }
             
             // Comparison grid
             VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                Text("API Cost Comparison")
+                Text("Local Savings vs APIs")
                     .font(DS.Typography.callout.weight(.semibold))
                 
                 DSDivider()
@@ -458,17 +488,26 @@ struct PerformanceDashboardView: View {
                 DSDivider()
                 
                 HStack {
-                    Text("OllamaBot (Local)")
+                    Text("External API Spend")
                         .font(DS.Typography.callout.weight(.semibold))
                     Spacer()
-                    Text("$0.00")
+                    Text(PerformanceTrackingService.formatCurrency(savings.externalSpend))
                         .font(DS.Typography.mono(16).weight(.bold))
-                        .foregroundStyle(DS.Colors.success)
+                        .foregroundStyle(DS.Colors.warning)
                 }
             }
             .padding(DS.Spacing.md)
             .background(DS.Colors.surface)
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+
+            if !savings.baselineMissingPricing.isEmpty {
+                Text("Pricing unavailable for: \(savings.baselineMissingPricing.joined(separator: ", "))")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+
+            // External provider spend
+            externalSpendCard(savings: savings)
             
             // Monthly projection
             monthlyProjectionCard(savings: savings)
@@ -495,13 +534,80 @@ struct PerformanceDashboardView: View {
                 .font(DS.Typography.caption)
                 .foregroundStyle(DS.Colors.secondaryText)
             
-            Text(PerformanceTrackingService.formatCurrency(savings.monthlyProjection) + "/month")
-                .font(DS.Typography.headline)
-                .foregroundStyle(DS.Colors.accent)
+            if let projection = savings.monthlyProjection {
+                Text(PerformanceTrackingService.formatCurrency(projection) + "/month")
+                    .font(DS.Typography.headline)
+                    .foregroundStyle(DS.Colors.accent)
+                
+                Text("Compared to cloud API costs")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            } else {
+                Text("Pricing data unavailable")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+        }
+        .padding(DS.Spacing.md)
+        .background(DS.Colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+
+    private func summaryPill(title: String, value: Double?, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(DS.Typography.caption)
+                .foregroundStyle(DS.Colors.secondaryText)
             
-            Text("Compared to cloud API costs")
-                .font(DS.Typography.caption2)
-                .foregroundStyle(DS.Colors.tertiaryText)
+            Text(PerformanceTrackingService.formatCurrency(value))
+                .font(DS.Typography.mono(14).weight(.semibold))
+                .foregroundStyle(value == nil ? DS.Colors.tertiaryText : color)
+        }
+        .padding(DS.Spacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+
+    private func externalSpendCard(savings: CostSavingsSummary) -> some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            HStack {
+                Image(systemName: "creditcard.fill")
+                    .foregroundStyle(DS.Colors.warning)
+                Text("External Provider Spend")
+                    .font(DS.Typography.callout.weight(.semibold))
+                Spacer()
+                Text(PerformanceTrackingService.formatCurrency(savings.externalSpend))
+                    .font(DS.Typography.mono(12))
+                    .foregroundStyle(DS.Colors.warning)
+            }
+            
+            DSDivider()
+            
+            if savings.providerCosts.isEmpty {
+                Text("No external API usage yet")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.secondaryText)
+            } else {
+                ForEach(savings.providerCosts) { provider in
+                    HStack {
+                        Text(provider.provider)
+                            .font(DS.Typography.caption)
+                        Spacer()
+                        Text(PerformanceTrackingService.formatCurrency(provider.cost))
+                            .font(DS.Typography.mono(11))
+                            .foregroundStyle(DS.Colors.secondaryText)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            
+            if !savings.providersMissingPricing.isEmpty {
+                DSDivider()
+                Text("Pricing not configured for: \(savings.providersMissingPricing.joined(separator: ", "))")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
         }
         .padding(DS.Spacing.md)
         .background(DS.Colors.surface)
@@ -574,6 +680,320 @@ struct PerformanceDashboardView: View {
         .padding(DS.Spacing.xl)
         .background(DS.Colors.surface)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+    
+    // MARK: - Memory Section
+    
+    private var memorySection: some View {
+        VStack(spacing: DS.Spacing.lg) {
+            // System memory overview
+            memoryOverviewCard
+            
+            // Memory pressure indicator
+            memoryPressureCard
+            
+            // Ollama processes (highlighted)
+            if !systemMonitor.ollamaProcesses.isEmpty {
+                ollamaProcessesCard
+            }
+            
+            // All processes breakdown
+            processListCard
+        }
+        .id(refreshTrigger)
+    }
+    
+    private var memoryOverviewCard: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            HStack {
+                Image(systemName: "memorychip.fill")
+                    .font(.title2)
+                    .foregroundStyle(DS.Colors.accent)
+                
+                Text("System Memory")
+                    .font(DS.Typography.headline)
+                
+                Spacer()
+                
+                if let lastUpdate = systemMonitor.lastUpdate {
+                    Text("Updated \(timeAgoShort(lastUpdate))")
+                        .font(DS.Typography.caption2)
+                        .foregroundStyle(DS.Colors.tertiaryText)
+                }
+                
+                DSIconButton(icon: "arrow.clockwise", size: 14) {
+                    systemMonitor.refresh()
+                }
+                .help("Refresh")
+            }
+            
+            if let info = systemMonitor.memoryInfo {
+                // Memory bar
+                GeometryReader { geometry in
+                    let usedWidth = geometry.size.width * CGFloat(info.usedPercent / 100)
+                    
+                    ZStack(alignment: .leading) {
+                        // Background
+                        RoundedRectangle(cornerRadius: DS.Radius.xs)
+                            .fill(DS.Colors.tertiaryBackground)
+                        
+                        // Used portion
+                        RoundedRectangle(cornerRadius: DS.Radius.xs)
+                            .fill(pressureColor(info.pressureLevel))
+                            .frame(width: max(0, usedWidth))
+                    }
+                }
+                .frame(height: 24)
+                
+                // Stats grid
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: DS.Spacing.md) {
+                    MemoryStatBox(
+                        title: "Total",
+                        value: info.formattedTotal,
+                        color: DS.Colors.secondaryText
+                    )
+                    MemoryStatBox(
+                        title: "Used",
+                        value: info.formattedUsed,
+                        subtitle: String(format: "%.1f%%", info.usedPercent),
+                        color: pressureColor(info.pressureLevel)
+                    )
+                    MemoryStatBox(
+                        title: "Free",
+                        value: info.formattedFree,
+                        color: DS.Colors.success
+                    )
+                    MemoryStatBox(
+                        title: "Wired",
+                        value: ByteCountFormatter.string(fromByteCount: Int64(info.wiredRAM), countStyle: .memory),
+                        color: DS.Colors.warning
+                    )
+                }
+                
+                // Detailed breakdown
+                DSDivider()
+                
+                HStack(spacing: DS.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Active")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.Colors.secondaryText)
+                        Text(ByteCountFormatter.string(fromByteCount: Int64(info.activeRAM), countStyle: .memory))
+                            .font(DS.Typography.mono(12))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Inactive")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.Colors.secondaryText)
+                        Text(ByteCountFormatter.string(fromByteCount: Int64(info.inactiveRAM), countStyle: .memory))
+                            .font(DS.Typography.mono(12))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Compressed")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.Colors.secondaryText)
+                        Text(ByteCountFormatter.string(fromByteCount: Int64(info.compressedRAM), countStyle: .memory))
+                            .font(DS.Typography.mono(12))
+                    }
+                    
+                    Spacer()
+                }
+            } else {
+                Text("Loading memory info...")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.secondaryText)
+            }
+        }
+        .padding(DS.Spacing.md)
+        .background(DS.Colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+    
+    private var memoryPressureCard: some View {
+        guard let info = systemMonitor.memoryInfo else {
+            return AnyView(EmptyView())
+        }
+        
+        return AnyView(
+            HStack(spacing: DS.Spacing.md) {
+                // Pressure indicator
+                Circle()
+                    .fill(pressureColor(info.pressureLevel))
+                    .frame(width: 12, height: 12)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Memory Pressure: \(info.pressureLevel.rawValue)")
+                        .font(DS.Typography.callout.weight(.medium))
+                    
+                    Text(pressureDescription(info.pressureLevel))
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.secondaryText)
+                }
+                
+                Spacer()
+                
+                // Recommendation
+                if info.pressureLevel == .high || info.pressureLevel == .critical {
+                    Button {
+                        // Could trigger cache cleanup or suggest closing apps
+                    } label: {
+                        Text("Free Memory")
+                            .font(DS.Typography.caption.weight(.medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, DS.Spacing.sm)
+                            .padding(.vertical, DS.Spacing.xs)
+                            .background(pressureColor(info.pressureLevel))
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(DS.Spacing.md)
+            .background(pressureColor(info.pressureLevel).opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md)
+                    .stroke(pressureColor(info.pressureLevel).opacity(0.3), lineWidth: 1)
+            )
+        )
+    }
+    
+    private var ollamaProcessesCard: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            HStack {
+                Image(systemName: "brain.head.profile")
+                    .foregroundStyle(DS.Colors.accent)
+                Text("Ollama Processes")
+                    .font(DS.Typography.callout.weight(.semibold))
+                Spacer()
+                Text(ByteCountFormatter.string(fromByteCount: Int64(systemMonitor.ollamaMemoryUsage), countStyle: .memory))
+                    .font(DS.Typography.mono(14))
+                    .foregroundStyle(DS.Colors.accent)
+            }
+            
+            DSDivider()
+            
+            ForEach(systemMonitor.ollamaProcesses) { process in
+                MemoryProcessRow(
+                    process: process,
+                    isHighlighted: true,
+                    onKill: {
+                        processToKill = process
+                        showKillConfirmation = true
+                    }
+                )
+            }
+        }
+        .padding(DS.Spacing.md)
+        .background(DS.Colors.accent.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+    
+    private var processListCard: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            HStack {
+                Image(systemName: "list.bullet.rectangle")
+                    .foregroundStyle(DS.Colors.secondaryText)
+                Text("All Processes by Memory")
+                    .font(DS.Typography.callout.weight(.semibold))
+                Spacer()
+                Text("\(systemMonitor.topProcesses.count) processes")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+            
+            DSDivider()
+            
+            // Header row
+            HStack(spacing: DS.Spacing.md) {
+                Text("Process")
+                    .font(DS.Typography.caption.weight(.medium))
+                    .foregroundStyle(DS.Colors.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text("Memory")
+                    .font(DS.Typography.caption.weight(.medium))
+                    .foregroundStyle(DS.Colors.secondaryText)
+                    .frame(width: 70, alignment: .trailing)
+                
+                Text("CPU")
+                    .font(DS.Typography.caption.weight(.medium))
+                    .foregroundStyle(DS.Colors.secondaryText)
+                    .frame(width: 50, alignment: .trailing)
+                
+                Text("User")
+                    .font(DS.Typography.caption.weight(.medium))
+                    .foregroundStyle(DS.Colors.secondaryText)
+                    .frame(width: 60, alignment: .leading)
+                
+                // Space for kill button
+                Spacer()
+                    .frame(width: 28)
+            }
+            .padding(.horizontal, DS.Spacing.xs)
+            
+            // Process rows (exclude Ollama processes since they're shown separately)
+            let nonOllamaProcesses = systemMonitor.topProcesses.filter { !$0.isOllamaRelated }
+            
+            ForEach(nonOllamaProcesses.prefix(15)) { process in
+                MemoryProcessRow(
+                    process: process,
+                    isHighlighted: false,
+                    onKill: {
+                        processToKill = process
+                        showKillConfirmation = true
+                    }
+                )
+            }
+            
+            if nonOllamaProcesses.count > 15 {
+                Text("+ \(nonOllamaProcesses.count - 15) more processes")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+                    .padding(.top, DS.Spacing.xs)
+            }
+        }
+        .padding(DS.Spacing.md)
+        .background(DS.Colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+    
+    // MARK: - Memory Helpers
+    
+    private func pressureColor(_ level: SystemMonitorService.MemoryPressureLevel) -> Color {
+        switch level {
+        case .normal: return DS.Colors.success
+        case .moderate: return DS.Colors.accent
+        case .high: return DS.Colors.warning
+        case .critical: return DS.Colors.error
+        }
+    }
+    
+    private func pressureDescription(_ level: SystemMonitorService.MemoryPressureLevel) -> String {
+        switch level {
+        case .normal:
+            return "System has plenty of memory available"
+        case .moderate:
+            return "Memory usage is moderate, system running smoothly"
+        case .high:
+            return "Consider closing unused applications to free memory"
+        case .critical:
+            return "System may become slow. Close applications to free memory"
+        }
+    }
+    
+    private func timeAgoShort(_ date: Date) -> String {
+        let seconds = Date().timeIntervalSince(date)
+        if seconds < 5 { return "now" }
+        if seconds < 60 { return "\(Int(seconds))s ago" }
+        return "\(Int(seconds/60))m ago"
     }
 }
 
@@ -696,13 +1116,13 @@ struct ModelPerformanceCard: View {
 struct ComparisonRow: View {
     let provider: String
     let icon: String
-    let cost: Double
+    let cost: Double?
     let color: Color
     
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .foregroundStyle(color)
+                .foregroundStyle(cost == nil ? DS.Colors.tertiaryText : color)
                 .frame(width: 20)
             
             Text(provider)
@@ -712,7 +1132,7 @@ struct ComparisonRow: View {
             
             Text(PerformanceTrackingService.formatCurrency(cost))
                 .font(DS.Typography.mono(12))
-                .foregroundStyle(DS.Colors.secondaryText)
+                .foregroundStyle(cost == nil ? DS.Colors.tertiaryText : DS.Colors.secondaryText)
         }
         .padding(.vertical, DS.Spacing.xs)
     }
@@ -728,10 +1148,15 @@ struct InferenceHistoryRow: View {
                 .fill(inference.wasWarmStart ? DS.Colors.success : DS.Colors.warning)
                 .frame(width: 8, height: 8)
             
-            // Model name
-            Text(inference.model)
-                .font(DS.Typography.caption.weight(.medium))
-                .frame(width: 100, alignment: .leading)
+            // Model name + provider
+            VStack(alignment: .leading, spacing: 2) {
+                Text(inference.model)
+                    .font(DS.Typography.caption.weight(.medium))
+                Text(inference.provider)
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+            .frame(width: 140, alignment: .leading)
             
             // Tokens
             Text("\(inference.totalTokens) tok")
@@ -773,3 +1198,126 @@ struct InferenceHistoryRow: View {
 
 // Type alias for convenience
 typealias CostSavingsSummary = PerformanceTrackingService.CostSavingsSummary
+
+// MARK: - Memory Tab Supporting Views
+
+struct MemoryStatBox: View {
+    let title: String
+    let value: String
+    var subtitle: String? = nil
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(DS.Typography.caption)
+                .foregroundStyle(DS.Colors.secondaryText)
+            
+            Text(value)
+                .font(DS.Typography.mono(14).weight(.semibold))
+                .foregroundStyle(color)
+            
+            if let subtitle = subtitle {
+                Text(subtitle)
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DS.Spacing.sm)
+        .background(DS.Colors.tertiaryBackground)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+    }
+}
+
+struct MemoryProcessRow: View {
+    let process: SystemMonitorService.ProcessInfo
+    let isHighlighted: Bool
+    let onKill: () -> Void
+    
+    @State private var isHovered = false
+    
+    var body: some View {
+        HStack(spacing: DS.Spacing.md) {
+            // Process name with icon
+            HStack(spacing: DS.Spacing.xs) {
+                Image(systemName: processIcon)
+                    .font(.caption)
+                    .foregroundStyle(isHighlighted ? DS.Colors.accent : DS.Colors.secondaryText)
+                    .frame(width: 14)
+                
+                Text(process.name)
+                    .font(DS.Typography.caption)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            // Memory usage
+            Text(process.formattedMemory)
+                .font(DS.Typography.mono(11))
+                .foregroundStyle(memoryColor)
+                .frame(width: 70, alignment: .trailing)
+            
+            // CPU usage
+            Text(String(format: "%.1f%%", process.cpuUsage))
+                .font(DS.Typography.mono(11))
+                .foregroundStyle(cpuColor)
+                .frame(width: 50, alignment: .trailing)
+            
+            // User
+            Text(process.user)
+                .font(DS.Typography.caption2)
+                .foregroundStyle(DS.Colors.tertiaryText)
+                .frame(width: 60, alignment: .leading)
+                .lineLimit(1)
+            
+            // Kill button (show on hover)
+            Button {
+                onKill()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(isHovered ? DS.Colors.error : DS.Colors.tertiaryText)
+            }
+            .buttonStyle(.plain)
+            .opacity(isHovered ? 1 : 0.3)
+            .help("Force Quit \(process.name)")
+        }
+        .padding(.vertical, DS.Spacing.xs)
+        .padding(.horizontal, DS.Spacing.xs)
+        .background(isHovered ? DS.Colors.tertiaryBackground : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+    
+    private var processIcon: String {
+        let name = process.name.lowercased()
+        if name.contains("ollama") { return "brain.head.profile" }
+        if name.contains("chrome") || name.contains("safari") || name.contains("firefox") { return "globe" }
+        if name.contains("code") || name.contains("cursor") || name.contains("xcode") { return "chevron.left.forwardslash.chevron.right" }
+        if name.contains("slack") || name.contains("discord") || name.contains("teams") { return "message" }
+        if name.contains("finder") { return "folder" }
+        if name.contains("terminal") || name.contains("iterm") { return "terminal" }
+        if name.contains("kernel") || name.contains("launchd") { return "gear" }
+        if name.contains("dock") { return "dock.rectangle" }
+        return "app"
+    }
+    
+    private var memoryColor: Color {
+        let bytes = process.memoryUsage
+        if bytes > 2_000_000_000 { return DS.Colors.error }        // > 2GB
+        if bytes > 500_000_000 { return DS.Colors.warning }        // > 500MB
+        if bytes > 100_000_000 { return DS.Colors.accent }         // > 100MB
+        return DS.Colors.secondaryText
+    }
+    
+    private var cpuColor: Color {
+        if process.cpuUsage > 80 { return DS.Colors.error }
+        if process.cpuUsage > 30 { return DS.Colors.warning }
+        if process.cpuUsage > 5 { return DS.Colors.accent }
+        return DS.Colors.secondaryText
+    }
+}

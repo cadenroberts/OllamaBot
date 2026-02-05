@@ -148,11 +148,11 @@ final class PanelState {
     var tabBarStyle: TabBarStyle = .standard
     
     // MARK: - Panel Constraints
-    static let minSidebarWidth: CGFloat = 180          // Primary sidebar min
+    static let minSidebarWidth: CGFloat = 280          // Primary sidebar min
     static let minSecondarySidebarWidth: CGFloat = 400 // Secondary sidebar min (needs space for CycleAgents)
     static let maxSidebarWidth: CGFloat = 800          // Allow wide sidebars for heavy workflows
     static let minPanelHeight: CGFloat = 100
-    static let maxPanelHeight: CGFloat = 600
+    static let maxPanelHeight: CGFloat = 10000         // Large value - actual max determined dynamically by available space
     
     // MARK: - Persistence Keys
     private enum Keys {
@@ -193,6 +193,9 @@ final class PanelState {
             primarySidebarPosition = position
         }
         primarySidebarWidth = defaults.double(forKey: Keys.primarySidebarWidth).nonZeroOr(260)
+        if primarySidebarWidth < PanelState.minSidebarWidth {
+            primarySidebarWidth = PanelState.minSidebarWidth
+        }
         if let tab = defaults.string(forKey: Keys.primarySidebarTab),
            let sidebarTab = SidebarTab(rawValue: tab) {
             primarySidebarTab = sidebarTab
@@ -299,9 +302,10 @@ final class PanelState {
     }
     
     func toggleMaximizeBottomPanel() {
-        withAnimation(DS.Animation.medium) {
+        withAnimation(DS.Animation.fast) {
             bottomPanelMaximized.toggle()
         }
+        saveState()
     }
     
     func setPrimarySidebarTab(_ tab: SidebarTab) {
@@ -456,9 +460,20 @@ struct PanelResizer: View {
     
     private var isActive: Bool { isDragging || isHovering }
     
+    // Match the visual style of other dividers - always visible with highlight on interaction
+    private var fillColor: Color {
+        if isDragging {
+            return DS.Colors.accent.opacity(0.8)
+        } else if isHovering {
+            return DS.Colors.accent.opacity(0.5)
+        } else {
+            return DS.Colors.border  // Always visible, same as sidebar dividers
+        }
+    }
+    
     var body: some View {
         Rectangle()
-            .fill(isActive ? DS.Colors.accent.opacity(isDragging ? 0.6 : 0.3) : Color.clear)
+            .fill(fillColor)
             .frame(
                 width: axis == .vertical ? 6 : nil,
                 height: axis == .horizontal ? 6 : nil
@@ -698,12 +713,12 @@ struct OutputView: View {
         VStack(spacing: 0) {
             // Channel selector
             HStack {
-                Picker("Output", selection: $selectedChannel) {
-                    ForEach(channels, id: \.self) { channel in
-                        Text(channel).tag(channel)
-                    }
-                }
-                .pickerStyle(.menu)
+                DSDropdown(
+                    selection: $selectedChannel,
+                    options: channels,
+                    label: { channel in Text(channel) },
+                    row: { channel in Text(channel) }
+                )
                 .frame(width: 150)
                 
                 Spacer()
@@ -720,7 +735,7 @@ struct OutputView: View {
             DSDivider()
             
             // Output content
-            ScrollView {
+            DSScrollView {
                 Text(outputText.isEmpty ? "No output" : outputText)
                     .font(DS.Typography.mono(11))
                     .foregroundStyle(outputText.isEmpty ? DS.Colors.tertiaryText : DS.Colors.text)

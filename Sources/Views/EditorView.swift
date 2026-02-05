@@ -123,6 +123,13 @@ struct CodeEditor: NSViewRepresentable {
         let scrollView = NSTextView.scrollableTextView()
         let textView = scrollView.documentView as! NSTextView
         
+        // Custom scrollbars to match DS styling
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.verticalScroller = DSScroller()
+        scrollView.horizontalScroller = DSScroller()
+        
         // Configure text view
         textView.delegate = context.coordinator
         textView.isRichText = false

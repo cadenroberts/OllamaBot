@@ -1,0 +1,245 @@
+{
+  "": {
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/master.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Apple/AppleTerminalView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/AppleTerminalView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/AppleTerminalView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/AppleTerminalView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/AppleTerminalView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Apple/CaretView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CaretView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CaretView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CaretView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CaretView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Apple/Extensions.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Extensions.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Extensions.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Extensions~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Extensions.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Apple/TerminalViewDelegate.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/TerminalViewDelegate.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/TerminalViewDelegate.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/TerminalViewDelegate~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/TerminalViewDelegate.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Buffer.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Buffer.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Buffer.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Buffer~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Buffer.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/BufferLine.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/BufferLine.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/BufferLine.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/BufferLine~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/BufferLine.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/BufferSet.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/BufferSet.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/BufferSet.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/BufferSet~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/BufferSet.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/CharData.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CharData.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CharData.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CharData~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CharData.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/CharSets.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CharSets.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CharSets.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CharSets~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CharSets.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/CircularList.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CircularList.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CircularList.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CircularList~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/CircularList.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Colors.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Colors.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Colors.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Colors~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Colors.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/EscapeSequenceParser.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/EscapeSequenceParser.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/EscapeSequenceParser.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/EscapeSequenceParser~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/EscapeSequenceParser.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/EscapeSequences.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/EscapeSequences.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/EscapeSequences.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/EscapeSequences~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/EscapeSequences.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/ExternsionsTerminal.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/ExternsionsTerminal.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/ExternsionsTerminal.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/ExternsionsTerminal~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/ExternsionsTerminal.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/File.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/File.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/File.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/File~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/File.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/HeadlessTerminal.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/HeadlessTerminal.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/HeadlessTerminal.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/HeadlessTerminal~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/HeadlessTerminal.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Line.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Line.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Line.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Line~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Line.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/LocalProcess.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/LocalProcess.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/LocalProcess.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/LocalProcess~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/LocalProcess.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Mac/MacAccessibilityService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacAccessibilityService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacAccessibilityService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacAccessibilityService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacAccessibilityService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Mac/MacCaretView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacCaretView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacCaretView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacCaretView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacCaretView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Mac/MacDebugView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacDebugView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacDebugView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacDebugView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacDebugView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Mac/MacExtensions.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacExtensions.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacExtensions.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacExtensions~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacExtensions.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Mac/MacLocalTerminalView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacLocalTerminalView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacLocalTerminalView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacLocalTerminalView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacLocalTerminalView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Mac/MacTerminalView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacTerminalView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacTerminalView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacTerminalView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/MacTerminalView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Position.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Position.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Position.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Position~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Position.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Pty.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Pty.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Pty.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Pty~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Pty.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/SearchService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SearchService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SearchService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SearchService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SearchService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/SelectionService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SelectionService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SelectionService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SelectionService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SelectionService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/SixelDcsHandler.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SixelDcsHandler.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SixelDcsHandler.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SixelDcsHandler~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/SixelDcsHandler.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Terminal.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Terminal.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Terminal.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Terminal~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Terminal.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/TerminalOptions.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/TerminalOptions.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/TerminalOptions.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/TerminalOptions~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/TerminalOptions.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/Utilities.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Utilities.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Utilities.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Utilities~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/Utilities.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSAccessoryView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSAccessoryView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSAccessoryView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSAccessoryView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSAccessoryView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSCaretView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSCaretView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSCaretView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSCaretView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSCaretView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSDoubleButton.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSDoubleButton.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSDoubleButton.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSDoubleButton~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSDoubleButton.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSExtensions.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSExtensions.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSExtensions.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSExtensions~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSExtensions.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSKeyboardView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSKeyboardView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSKeyboardView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSKeyboardView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSKeyboardView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSTerminalView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTerminalView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTerminalView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTerminalView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTerminalView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSTextInput.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTextInput.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTextInput.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTextInput~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTextInput.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/.build-bench/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSTextStorage.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTextStorage.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTextStorage.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTextStorage~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/SwiftTerm.build/iOSTextStorage.swiftdeps"
+  }
+}

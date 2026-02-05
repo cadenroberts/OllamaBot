@@ -65,23 +65,35 @@ struct FindBarView: View {
                 HStack(spacing: 4) {
                     Toggle(isOn: $matchCase) {
                         Image(systemName: "textformat")
+                            .font(.caption2)
                     }
                     .toggleStyle(.button)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.plain)
+                    .padding(4)
+                    .background(matchCase ? DS.Colors.accent.opacity(0.2) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                     .help("Match Case")
                     
                     Toggle(isOn: $wholeWord) {
                         Image(systemName: "text.word.spacing")
+                            .font(.caption2)
                     }
                     .toggleStyle(.button)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.plain)
+                    .padding(4)
+                    .background(wholeWord ? DS.Colors.accent.opacity(0.2) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                     .help("Whole Word")
                     
                     Toggle(isOn: $useRegex) {
                         Image(systemName: "asterisk")
+                            .font(.caption2)
                     }
                     .toggleStyle(.button)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.plain)
+                    .padding(4)
+                    .background(useRegex ? DS.Colors.accent.opacity(0.2) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                     .help("Use Regex")
                 }
                 
@@ -89,30 +101,28 @@ struct FindBarView: View {
                 
                 // Navigation
                 HStack(spacing: 4) {
-                    Button(action: findPrevious) {
-                        Image(systemName: "chevron.up")
+                    DSIconButton(icon: "chevron.up", size: 18) {
+                        findPrevious()
                     }
-                    .buttonStyle(.bordered)
                     .disabled(totalMatches == 0)
+                    .opacity(totalMatches == 0 ? 0.4 : 1)
                     
-                    Button(action: findNext) {
-                        Image(systemName: "chevron.down")
+                    DSIconButton(icon: "chevron.down", size: 18) {
+                        findNext()
                     }
-                    .buttonStyle(.bordered)
                     .disabled(totalMatches == 0)
+                    .opacity(totalMatches == 0 ? 0.4 : 1)
                 }
                 
                 // Toggle replace
-                Button(action: { showReplace.toggle() }) {
-                    Image(systemName: showReplace ? "chevron.up.chevron.down" : "arrow.left.arrow.right")
+                DSIconButton(icon: showReplace ? "chevron.up.chevron.down" : "arrow.left.arrow.right", size: 18) {
+                    showReplace.toggle()
                 }
-                .buttonStyle(.bordered)
                 
                 // Close
-                Button(action: { isPresented = false }) {
-                    Image(systemName: "xmark")
+                DSIconButton(icon: "xmark", size: 18) {
+                    isPresented = false
                 }
-                .buttonStyle(.bordered)
             }
             
             // Replace row
@@ -142,26 +152,35 @@ struct FindBarView: View {
                     )
                     .frame(width: 200)
                     
-                    Button("Replace") {
+                    DSButton("Replace", style: .secondary, size: .sm) {
                         replaceOne()
                     }
-                    .buttonStyle(.bordered)
                     .disabled(totalMatches == 0)
+                    .opacity(totalMatches == 0 ? 0.6 : 1)
                     
-                    Button("Replace All") {
+                    DSButton("Replace All", style: .secondary, size: .sm) {
                         replaceAll()
                     }
-                    .buttonStyle(.bordered)
                     .disabled(totalMatches == 0)
+                    .opacity(totalMatches == 0 ? 0.6 : 1)
                     
                     Spacer()
                 }
             }
         }
         .padding(8)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(DS.Colors.secondaryBackground)
         .onAppear {
             isSearchFocused = true
+        }
+        .onChange(of: matchCase) { _, _ in
+            updateMatches()
+        }
+        .onChange(of: wholeWord) { _, _ in
+            updateMatches()
+        }
+        .onChange(of: useRegex) { _, _ in
+            updateMatches()
         }
         .onKeyPress(.escape) {
             isPresented = false

@@ -7,24 +7,9 @@ import QuartzCore
 @Observable
 final class PerformanceTrackingService {
     
-    // MARK: - Cost Constants (per 1K tokens)
-    
-    struct APICosts {
-        // GPT-4 Turbo pricing (as of 2024)
-        static let gpt4Input: Double = 0.01      // $0.01 per 1K input tokens
-        static let gpt4Output: Double = 0.03    // $0.03 per 1K output tokens
-        
-        // Claude 3 Opus pricing
-        static let claude3Input: Double = 0.015  // $0.015 per 1K input tokens
-        static let claude3Output: Double = 0.075 // $0.075 per 1K output tokens
-        
-        // Claude 3.5 Sonnet pricing
-        static let claudeSonnetInput: Double = 0.003
-        static let claudeSonnetOutput: Double = 0.015
-        
-        // GPT-4o pricing
-        static let gpt4oInput: Double = 0.005
-        static let gpt4oOutput: Double = 0.015
+    struct ProviderCostRates: Codable {
+        let inputPer1K: Double
+        let outputPer1K: Double
     }
     
     // MARK: - Data Structures
@@ -32,6 +17,7 @@ final class PerformanceTrackingService {
     struct InferenceMetrics: Identifiable, Codable {
         let id: UUID
         let model: String
+        let provider: String
         let startTime: Date
         let endTime: Date
         let timeToFirstToken: TimeInterval     // TTFT
@@ -40,6 +26,7 @@ final class PerformanceTrackingService {
         let outputTokens: Int
         let tokensPerSecond: Double            // TPS
         let wasWarmStart: Bool                 // Was model already in memory?
+        let costUSD: Double
         
         var totalTime: TimeInterval {
             endTime.timeIntervalSince(startTime)
@@ -59,6 +46,11 @@ final class PerformanceTrackingService {
         var startTime: Date
         var totalInputTokens: Int = 0
         var totalOutputTokens: Int = 0
+        var localInputTokens: Int = 0
+        var localOutputTokens: Int = 0
+        var externalInputTokens: Int = 0
+        var externalOutputTokens: Int = 0
+        var externalCost: Double = 0
         var totalInferences: Int = 0
         var totalModelSwitches: Int = 0
         var totalSwitchTime: TimeInterval = 0
@@ -73,30 +65,14 @@ final class PerformanceTrackingService {
             Date().timeIntervalSince(startTime)
         }
         
-        // Cost savings calculations
-        func gpt4CostSavings() -> Double {
-            let inputCost = Double(totalInputTokens) / 1000.0 * APICosts.gpt4Input
-            let outputCost = Double(totalOutputTokens) / 1000.0 * APICosts.gpt4Output
-            return inputCost + outputCost
-        }
-        
-        func claude3CostSavings() -> Double {
-            let inputCost = Double(totalInputTokens) / 1000.0 * APICosts.claude3Input
-            let outputCost = Double(totalOutputTokens) / 1000.0 * APICosts.claude3Output
-            return inputCost + outputCost
-        }
-        
-        func gpt4oCostSavings() -> Double {
-            let inputCost = Double(totalInputTokens) / 1000.0 * APICosts.gpt4oInput
-            let outputCost = Double(totalOutputTokens) / 1000.0 * APICosts.gpt4oOutput
-            return inputCost + outputCost
-        }
-        
-        func claudeSonnetCostSavings() -> Double {
-            let inputCost = Double(totalInputTokens) / 1000.0 * APICosts.claudeSonnetInput
-            let outputCost = Double(totalOutputTokens) / 1000.0 * APICosts.claudeSonnetOutput
-            return inputCost + outputCost
-        }
+    }
+
+    struct ProviderStats: Codable {
+        var provider: String
+        var totalInputTokens: Int = 0
+        var totalOutputTokens: Int = 0
+        var totalCost: Double = 0
+        var pricingConfigured: Bool = true
     }
     
     struct PerModelStats: Codable {
@@ -129,15 +105,21 @@ final class PerformanceTrackingService {
     
     private(set) var sessionStats: SessionStats
     private(set) var modelStats: [String: PerModelStats] = [:]
+    private(set) var providerStats: [String: ProviderStats] = [:]
     private(set) var recentInferences: [InferenceMetrics] = []
     private(set) var recentSwitches: [ModelSwitchMetrics] = []
+
+    var pricingService: PricingService?
     
     // Live tracking state
     private var currentInferenceStart: Date?
     private var currentInferenceModel: String?
+    private var currentInferenceProvider: String = "Ollama Local"
     private var currentFirstTokenTime: Date?
     private var currentTokenCount: Int = 0
     private var currentInputTokens: Int = 0
+    private var currentCostRates: ProviderCostRates?
+    private var currentIsLocal: Bool = true
     private var lastActiveModel: String?
     
     // Memory usage tracking
@@ -172,12 +154,21 @@ final class PerformanceTrackingService {
     // MARK: - Inference Tracking API
     
     /// Call when starting an inference request
-    func startInference(model: String, inputTokenEstimate: Int) {
+    func startInference(
+        model: String,
+        provider: String = "Ollama Local",
+        inputTokenEstimate: Int,
+        costRates: ProviderCostRates? = nil,
+        isLocal: Bool = true
+    ) {
         currentInferenceStart = Date()
         currentInferenceModel = model
+        currentInferenceProvider = provider
         currentFirstTokenTime = nil
         currentTokenCount = 0
         currentInputTokens = inputTokenEstimate
+        currentCostRates = costRates
+        currentIsLocal = isLocal
         
         // Track if this is a warm or cold start
         if lastActiveModel != model {
@@ -205,7 +196,7 @@ final class PerformanceTrackingService {
     }
     
     /// Call when inference completes
-    func endInference() {
+    func endInference(actualInputTokens: Int? = nil, actualOutputTokens: Int? = nil) {
         guard let start = currentInferenceStart,
               let model = currentInferenceModel else { return }
         
@@ -214,17 +205,30 @@ final class PerformanceTrackingService {
         let totalTime = end.timeIntervalSince(start)
         let tps = totalTime > 0 ? Double(currentTokenCount) / totalTime : 0
         
+        let inputTokens = actualInputTokens ?? currentInputTokens
+        let outputTokens = actualOutputTokens ?? currentTokenCount
+        let totalTokens = inputTokens + outputTokens
+        
+        let costUSD: Double = {
+            guard let rates = currentCostRates else { return 0 }
+            let inputCost = Double(inputTokens) / 1000.0 * rates.inputPer1K
+            let outputCost = Double(outputTokens) / 1000.0 * rates.outputPer1K
+            return inputCost + outputCost
+        }()
+        
         let metrics = InferenceMetrics(
             id: UUID(),
             model: model,
+            provider: currentInferenceProvider,
             startTime: start,
             endTime: end,
             timeToFirstToken: ttft,
-            totalTokens: currentTokenCount,
-            inputTokens: currentInputTokens,
-            outputTokens: currentTokenCount,
+            totalTokens: totalTokens,
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
             tokensPerSecond: tps,
-            wasWarmStart: lastActiveModel == model
+            wasWarmStart: lastActiveModel == model,
+            costUSD: costUSD
         )
         
         recordInference(metrics)
@@ -235,9 +239,12 @@ final class PerformanceTrackingService {
         // Reset tracking state
         currentInferenceStart = nil
         currentInferenceModel = nil
+        currentInferenceProvider = "Ollama Local"
         currentFirstTokenTime = nil
         currentTokenCount = 0
         currentInputTokens = 0
+        currentCostRates = nil
+        currentIsLocal = true
     }
     
     // MARK: - Recording Methods
@@ -247,6 +254,14 @@ final class PerformanceTrackingService {
         sessionStats.totalInputTokens += metrics.inputTokens
         sessionStats.totalOutputTokens += metrics.outputTokens
         sessionStats.totalInferences += 1
+        if currentIsLocal {
+            sessionStats.localInputTokens += metrics.inputTokens
+            sessionStats.localOutputTokens += metrics.outputTokens
+        } else {
+            sessionStats.externalInputTokens += metrics.inputTokens
+            sessionStats.externalOutputTokens += metrics.outputTokens
+            sessionStats.externalCost += metrics.costUSD
+        }
         
         // Update per-model stats
         var stats = modelStats[metrics.model] ?? PerModelStats(model: metrics.model)
@@ -260,6 +275,16 @@ final class PerformanceTrackingService {
             stats.coldStarts += 1
         }
         modelStats[metrics.model] = stats
+
+        // Update per-provider stats
+        var provider = providerStats[metrics.provider] ?? ProviderStats(provider: metrics.provider)
+        provider.totalInputTokens += metrics.inputTokens
+        provider.totalOutputTokens += metrics.outputTokens
+        provider.totalCost += metrics.costUSD
+        if !currentIsLocal && currentCostRates == nil {
+            provider.pricingConfigured = false
+        }
+        providerStats[metrics.provider] = provider
         
         // Keep recent inferences
         recentInferences.append(metrics)
@@ -273,7 +298,7 @@ final class PerformanceTrackingService {
         }
         
         // Log
-        print("📊 Inference: \(metrics.model) - \(metrics.totalTokens) tokens @ \(String(format: "%.1f", metrics.tokensPerSecond)) tok/s, TTFT: \(String(format: "%.2f", metrics.timeToFirstToken))s")
+        print("📊 Inference: \(metrics.provider) / \(metrics.model) - \(metrics.totalTokens) tokens @ \(String(format: "%.1f", metrics.tokensPerSecond)) tok/s, TTFT: \(String(format: "%.2f", metrics.timeToFirstToken))s")
     }
     
     private func recordModelSwitch(_ metrics: ModelSwitchMetrics) {
@@ -349,31 +374,123 @@ final class PerformanceTrackingService {
         let totalTokens: Int
         let inputTokens: Int
         let outputTokens: Int
-        let gpt4Savings: Double
-        let gpt4oSavings: Double
-        let claude3Savings: Double
-        let claudeSonnetSavings: Double
-        let monthlyProjection: Double  // Based on current usage rate
+        let localTokens: Int
+        let externalTokens: Int
+        let externalSpend: Double
+        let netSavings: Double?
+        let gpt4Savings: Double?
+        let gpt4oSavings: Double?
+        let claude3Savings: Double?
+        let claudeSonnetSavings: Double?
+        let monthlyProjection: Double?  // Based on current usage rate
         let dataKeptLocal: Int         // Bytes (always equal to total chars * 4 roughly)
+        let providerCosts: [ProviderCostSummary]
+        let providersMissingPricing: [String]
+        let baselineMissingPricing: [String]
+    }
+
+    struct ProviderCostSummary: Identifiable {
+        let id: String
+        let provider: String
+        let cost: Double
+        let inputTokens: Int
+        let outputTokens: Int
+        let pricingConfigured: Bool
     }
     
     func getCostSavingsSummary() -> CostSavingsSummary {
         let duration = sessionStats.sessionDuration
-        let dailyRate = duration > 0 ? Double(sessionStats.totalTokens) / (duration / 86400) : 0
+        let localTokens = sessionStats.localInputTokens + sessionStats.localOutputTokens
+        let externalTokens = sessionStats.externalInputTokens + sessionStats.externalOutputTokens
+        let dailyRate = duration > 0 ? Double(localTokens) / (duration / 86400) : 0
         let monthlyTokenProjection = dailyRate * 30
-        let monthlyGPT4Projection = (monthlyTokenProjection / 1000.0) * (APICosts.gpt4Input + APICosts.gpt4Output) / 2
+        
+        let gpt4Rates = pricingService?.rate(
+            provider: "openai",
+            modelId: "gpt-4-turbo",
+            aliases: ["gpt-4-turbo-2024-04-09", "gpt-4-1106-preview", "gpt-4"]
+        )
+        let gpt4oRates = pricingService?.rate(
+            provider: "openai",
+            modelId: "gpt-4o",
+            aliases: ["gpt-4o-2024-05-13", "gpt-4o-2024-08-06"]
+        )
+        let claude3Rates = pricingService?.rate(
+            provider: "anthropic",
+            modelId: "claude-3-opus-20240229",
+            aliases: ["claude-3-opus", "claude-3-opus-latest"]
+        )
+        let claudeSonnetRates = pricingService?.rate(
+            provider: "anthropic",
+            modelId: "claude-3-5-sonnet-20240620",
+            aliases: ["claude-3-5-sonnet", "claude-3-sonnet-20240229"]
+        )
+        
+        let gpt4Savings = costForRates(gpt4Rates, inputTokens: sessionStats.localInputTokens, outputTokens: sessionStats.localOutputTokens)
+        let gpt4oSavings = costForRates(gpt4oRates, inputTokens: sessionStats.localInputTokens, outputTokens: sessionStats.localOutputTokens)
+        let claude3Savings = costForRates(claude3Rates, inputTokens: sessionStats.localInputTokens, outputTokens: sessionStats.localOutputTokens)
+        let claudeSonnetSavings = costForRates(claudeSonnetRates, inputTokens: sessionStats.localInputTokens, outputTokens: sessionStats.localOutputTokens)
+        
+        let externalSpend = sessionStats.externalCost
+        let netSavings = gpt4Savings.map { $0 - externalSpend }
+        let inputRatio = localTokens > 0 ? Double(sessionStats.localInputTokens) / Double(localTokens) : 0.5
+        let monthlyInput = Int(monthlyTokenProjection * inputRatio)
+        let monthlyOutput = Int(max(0, monthlyTokenProjection - Double(monthlyInput)))
+        let monthlyProjection = costForRates(gpt4Rates, inputTokens: monthlyInput, outputTokens: monthlyOutput)
+        
+        let providerSummaries = providerStats.values
+            .filter { $0.provider != "Ollama Local" }
+            .sorted { $0.totalCost > $1.totalCost }
+            .map { stats in
+                ProviderCostSummary(
+                    id: stats.provider,
+                    provider: stats.provider,
+                    cost: stats.totalCost,
+                    inputTokens: stats.totalInputTokens,
+                    outputTokens: stats.totalOutputTokens,
+                    pricingConfigured: stats.pricingConfigured
+                )
+            }
+        
+        let missingPricing = providerSummaries
+            .filter { !$0.pricingConfigured && $0.cost == 0 }
+            .map { $0.provider }
+        
+        var missingBaseline: [String] = []
+        if gpt4Rates == nil { missingBaseline.append("GPT-4 Turbo") }
+        if gpt4oRates == nil { missingBaseline.append("GPT-4o") }
+        if claude3Rates == nil { missingBaseline.append("Claude 3 Opus") }
+        if claudeSonnetRates == nil { missingBaseline.append("Claude 3.5 Sonnet") }
         
         return CostSavingsSummary(
             totalTokens: sessionStats.totalTokens,
             inputTokens: sessionStats.totalInputTokens,
             outputTokens: sessionStats.totalOutputTokens,
-            gpt4Savings: sessionStats.gpt4CostSavings(),
-            gpt4oSavings: sessionStats.gpt4oCostSavings(),
-            claude3Savings: sessionStats.claude3CostSavings(),
-            claudeSonnetSavings: sessionStats.claudeSonnetCostSavings(),
-            monthlyProjection: monthlyGPT4Projection,
-            dataKeptLocal: sessionStats.totalTokens * 4  // ~4 bytes per token
+            localTokens: localTokens,
+            externalTokens: externalTokens,
+            externalSpend: externalSpend,
+            netSavings: netSavings,
+            gpt4Savings: gpt4Savings,
+            gpt4oSavings: gpt4oSavings,
+            claude3Savings: claude3Savings,
+            claudeSonnetSavings: claudeSonnetSavings,
+            monthlyProjection: monthlyProjection,
+            dataKeptLocal: localTokens * 4,  // ~4 bytes per token
+            providerCosts: providerSummaries,
+            providersMissingPricing: missingPricing,
+            baselineMissingPricing: missingBaseline
         )
+    }
+
+    private func costForRates(
+        _ rates: ProviderCostRates?,
+        inputTokens: Int,
+        outputTokens: Int
+    ) -> Double? {
+        guard let rates else { return nil }
+        let inputCost = Double(inputTokens) / 1000.0 * rates.inputPer1K
+        let outputCost = Double(outputTokens) / 1000.0 * rates.outputPer1K
+        return inputCost + outputCost
     }
     
     // MARK: - Memory Monitoring
@@ -412,11 +529,12 @@ final class PerformanceTrackingService {
     }
     
     private func saveStats() {
+        let summary = getCostSavingsSummary()
         let saved = SavedStats(
             sessionStats: sessionStats,
             modelStats: modelStats,
             lifetimeTokens: sessionStats.totalTokens,
-            lifetimeSavings: sessionStats.gpt4CostSavings()
+            lifetimeSavings: summary.gpt4Savings ?? 0
         )
         
         if let data = try? JSONEncoder().encode(saved) {
@@ -440,6 +558,7 @@ final class PerformanceTrackingService {
         sessionStats = SessionStats(startTime: Date())
         recentInferences.removeAll()
         recentSwitches.removeAll()
+        providerStats.removeAll()
         // Keep modelStats for historical comparison
     }
     
@@ -447,6 +566,7 @@ final class PerformanceTrackingService {
     func resetAll() {
         sessionStats = SessionStats(startTime: Date())
         modelStats.removeAll()
+        providerStats.removeAll()
         recentInferences.removeAll()
         recentSwitches.removeAll()
         try? FileManager.default.removeItem(at: statsFileURL)
@@ -492,6 +612,11 @@ extension PerformanceTrackingService {
     /// Format currency
     static func formatCurrency(_ amount: Double) -> String {
         String(format: "$%.2f", amount)
+    }
+    
+    static func formatCurrency(_ amount: Double?) -> String {
+        guard let amount else { return "—" }
+        return formatCurrency(amount)
     }
     
     /// Format large numbers

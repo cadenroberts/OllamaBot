@@ -14,6 +14,7 @@ struct ChatView: View {
     @State private var contextBreakdown: ContextBreakdown?
     @State private var showContextBreakdown = false
     @FocusState private var isInputFocused: Bool
+    @State private var scrollTrigger: Int = 0
     
     var body: some View {
         VStack(spacing: 0) {
@@ -85,39 +86,29 @@ struct ChatView: View {
     // MARK: - Messages (Optimized)
     
     private var messageList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: DS.Spacing.md) {
-                    // Use stable identity - MessageRow is Equatable for efficient diffing
-                    ForEach(appState.chatMessages) { message in
-                        MessageRow(message: message)
-                            .id(message.id)
-                    }
-                    
-                    if appState.isGenerating {
-                        generatingIndicator
-                            .transition(.opacity.animation(DS.Animation.fast))
-                    }
+        DSAutoScrollView(scrollTrigger: $scrollTrigger) {
+            LazyVStack(spacing: DS.Spacing.md) {
+                // Use stable identity - MessageRow is Equatable for efficient diffing
+                ForEach(appState.chatMessages) { message in
+                    MessageRow(message: message)
+                        .id(message.id)
                 }
-                .padding(DS.Spacing.md)
-            }
-            // Throttle scroll updates during generation
-            .onChange(of: appState.chatMessages.count) { _, _ in
-                scrollToBottom(proxy: proxy)
-            }
-            .onChange(of: appState.chatMessages.last?.content.count ?? 0) { oldCount, newCount in
-                // Only scroll on significant content changes (every ~200 chars)
-                if newCount - oldCount > 200 || !appState.isGenerating {
-                    scrollToBottom(proxy: proxy)
+                
+                if appState.isGenerating {
+                    generatingIndicator
+                        .transition(.opacity.animation(DS.Animation.fast))
                 }
             }
+            .padding(DS.Spacing.md)
         }
-    }
-    
-    private func scrollToBottom(proxy: ScrollViewProxy) {
-        if let last = appState.chatMessages.last {
-            withAnimation(DS.Animation.fast) {
-                proxy.scrollTo(last.id, anchor: .bottom)
+        // Throttle scroll updates during generation
+        .onChange(of: appState.chatMessages.count) { _, _ in
+            scrollTrigger += 1
+        }
+        .onChange(of: appState.chatMessages.last?.content.count ?? 0) { oldCount, newCount in
+            // Only scroll on significant content changes (every ~200 chars)
+            if newCount - oldCount > 200 || !appState.isGenerating {
+                scrollTrigger += 1
             }
         }
     }
@@ -674,6 +665,7 @@ struct CodeBlock: View {
     
     @State private var isHovered = false
     @State private var showCopied = false
+    @State private var showApplyMenu = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -689,32 +681,36 @@ struct CodeBlock: View {
                 
                 if isHovered {
                     HStack(spacing: DS.Spacing.sm) {
-                        Button(action: copyCode) {
-                            HStack(spacing: DS.Spacing.xxs) {
-                                Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
-                                Text(showCopied ? "Copied" : "Copy")
-                            }
-                            .font(DS.Typography.caption)
+                        CodeActionButton(
+                            title: showCopied ? "Copied" : "Copy",
+                            icon: showCopied ? "checkmark" : "doc.on.doc"
+                        ) {
+                            copyCode()
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                         
-                        Menu {
-                            Button("Replace Selection") { appState.applyCodeToEditor(code, replace: false) }
-                            Button("Replace File") { appState.applyCodeToEditor(code, replace: true) }
-                            Divider()
-                            Button("Create New File") {
-                                appState.createNewFile()
-                                appState.editorContent = code
-                            }
-                        } label: {
-                            HStack(spacing: DS.Spacing.xxs) {
-                                Image(systemName: "square.and.arrow.down")
-                                Text("Apply")
-                            }
-                            .font(DS.Typography.caption)
+                        CodeActionButton(title: "Apply", icon: "square.and.arrow.down") {
+                            showApplyMenu.toggle()
                         }
-                        .menuStyle(.borderlessButton)
+                        .popover(isPresented: $showApplyMenu, arrowEdge: .top) {
+                            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                                CodeApplyRow(title: "Replace Selection") {
+                                    appState.applyCodeToEditor(code, replace: false)
+                                    showApplyMenu = false
+                                }
+                                CodeApplyRow(title: "Replace File") {
+                                    appState.applyCodeToEditor(code, replace: true)
+                                    showApplyMenu = false
+                                }
+                                DSDivider()
+                                CodeApplyRow(title: "Create New File") {
+                                    appState.createNewFile()
+                                    appState.editorContent = code
+                                    showApplyMenu = false
+                                }
+                            }
+                            .padding(DS.Spacing.sm)
+                            .background(DS.Colors.surface)
+                        }
                     }
                 }
             }
@@ -740,6 +736,63 @@ struct CodeBlock: View {
         NSPasteboard.general.setString(code, forType: .string)
         showCopied = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { showCopied = false }
+    }
+}
+
+private struct CodeActionButton: View {
+    let title: String
+    let icon: String
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DS.Spacing.xxs) {
+                Image(systemName: icon)
+                    .font(.caption2)
+                Text(title)
+                    .font(DS.Typography.caption)
+            }
+            .foregroundStyle(DS.Colors.text)
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .fill(isHovered ? DS.Colors.tertiaryBackground : DS.Colors.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .strokeBorder(DS.Colors.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+}
+
+private struct CodeApplyRow: View {
+    let title: String
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .font(DS.Typography.callout)
+                    .foregroundStyle(DS.Colors.text)
+                Spacer()
+            }
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, DS.Spacing.xs)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .fill(isHovered ? DS.Colors.tertiaryBackground : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -769,19 +822,31 @@ struct FileMentionPicker: View {
             DSTextField(placeholder: "Search...", text: $searchText, icon: "magnifyingglass")
                 .padding(.horizontal, DS.Spacing.md)
             
-            List(filtered) { file in
-                HStack {
-                    Image(systemName: file.icon)
-                        .foregroundStyle(file.iconColor)
-                    Text(file.name)
-                    Spacer()
-                    if appState.mentionedFiles.contains(where: { $0.id == file.id }) {
-                        Image(systemName: "checkmark")
-                            .foregroundStyle(DS.Colors.accent)
+            DSScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(filtered.enumerated()), id: \.element.id) { index, file in
+                        VStack(spacing: 0) {
+                            HStack {
+                                Image(systemName: file.icon)
+                                    .foregroundStyle(file.iconColor)
+                                Text(file.name)
+                                    .foregroundStyle(DS.Colors.text)
+                                Spacer()
+                                if appState.mentionedFiles.contains(where: { $0.id == file.id }) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(DS.Colors.accent)
+                                }
+                            }
+                            .padding(DS.Spacing.sm)
+                            .contentShape(Rectangle())
+                            .onTapGesture { toggleFile(file) }
+                            
+                            if index < filtered.count - 1 {
+                                DSDivider()
+                            }
+                        }
                     }
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { toggleFile(file) }
             }
         }
         .frame(width: 400, height: 450)

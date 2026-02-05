@@ -8,38 +8,9 @@ struct TerminalView: View {
     @Environment(AppState.self) private var appState
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack(spacing: DS.Spacing.sm) {
-                Image(systemName: "terminal")
-                    .foregroundStyle(DS.Colors.secondaryText)
-                
-                Text("Terminal")
-                    .font(DS.Typography.caption.weight(.medium))
-                
-                Spacer()
-                
-                // Terminal actions
-                HStack(spacing: DS.Spacing.xs) {
-                    DSIconButton(icon: "trash", size: 14) {
-                        // Clear handled by terminal
-                    }
-                    .help("Clear Terminal")
-                    
-                    DSIconButton(icon: "xmark", size: 14) {
-                        appState.showTerminal = false
-                    }
-                }
-            }
-            .padding(.horizontal, DS.Spacing.md)
-            .padding(.vertical, DS.Spacing.sm)
-            .background(DS.Colors.secondaryBackground)
-            
-            DSDivider()
-            
-            // Terminal content
-            SwiftTermWrapper(workingDirectory: appState.rootFolder)
-        }
+        // Terminal content fills entire pane - tab bar already shows "Terminal" label
+        SwiftTermWrapper(workingDirectory: appState.rootFolder)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -50,13 +21,16 @@ struct SwiftTermWrapper: NSViewRepresentable {
     
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         let terminalView = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 400))
+        terminalView.autoresizingMask = [.width, .height]
         
         // Set font
         let fontSize = CGFloat(ConfigurationManager.shared.terminalFontSize)
         terminalView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         
-        // Colors
-        terminalView.nativeBackgroundColor = NSColor(red: 0.1, green: 0.1, blue: 0.12, alpha: 1.0)
+        // Colors - match OllamaBot secondary background
+        let backgroundColor = NSColor(calibratedRed: 0.141, green: 0.157, blue: 0.231, alpha: 1.0) // #24283B
+        terminalView.nativeBackgroundColor = backgroundColor
+        terminalView.backgroundColor = backgroundColor
         terminalView.nativeForegroundColor = NSColor.white
         
         // Terminal options

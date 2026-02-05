@@ -41,6 +41,7 @@ struct OBotPanelView: View {
             // Content
             content
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DS.Colors.secondaryBackground)
         .sheet(isPresented: $showingBotEditor) {
             BotEditorView(bot: editingBot) { savedBot in
@@ -55,7 +56,7 @@ struct OBotPanelView: View {
     // MARK: - Header
     
     private var header: some View {
-        HStack(spacing: DS.Spacing.md) {
+        HStack(spacing: DS.Spacing.sm) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("OBot")
                     .font(DS.Typography.headline)
@@ -64,13 +65,14 @@ struct OBotPanelView: View {
                     .font(DS.Typography.caption)
                     .foregroundStyle(DS.Colors.secondaryText)
                     .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .truncationMode(.tail)
             }
+            .layoutPriority(1)
             
-            Spacer()
+            Spacer(minLength: 0)
             
             // Quick actions
-            HStack(spacing: DS.Spacing.sm) {
+            HStack(spacing: DS.Spacing.xs) {
                 DSIconButton(icon: "plus", size: 14) {
                     editingBot = nil
                     showingBotEditor = true
@@ -87,8 +89,9 @@ struct OBotPanelView: View {
                 }
                 .help("Initialize .obot directory")
             }
+            .layoutPriority(0)
         }
-        .padding(DS.Spacing.md)
+        .padding(DS.Spacing.sm)
         .background(DS.Colors.surface)
     }
     
@@ -102,24 +105,30 @@ struct OBotPanelView: View {
                         selectedTab = tab
                     }
                 } label: {
-                    HStack(spacing: DS.Spacing.xs) {
-                        Image(systemName: tab.icon)
-                            .font(.caption)
-                        Text(tab.rawValue)
-                            .font(DS.Typography.caption)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                    VStack(spacing: 2) {
+                        HStack(spacing: DS.Spacing.xs) {
+                            Image(systemName: tab.icon)
+                                .font(.caption)
+                            Text(tab.rawValue)
+                                .font(DS.Typography.caption)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        .padding(.vertical, DS.Spacing.sm)
+                        
+                        // Active indicator
+                        Rectangle()
+                            .fill(selectedTab == tab ? DS.Colors.accent : Color.clear)
+                            .frame(height: 2)
                     }
+                    .frame(maxWidth: .infinity)
+                    .background(selectedTab == tab ? DS.Colors.background : DS.Colors.surface)
                     .foregroundStyle(selectedTab == tab ? DS.Colors.accent : DS.Colors.secondaryText)
-                    .padding(.horizontal, DS.Spacing.md)
-                    .padding(.vertical, DS.Spacing.sm)
-                    .background(selectedTab == tab ? DS.Colors.accent.opacity(0.1) : Color.clear)
                 }
                 .buttonStyle(.plain)
             }
-            
-            Spacer()
         }
+        .frame(height: 36)
         .background(DS.Colors.surface)
     }
     
@@ -144,28 +153,15 @@ struct OBotPanelView: View {
     private var botsContent: some View {
         VStack(spacing: 0) {
             // Search
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(DS.Colors.tertiaryText)
-                ZStack(alignment: .leading) {
-                    if searchText.isEmpty {
-                        Text("Search bots...")
-                            .foregroundStyle(DS.Colors.tertiaryText)
-                    }
-                    TextField("", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .foregroundStyle(DS.Colors.text)
-                }
-            }
-            .padding(DS.Spacing.sm)
-            .background(DS.Colors.surface)
+            DSTextField(placeholder: "Search bots...", text: $searchText, icon: "magnifyingglass")
+                .padding(DS.Spacing.sm)
             
             DSDivider()
             
             if appState.obotService.bots.isEmpty {
                 emptyBotsState
             } else {
-                ScrollView {
+                DSScrollView {
                     LazyVStack(spacing: DS.Spacing.sm) {
                         ForEach(filteredBots) { bot in
                             BotCard(bot: bot) {
@@ -191,6 +187,7 @@ struct OBotPanelView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var filteredBots: [OBot] {
@@ -235,7 +232,7 @@ struct OBotPanelView: View {
             
             Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Context Content
@@ -245,7 +242,7 @@ struct OBotPanelView: View {
             if appState.obotService.contextSnippets.isEmpty {
                 emptyContextState
             } else {
-                ScrollView {
+                DSScrollView {
                     LazyVStack(spacing: DS.Spacing.sm) {
                         ForEach(appState.obotService.contextSnippets) { snippet in
                             ContextSnippetCard(snippet: snippet)
@@ -255,6 +252,7 @@ struct OBotPanelView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var emptyContextState: some View {
@@ -275,7 +273,7 @@ struct OBotPanelView: View {
             
             Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Templates Content
@@ -285,7 +283,7 @@ struct OBotPanelView: View {
             if appState.obotService.templates.isEmpty {
                 emptyTemplatesState
             } else {
-                ScrollView {
+                DSScrollView {
                     LazyVStack(spacing: DS.Spacing.sm) {
                         ForEach(appState.obotService.templates) { template in
                             TemplateCard(template: template)
@@ -295,6 +293,7 @@ struct OBotPanelView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var emptyTemplatesState: some View {
@@ -315,7 +314,7 @@ struct OBotPanelView: View {
             
             Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Rules Content
@@ -323,7 +322,7 @@ struct OBotPanelView: View {
     private var rulesContent: some View {
         VStack(spacing: 0) {
             if let rules = appState.obotService.projectRules {
-                ScrollView {
+                DSScrollView {
                     VStack(alignment: .leading, spacing: DS.Spacing.md) {
                         // Header
                         HStack {
@@ -356,6 +355,7 @@ struct OBotPanelView: View {
                 emptyRulesState
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var emptyRulesState: some View {
@@ -394,7 +394,7 @@ struct OBotPanelView: View {
             
             Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -684,16 +684,17 @@ struct BotEditorView: View {
                 
                 Spacer()
                 
-                Button("Cancel") {
+                DSButton("Cancel", style: .secondary, size: .sm) {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
                 
-                Button("Save") {
+                DSButton("Save", icon: "checkmark", style: .primary, size: .sm) {
                     saveBot()
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(name.isEmpty || id.isEmpty)
+                .opacity(name.isEmpty || id.isEmpty ? 0.6 : 1)
             }
             .padding(DS.Spacing.md)
             .background(DS.Colors.surface)
@@ -701,63 +702,65 @@ struct BotEditorView: View {
             DSDivider()
             
             // Form
-            Form {
-                Section("Basic Info") {
-                    TextField("Name", text: $name)
-                    TextField("ID (for @mentions)", text: $id)
-                        .onChange(of: name) { _, newValue in
-                            if id.isEmpty || bot == nil {
-                                id = newValue.lowercased().replacingOccurrences(of: " ", with: "-")
+            DSScrollView {
+                VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                    editorSection("Basic Info") {
+                        DSTextField(placeholder: "Name", text: $name)
+                            .onChange(of: name) { _, newValue in
+                                if id.isEmpty || bot == nil {
+                                    id = newValue.lowercased().replacingOccurrences(of: " ", with: "-")
+                                }
                             }
-                        }
-                    TextField("Description", text: $description)
-                    TextField("Icon (SF Symbol)", text: $icon)
-                }
-                
-                Section("Input") {
-                    Picker("Input Type", selection: $inputType) {
-                        Text("Selection").tag(OBot.InputConfig.InputType.selection)
-                        Text("Text").tag(OBot.InputConfig.InputType.text)
-                        Text("File").tag(OBot.InputConfig.InputType.file)
-                        Text("Files").tag(OBot.InputConfig.InputType.files)
+                        DSTextField(placeholder: "ID (for @mentions)", text: $id)
+                        DSTextField(placeholder: "Description", text: $description)
+                        DSTextField(placeholder: "Icon (SF Symbol)", text: $icon)
                     }
-                }
-                
-                Section("Steps") {
-                    if steps.isEmpty {
-                        Text("No steps yet. Add steps to define the bot's workflow.")
-                            .font(DS.Typography.caption)
-                            .foregroundStyle(DS.Colors.secondaryText)
-                    } else {
-                        ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
-                            StepRow(step: step, index: index) {
-                                steps.remove(at: index)
+                    
+                    editorSection("Input") {
+                        DSDropdown(selection: $inputType, options: inputTypeOptions) { option in
+                            Text(inputLabel(option))
+                        } row: { option in
+                            Text(inputLabel(option))
+                        }
+                    }
+                    
+                    editorSection("Steps") {
+                        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                            if steps.isEmpty {
+                                Text("No steps yet. Add steps to define the bot's workflow.")
+                                    .font(DS.Typography.caption)
+                                    .foregroundStyle(DS.Colors.secondaryText)
+                            } else {
+                                VStack(spacing: DS.Spacing.sm) {
+                                    ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+                                        StepRow(step: step, index: index) {
+                                            steps.remove(at: index)
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            DSButton("Add Step", icon: "plus", style: .secondary, size: .sm) {
+                                steps.append(OBot.Step(
+                                    id: UUID().uuidString,
+                                    type: .prompt,
+                                    name: "Step \(steps.count + 1)",
+                                    content: ""
+                                ))
                             }
                         }
                     }
                     
-                    Button {
-                        steps.append(OBot.Step(
-                            id: UUID().uuidString,
-                            type: .prompt,
-                            name: "Step \(steps.count + 1)",
-                            content: ""
-                        ))
-                    } label: {
-                        Label("Add Step", systemImage: "plus")
+                    editorSection("Output") {
+                        DSDropdown(selection: $outputType, options: outputTypeOptions) { option in
+                            Text(outputLabel(option))
+                        } row: { option in
+                            Text(outputLabel(option))
+                        }
                     }
                 }
-                
-                Section("Output") {
-                    Picker("Output Type", selection: $outputType) {
-                        Text("Replace Selection").tag(OBot.OutputConfig.OutputType.replace)
-                        Text("Insert at Cursor").tag(OBot.OutputConfig.OutputType.insert)
-                        Text("New File").tag(OBot.OutputConfig.OutputType.newFile)
-                        Text("Panel").tag(OBot.OutputConfig.OutputType.panel)
-                    }
-                }
+                .padding(DS.Spacing.md)
             }
-            .formStyle(.grouped)
         }
         .background(DS.Colors.background)
     }
@@ -776,6 +779,49 @@ struct BotEditorView: View {
         
         onSave(newBot)
         dismiss()
+    }
+    
+    private var inputTypeOptions: [OBot.InputConfig.InputType] {
+        [.selection, .text, .file, .files]
+    }
+    
+    private var outputTypeOptions: [OBot.OutputConfig.OutputType] {
+        [.replace, .insert, .newFile, .panel]
+    }
+    
+    private func inputLabel(_ type: OBot.InputConfig.InputType) -> String {
+        switch type {
+        case .selection: return "Selection"
+        case .text: return "Text"
+        case .file: return "File"
+        case .files: return "Files"
+        }
+    }
+    
+    private func outputLabel(_ type: OBot.OutputConfig.OutputType) -> String {
+        switch type {
+        case .replace: return "Replace Selection"
+        case .insert: return "Insert at Cursor"
+        case .newFile: return "New File"
+        case .panel: return "Panel"
+        }
+    }
+    
+    @ViewBuilder
+    private func editorSection(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            Text(title.uppercased())
+                .font(DS.Typography.caption2)
+                .foregroundStyle(DS.Colors.tertiaryText)
+                .tracking(0.5)
+            
+            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                content()
+            }
+            .padding(DS.Spacing.md)
+            .background(DS.Colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+        }
     }
 }
 
@@ -804,12 +850,12 @@ struct StepRow: View {
             
             Spacer()
             
-            Button(role: .destructive) {
+            DSIconButton(icon: "trash", size: 18, color: DS.Colors.secondaryText, hoverColor: DS.Colors.error) {
                 onDelete()
-            } label: {
-                Image(systemName: "trash")
-                    .font(.caption)
             }
         }
+        .padding(DS.Spacing.sm)
+        .background(DS.Colors.tertiaryBackground)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
     }
 }

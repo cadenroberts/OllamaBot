@@ -12,6 +12,8 @@ struct ExploreView: View {
     )
     @State private var goalInput = ""
     @State private var selectedTab: ExploreTab = .activity
+    @State private var showStyleMenu = false
+    @State private var activityScrollTrigger = 0
     
     enum ExploreTab: String, CaseIterable {
         case activity = "Activity"
@@ -150,17 +152,8 @@ struct ExploreView: View {
             Spacer()
             
             // Style selector
-            Menu {
-                ForEach(ExploreAgentExecutor.ExplorationStyle.allCases, id: \.self) { style in
-                    Button(action: { executor.explorationStyle = style }) {
-                        HStack {
-                            Text(style.rawValue)
-                            if executor.explorationStyle == style {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
+            Button {
+                showStyleMenu.toggle()
             } label: {
                 HStack(spacing: DS.Spacing.xs) {
                     Text(executor.explorationStyle.rawValue)
@@ -171,6 +164,22 @@ struct ExploreView: View {
                 .foregroundStyle(DS.Colors.accent)
             }
             .disabled(executor.isRunning)
+            .buttonStyle(.plain)
+            .popover(isPresented: $showStyleMenu, arrowEdge: .trailing) {
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                    ForEach(ExploreAgentExecutor.ExplorationStyle.allCases, id: \.self) { style in
+                        ExploreStyleRow(
+                            title: style.rawValue,
+                            isSelected: executor.explorationStyle == style
+                        ) {
+                            executor.explorationStyle = style
+                            showStyleMenu = false
+                        }
+                    }
+                }
+                .padding(DS.Spacing.sm)
+                .background(DS.Colors.surface)
+            }
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, DS.Spacing.sm)
@@ -194,33 +203,26 @@ struct ExploreView: View {
     // MARK: - Activity Tab
     
     private var activityContent: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                if executor.steps.isEmpty && !executor.isRunning {
-                    emptyState
-                } else {
-                    LazyVStack(alignment: .leading, spacing: DS.Spacing.md) {
-                        // Goal display
-                        if !executor.originalGoal.isEmpty {
-                            goalCard
-                        }
-                        
-                        // Steps
-                        ForEach(executor.steps) { step in
-                            ExploreStepCard(step: step)
-                                .id(step.id)
-                        }
+        DSAutoScrollView(scrollTrigger: $activityScrollTrigger) {
+            if executor.steps.isEmpty && !executor.isRunning {
+                emptyState
+            } else {
+                LazyVStack(alignment: .leading, spacing: DS.Spacing.md) {
+                    // Goal display
+                    if !executor.originalGoal.isEmpty {
+                        goalCard
                     }
-                    .padding(DS.Spacing.md)
-                }
-            }
-            .onChange(of: executor.steps.count) { _, _ in
-                if let last = executor.steps.last {
-                    withAnimation(DS.Animation.fast) {
-                        proxy.scrollTo(last.id, anchor: .bottom)
+                    
+                    // Steps
+                    ForEach(executor.steps) { step in
+                        ExploreStepCard(step: step)
                     }
                 }
+                .padding(DS.Spacing.md)
             }
+        }
+        .onChange(of: executor.steps.count) { _, _ in
+            activityScrollTrigger += 1
         }
     }
     
@@ -295,7 +297,7 @@ struct ExploreView: View {
     // MARK: - Expansions Tab
     
     private var expansionsContent: some View {
-        ScrollView {
+        DSScrollView {
             if executor.expansionTree.isEmpty {
                 VStack(spacing: DS.Spacing.lg) {
                     Image(systemName: "arrow.triangle.branch")
@@ -322,7 +324,7 @@ struct ExploreView: View {
     // MARK: - Docs Tab
     
     private var docsContent: some View {
-        ScrollView {
+        DSScrollView {
             if executor.generatedDocs.isEmpty {
                 VStack(spacing: DS.Spacing.lg) {
                     Image(systemName: "doc.text")
@@ -519,6 +521,38 @@ struct ExpansionNodeView: View {
             Spacer()
         }
         .padding(.vertical, DS.Spacing.xs)
+    }
+}
+
+private struct ExploreStyleRow: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .font(DS.Typography.callout)
+                    .foregroundStyle(DS.Colors.text)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(DS.Colors.accent)
+                        .font(.caption)
+                }
+            }
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, DS.Spacing.xs)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .fill(isHovered ? DS.Colors.tertiaryBackground : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }
 

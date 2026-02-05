@@ -97,6 +97,11 @@ struct StatusBarView: View {
             
             statusDivider
             
+            // Memory usage indicator
+            memoryIndicator
+            
+            statusDivider
+            
             // Ollama status
             connectionStatus
         }
@@ -137,11 +142,11 @@ struct StatusBarView: View {
                 Image(systemName: "chart.bar.fill")
                     .foregroundStyle(DS.Colors.success)
                 
-                Text(PerformanceTrackingService.formatCurrency(savings.gpt4Savings))
+            Text(PerformanceTrackingService.formatCurrency(savings.netSavings))
                     .font(DS.Typography.mono(10))
                     .foregroundStyle(DS.Colors.success)
                 
-                Text("saved")
+            Text("net")
                     .font(DS.Typography.caption2)
                     .foregroundStyle(DS.Colors.tertiaryText)
             }
@@ -162,5 +167,46 @@ struct StatusBarView: View {
         }
     }
     
-    // REMOVED: languageName() - now unified in ContextManager.languageName(for:)
+    private var memoryIndicator: some View {
+        let memory = getMemoryUsage()
+        let usagePercent = memory.usedGB / memory.totalGB
+        let color: Color = usagePercent > 0.9 ? DS.Colors.error : (usagePercent > 0.7 ? DS.Colors.warning : DS.Colors.secondaryText)
+        
+        return Button(action: { appState.showPerformanceDashboard = true }) {
+            HStack(spacing: DS.Spacing.xs) {
+                Image(systemName: "memorychip")
+                    .font(.caption2)
+                    .foregroundStyle(color)
+                
+                Text(String(format: "%.1f/%.0fGB", memory.usedGB, memory.totalGB))
+                    .font(DS.Typography.mono(10))
+                    .foregroundStyle(color)
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Memory: \(String(format: "%.1f", usagePercent * 100))% used")
+    }
+    
+    private func getMemoryUsage() -> (usedGB: Double, totalGB: Double) {
+        var stats = vm_statistics64()
+        var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
+        let hostPort = mach_host_self()
+        
+        let result = withUnsafeMutablePointer(to: &stats) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics64(hostPort, HOST_VM_INFO64, $0, &count)
+            }
+        }
+        
+        guard result == KERN_SUCCESS else {
+            return (0, 0)
+        }
+        
+        let pageSize = Double(vm_kernel_page_size)
+        let totalMemory = Double(ProcessInfo.processInfo.physicalMemory)
+        let freeMemory = Double(stats.free_count) * pageSize
+        let usedMemory = totalMemory - freeMemory
+        
+        return (usedMemory / 1_073_741_824, totalMemory / 1_073_741_824)
+    }
 }

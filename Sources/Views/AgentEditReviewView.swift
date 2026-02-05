@@ -109,7 +109,7 @@ struct AgentEditReviewView: View {
             DSDivider()
             
             // File list
-            ScrollView {
+            DSScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(changes.enumerated()), id: \.element.id) { index, change in
                         FileChangeRow(
@@ -261,7 +261,7 @@ struct AgentEditReviewView: View {
                 .padding(.vertical, DS.Spacing.sm)
                 .background(DS.Colors.surface)
                 
-                ScrollView {
+                DSScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(change.originalLines.enumerated()), id: \.offset) { index, line in
                             HStack(spacing: 0) {
@@ -302,7 +302,7 @@ struct AgentEditReviewView: View {
                 .padding(.vertical, DS.Spacing.sm)
                 .background(DS.Colors.surface)
                 
-                ScrollView {
+                DSScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(change.modifiedLines.enumerated()), id: \.offset) { index, line in
                             HStack(spacing: 0) {
@@ -334,7 +334,7 @@ struct AgentEditReviewView: View {
     // MARK: - Unified Diff
     
     private func unifiedDiff(change: ProposedChange) -> some View {
-        ScrollView {
+        DSScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(change.unifiedDiff) { line in
                     HStack(spacing: 0) {

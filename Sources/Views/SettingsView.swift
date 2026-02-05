@@ -74,7 +74,7 @@ struct SettingsView: View {
             DSDivider()
             
             // Tab list
-            ScrollView {
+            DSScrollView {
                 VStack(spacing: DS.Spacing.xs) {
                     ForEach(SettingsTab.allCases) { tab in
                         SettingsTabButton(
@@ -95,7 +95,7 @@ struct SettingsView: View {
     
     @ViewBuilder
     private var settingsContent: some View {
-        ScrollView {
+        DSScrollView {
             VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 // Title
                 Text(selectedTab.rawValue)
@@ -228,15 +228,184 @@ struct SettingsToggle: View {
                 
                 Spacer()
                 
-                Toggle("", isOn: $isOn)
-                    .toggleStyle(.switch)
-                    .tint(DS.Colors.accent)
+                // Custom Switch
+                ZStack(alignment: isOn ? .trailing : .leading) {
+                    Capsule()
+                        .fill(isOn ? DS.Colors.accent : DS.Colors.tertiaryBackground)
+                        .frame(width: 36, height: 20)
+                    
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 16, height: 16)
+                        .padding(.horizontal, 2)
+                        .shadow(radius: 1)
+                }
+                .animation(DS.Animation.fast, value: isOn)
+                .onTapGesture {
+                    isOn.toggle()
+                }
             }
             
             if let help = help {
                 Text(help)
                     .font(DS.Typography.caption2)
                     .foregroundStyle(DS.Colors.tertiaryText)
+            }
+        }
+    }
+}
+
+// MARK: - Custom Settings Components
+
+struct DSSlider: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(DS.Colors.tertiaryBackground)
+                    .frame(height: 4)
+                
+                Capsule()
+                    .fill(DS.Colors.accent)
+                    .frame(width: width(for: geometry.size.width), height: 4)
+                
+                Circle()
+                    .fill(.white)
+                    .frame(width: 16, height: 16)
+                    .shadow(radius: 1)
+                    .offset(x: width(for: geometry.size.width) - 8)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { v in
+                                let percent = min(max(0, v.location.x / geometry.size.width), 1)
+                                value = range.lowerBound + (range.upperBound - range.lowerBound) * percent
+                            }
+                    )
+            }
+        }
+        .frame(height: 16)
+    }
+    
+    private func width(for totalWidth: CGFloat) -> CGFloat {
+        let percent = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+        return totalWidth * CGFloat(percent)
+    }
+}
+
+struct DSDropdown<T: Hashable, Label: View, Row: View>: View {
+    @Binding var selection: T
+    let options: [T]
+    let label: (T) -> Label
+    let row: (T) -> Row
+    
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                withAnimation(DS.Animation.fast) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    label(selection)
+                        .font(DS.Typography.callout)
+                        .foregroundStyle(DS.Colors.text)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(DS.Colors.tertiaryText)
+                }
+                .padding(.horizontal, DS.Spacing.sm)
+                .padding(.vertical, 6)
+                .background(DS.Colors.tertiaryBackground)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+            }
+            .buttonStyle(.plain)
+            
+            if isExpanded {
+                VStack(spacing: 0) {
+                    ForEach(options, id: \.self) { option in
+                        Button {
+                            selection = option
+                            withAnimation(DS.Animation.fast) {
+                                isExpanded = false
+                            }
+                        } label: {
+                            HStack {
+                                if selection == option {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption2)
+                                        .foregroundStyle(DS.Colors.accent)
+                                } else {
+                                    Color.clear.frame(width: 12, height: 12)
+                                }
+                                
+                                row(option)
+                                    .font(DS.Typography.callout)
+                                    .foregroundStyle(DS.Colors.text)
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal, DS.Spacing.sm)
+                            .padding(.vertical, DS.Spacing.xs)
+                            .background(selection == option ? DS.Colors.accent.opacity(0.1) : Color.clear)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, DS.Spacing.xs)
+                .background(DS.Colors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.sm)
+                        .stroke(DS.Colors.border, lineWidth: 1)
+                )
+            }
+        }
+    }
+}
+
+struct DSIntStepper: View {
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
+    
+    var body: some View {
+        HStack(spacing: DS.Spacing.xs) {
+            DSIconButton(icon: "minus", size: 18) {
+                let newValue = value - step
+                value = max(newValue, range.lowerBound)
+            }
+            
+            DSIconButton(icon: "plus", size: 18) {
+                let newValue = value + step
+                value = min(newValue, range.upperBound)
+            }
+        }
+    }
+}
+
+struct DSDoubleStepper: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    
+    var body: some View {
+        HStack(spacing: DS.Spacing.xs) {
+            DSIconButton(icon: "minus", size: 18) {
+                let newValue = value - step
+                value = max(newValue, range.lowerBound)
+            }
+            
+            DSIconButton(icon: "plus", size: 18) {
+                let newValue = value + step
+                value = min(newValue, range.upperBound)
             }
         }
     }
@@ -251,13 +420,17 @@ struct EditorSettingsContent: View {
         VStack(spacing: DS.Spacing.lg) {
             SettingsSection("Font") {
                 SettingsRow("Font Family") {
-                    Picker("", selection: $config.editorFontFamily) {
-                        ForEach(FontOption.monospaceFonts) { font in
-                            Text(font.name).tag(font.family)
+                    DSDropdown(
+                        selection: $config.editorFontFamily,
+                        options: FontOption.monospaceFonts.map { $0.family },
+                        label: { family in
+                            Text(FontOption.monospaceFonts.first(where: { $0.family == family })?.name ?? family)
+                        },
+                        row: { family in
+                            Text(FontOption.monospaceFonts.first(where: { $0.family == family })?.name ?? family)
                         }
-                    }
+                    )
                     .frame(width: 180)
-                    .pickerStyle(.menu)
                 }
                 
                 DSDivider()
@@ -265,11 +438,14 @@ struct EditorSettingsContent: View {
                 SettingsRow("Font Size") {
                     HStack(spacing: DS.Spacing.sm) {
                         TextField("", value: $config.editorFontSize, format: .number)
-                            .textFieldStyle(.roundedBorder)
+                            .textFieldStyle(.plain)
+                            .padding(4)
+                            .background(DS.Colors.tertiaryBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                             .frame(width: 60)
+                            .foregroundStyle(DS.Colors.text)
                         
-                        Stepper("", value: $config.editorFontSize, in: 8...32)
-                            .labelsHidden()
+                        DSDoubleStepper(value: $config.editorFontSize, range: 8...32, step: 1)
                     }
                 }
                 
@@ -287,13 +463,29 @@ struct EditorSettingsContent: View {
             
             SettingsSection("Indentation") {
                 SettingsRow("Tab Size") {
-                    Picker("", selection: $config.tabSize) {
-                        Text("2").tag(2)
-                        Text("4").tag(4)
-                        Text("8").tag(8)
+                    HStack(spacing: 0) {
+                        ForEach([2, 4, 8], id: \.self) { size in
+                            Button {
+                                config.tabSize = size
+                            } label: {
+                                Text("\(size)")
+                                    .font(DS.Typography.caption)
+                                    .foregroundStyle(config.tabSize == size ? DS.Colors.accent : DS.Colors.secondaryText)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 4)
+                                    .background(config.tabSize == size ? DS.Colors.accent.opacity(0.1) : Color.clear)
+                            }
+                            .buttonStyle(.plain)
+                            
+                            if size != 8 {
+                                Rectangle()
+                                    .fill(DS.Colors.divider)
+                                    .frame(width: 1, height: 16)
+                            }
+                        }
                     }
-                    .pickerStyle(.segmented)
-                    .frame(width: 120)
+                    .background(DS.Colors.tertiaryBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
                 }
                 
                 DSDivider()
@@ -335,36 +527,37 @@ struct AppearanceSettingsContent: View {
         VStack(spacing: DS.Spacing.lg) {
             SettingsSection("Theme") {
                 SettingsRow("Color Theme") {
-                    Picker("", selection: $config.theme) {
-                        ForEach(ThemeOption.themes) { theme in
-                            Text(theme.name).tag(theme.id)
+                    DSDropdown(
+                        selection: $config.theme,
+                        options: ThemeOption.themes.map { $0.id },
+                        label: { themeId in
+                            Text(ThemeOption.themes.first(where: { $0.id == themeId })?.name ?? themeId)
+                        },
+                        row: { themeId in
+                            Text(ThemeOption.themes.first(where: { $0.id == themeId })?.name ?? themeId)
                         }
-                    }
+                    )
                     .frame(width: 150)
-                    .pickerStyle(.menu)
                 }
                 
                 DSDivider()
                 
                 SettingsRow("Accent Color") {
-                    Picker("", selection: $config.accentColor) {
-                        Text("Blue").tag("blue")
-                        Text("Purple").tag("purple")
-                        Text("Pink").tag("pink")
-                        Text("Red").tag("red")
-                        Text("Orange").tag("orange")
-                        Text("Green").tag("green")
-                        Text("Teal").tag("teal")
-                    }
+                    let colors = ["blue", "purple", "pink", "red", "orange", "green", "teal"]
+                    DSDropdown(
+                        selection: $config.accentColor,
+                        options: colors,
+                        label: { color in Text(color.capitalized) },
+                        row: { color in Text(color.capitalized) }
+                    )
                     .frame(width: 120)
-                    .pickerStyle(.menu)
                 }
             }
             
             SettingsSection("Layout") {
                 SettingsRow("Sidebar Width") {
                     HStack(spacing: DS.Spacing.sm) {
-                        Slider(value: $config.sidebarWidth, in: 180...400)
+                        DSSlider(value: $config.sidebarWidth, range: 180...400)
                             .frame(width: 150)
                         
                         Text("\(Int(config.sidebarWidth))px")
@@ -395,18 +588,36 @@ struct AISettingsContent: View {
         VStack(spacing: DS.Spacing.lg) {
             SettingsSection("Model Selection") {
                 SettingsRow("Default Model") {
-                    Picker("", selection: $config.defaultModel) {
-                        Text("Auto (Intent-based)").tag("auto")
-                        ForEach(OllamaModel.allCases) { model in
-                            HStack {
-                                Image(systemName: model.icon)
-                                Text(model.displayName)
+                    let modelOptions = ["auto"] + OllamaModel.allCases.map { $0.rawValue }
+                    DSDropdown(
+                        selection: $config.defaultModel,
+                        options: modelOptions,
+                        label: { id in
+                            if id == "auto" {
+                                return AnyView(Text("Auto (Intent-based)"))
+                            } else if let model = OllamaModel(rawValue: id) {
+                                return AnyView(HStack(spacing: DS.Spacing.xs) {
+                                    Image(systemName: model.icon)
+                                    Text(model.displayName)
+                                })
+                            } else {
+                                return AnyView(Text(id))
                             }
-                            .tag(model.rawValue)
+                        },
+                        row: { id in
+                            if id == "auto" {
+                                return AnyView(Text("Auto (Intent-based)"))
+                            } else if let model = OllamaModel(rawValue: id) {
+                                return AnyView(HStack(spacing: DS.Spacing.xs) {
+                                    Image(systemName: model.icon)
+                                    Text(model.displayName)
+                                })
+                            } else {
+                                return AnyView(Text(id))
+                            }
                         }
-                    }
+                    )
                     .frame(width: 180)
-                    .pickerStyle(.menu)
                 }
                 
                 DSDivider()
@@ -417,7 +628,7 @@ struct AISettingsContent: View {
             SettingsSection("Generation") {
                 SettingsRow("Temperature") {
                     HStack(spacing: DS.Spacing.sm) {
-                        Slider(value: $config.temperature, in: 0...2)
+                        DSSlider(value: $config.temperature, range: 0...2)
                             .frame(width: 150)
                         
                         Text(String(format: "%.1f", config.temperature))
@@ -431,21 +642,25 @@ struct AISettingsContent: View {
                 
                 SettingsRow("Max Tokens") {
                     TextField("", value: $config.maxTokens, format: .number)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                         .frame(width: 100)
+                        .foregroundStyle(DS.Colors.text)
                 }
                 
                 DSDivider()
                 
                 SettingsRow("Context Window") {
-                    Picker("", selection: $config.contextWindow) {
-                        Text("4K").tag(4096)
-                        Text("8K").tag(8192)
-                        Text("16K").tag(16384)
-                        Text("32K").tag(32768)
-                    }
+                    let options = [4096, 8192, 16384, 32768]
+                    DSDropdown(
+                        selection: $config.contextWindow,
+                        options: options,
+                        label: { size in Text("\(size/1024)K") },
+                        row: { size in Text("\(size/1024)K") }
+                    )
                     .frame(width: 100)
-                    .pickerStyle(.menu)
                 }
                 
                 DSDivider()
@@ -458,6 +673,8 @@ struct AISettingsContent: View {
                 DSDivider()
                 SettingsToggle(label: "Include Selected Text", isOn: $config.includeSelectedText)
             }
+
+            ExternalModelsSettingsContent()
             
             SettingsSection("Available Models") {
                 ForEach(OllamaModel.allCases) { model in
@@ -491,6 +708,265 @@ struct AISettingsContent: View {
     }
 }
 
+// MARK: - External Models Settings
+
+struct ExternalModelsSettingsContent: View {
+    @Environment(AppState.self) private var appState
+    @State private var keyInputs: [ExternalModelConfigurationService.ProviderKind: String] = [:]
+    @State private var revealKeys: Bool = false
+    @State private var isUpdatingPricing: Bool = false
+    
+    var body: some View {
+        @Bindable var externalConfig = appState.externalModelConfig
+        let providers = ExternalModelConfigurationService.ProviderKind.allCases.filter { $0 != .local }
+        let roles = ExternalModelConfigurationService.Role.allCases
+        
+        return VStack(spacing: DS.Spacing.lg) {
+            SettingsSection("External Provider Keys") {
+                SettingsToggle(label: "Reveal Keys", isOn: $revealKeys)
+                DSDivider()
+                
+                ForEach(providers, id: \.self) { provider in
+                    keyRow(provider: provider, externalConfig: externalConfig)
+                    if provider != providers.last {
+                        DSDivider()
+                    }
+                }
+                
+                Text("Keys are stored in macOS Keychain.")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+            
+            SettingsSection("External Routing by Role") {
+                ForEach(roles, id: \.self) { role in
+                    RoleRoutingRow(
+                        role: role,
+                        config: Binding(
+                            get: { externalConfig.config(for: role) },
+                            set: { externalConfig.updateRole(role, config: $0) }
+                        ),
+                        providerOptions: ExternalModelConfigurationService.ProviderKind.allCases,
+                        providerLabel: { externalConfig.providerDisplayName($0) }
+                    )
+                    
+                    if role != roles.last {
+                        DSDivider()
+                    }
+                }
+
+                Text("Pricing auto-fills from ~/.config/ollamabot/pricing.json when costs are 0.")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+
+            SettingsSection("Pricing Catalog") {
+                HStack(spacing: DS.Spacing.sm) {
+                    let updatedAt = appState.pricingService.catalog?.updatedAt ?? "Not loaded"
+                    Text("Last updated: \(updatedAt)")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.secondaryText)
+                    
+                    Spacer()
+                    
+                    Button(isUpdatingPricing ? "Updating..." : "Update Pricing Now") {
+                        guard !isUpdatingPricing else { return }
+                        isUpdatingPricing = true
+                        Task {
+                            do {
+                                try await appState.pricingService.updateCatalog()
+                                appState.showSuccess("Pricing updated")
+                            } catch {
+                                appState.showError("Pricing update failed: \(error.localizedDescription)")
+                            }
+                            isUpdatingPricing = false
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(DS.Colors.accent)
+                }
+                
+                Text("Updates only run when you click this button. No background cron jobs.")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+            }
+            
+            SettingsSection("OpenAI-Compatible Endpoint") {
+                Text("Use for OpenRouter, Together, Groq, Mistral, Perplexity, Fireworks, etc.")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(DS.Colors.tertiaryText)
+                    .padding(.bottom, DS.Spacing.xs)
+                
+                SettingsRow("Display Name") {
+                    TextField("OpenAI-Compatible", text: $externalConfig.openAICompatible.displayName)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                        .frame(width: 200)
+                        .foregroundStyle(DS.Colors.text)
+                }
+                
+                DSDivider()
+                
+                SettingsRow("Base URL") {
+                    TextField("https://api.openai.com/v1", text: $externalConfig.openAICompatible.baseURL)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                        .frame(width: 260)
+                        .foregroundStyle(DS.Colors.text)
+                }
+                
+                DSDivider()
+                
+                SettingsRow("Auth Header") {
+                    TextField("Authorization", text: $externalConfig.openAICompatible.authHeader)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                        .frame(width: 200)
+                        .foregroundStyle(DS.Colors.text)
+                }
+                
+                DSDivider()
+                
+                SettingsRow("Auth Prefix") {
+                    TextField("Bearer", text: $externalConfig.openAICompatible.authPrefix)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                        .frame(width: 200)
+                        .foregroundStyle(DS.Colors.text)
+                }
+            }
+        }
+    }
+    
+    private func keyRow(
+        provider: ExternalModelConfigurationService.ProviderKind,
+        externalConfig: ExternalModelConfigurationService
+    ) -> some View {
+        let keyStore = appState.apiKeyStore
+        let binding = Binding<String>(
+            get: { keyInputs[provider] ?? "" },
+            set: { keyInputs[provider] = $0 }
+        )
+        let hasKey = keyStore.hasKey(for: provider.keychainId)
+        
+        return SettingsRow(externalConfig.providerDisplayName(provider)) {
+            HStack(spacing: DS.Spacing.sm) {
+                if revealKeys {
+                    TextField("API Key", text: binding)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                        .frame(width: 220)
+                        .foregroundStyle(DS.Colors.text)
+                } else {
+                    SecureField("API Key", text: binding)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                        .frame(width: 220)
+                        .foregroundStyle(DS.Colors.text)
+                }
+                
+                Text(hasKey ? "Stored" : "Missing")
+                    .font(DS.Typography.caption2)
+                    .foregroundStyle(hasKey ? DS.Colors.success : DS.Colors.tertiaryText)
+                
+                Button("Save") {
+                    _ = keyStore.setKey(binding.wrappedValue, for: provider.keychainId)
+                    keyInputs[provider] = ""
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(DS.Colors.accent)
+                
+                Button("Clear") {
+                    _ = keyStore.setKey(nil, for: provider.keychainId)
+                    keyInputs[provider] = ""
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(DS.Colors.tertiaryText)
+            }
+        }
+    }
+}
+
+private struct RoleRoutingRow: View {
+    let role: ExternalModelConfigurationService.Role
+    @Binding var config: ExternalModelConfigurationService.RoleConfig
+    let providerOptions: [ExternalModelConfigurationService.ProviderKind]
+    let providerLabel: (ExternalModelConfigurationService.ProviderKind) -> String
+    
+    var body: some View {
+        let isLocal = config.provider == .local
+        
+        return VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            Text(role.displayName)
+                .font(DS.Typography.callout.weight(.semibold))
+                .foregroundStyle(DS.Colors.text)
+            
+            HStack(spacing: DS.Spacing.sm) {
+                DSDropdown(
+                    selection: $config.provider,
+                    options: providerOptions,
+                    label: { providerLabel($0) },
+                    row: { providerLabel($0) }
+                )
+                .frame(width: 180)
+                
+                TextField("Model ID", text: $config.modelId)
+                    .textFieldStyle(.plain)
+                    .padding(4)
+                    .background(DS.Colors.tertiaryBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                    .frame(width: 180)
+                    .foregroundStyle(DS.Colors.text)
+                    .disabled(isLocal)
+            }
+            
+            HStack(spacing: DS.Spacing.sm) {
+                HStack(spacing: 4) {
+                    Text("Input $/1K")
+                        .font(DS.Typography.caption2)
+                        .foregroundStyle(DS.Colors.tertiaryText)
+                    TextField("", value: $config.inputCostPer1K, format: .number)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                        .frame(width: 80)
+                        .foregroundStyle(DS.Colors.text)
+                        .disabled(isLocal)
+                }
+                
+                HStack(spacing: 4) {
+                    Text("Output $/1K")
+                        .font(DS.Typography.caption2)
+                        .foregroundStyle(DS.Colors.tertiaryText)
+                    TextField("", value: $config.outputCostPer1K, format: .number)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
+                        .frame(width: 80)
+                        .foregroundStyle(DS.Colors.text)
+                        .disabled(isLocal)
+                }
+            }
+        }
+        .opacity(isLocal ? 0.85 : 1)
+        .padding(.vertical, 2)
+    }
+}
+
 // MARK: - Agent Settings Content
 
 struct AgentSettingsContent: View {
@@ -501,15 +977,19 @@ struct AgentSettingsContent: View {
             SettingsSection("Loop Control") {
                 SettingsRow("Max Loops") {
                     TextField("", value: $config.maxLoops, format: .number)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                         .frame(width: 80)
+                        .foregroundStyle(DS.Colors.text)
                 }
                 
                 DSDivider()
                 
                 SettingsRow("Thinking Delay") {
                     HStack(spacing: DS.Spacing.sm) {
-                        Slider(value: $config.thinkingDelay, in: 0...5)
+                        DSSlider(value: $config.thinkingDelay, range: 0...5)
                             .frame(width: 150)
                         
                         Text(String(format: "%.1fs", config.thinkingDelay))
@@ -583,7 +1063,7 @@ struct OBotSettingsContent: View {
     @State private var showRulesInContext = true
     
     var body: some View {
-        VStack(spacing: DS.Spacing.lg) {
+        VStack(spacing: DS.Spacing.md) {
             SettingsSection("Project Rules (.obotrules)") {
                 SettingsToggle(
                     label: "Include rules in AI context",
@@ -656,8 +1136,12 @@ struct OBotSettingsContent: View {
                 
                 SettingsRow("Maximum Checkpoints") {
                     TextField("", value: $maxCheckpoints, format: .number)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                         .frame(width: 60)
+                        .foregroundStyle(DS.Colors.text)
                 }
                 
                 DSDivider()
@@ -754,7 +1238,7 @@ struct FilesSettingsContent: View {
                     
                     SettingsRow("Auto Save Delay") {
                         HStack(spacing: DS.Spacing.sm) {
-                            Slider(value: $config.autoSaveDelay, in: 0.5...10)
+                            DSSlider(value: $config.autoSaveDelay, range: 0.5...10)
                                 .frame(width: 150)
                             
                             Text(String(format: "%.1fs", config.autoSaveDelay))
@@ -802,8 +1286,12 @@ struct FilesSettingsContent: View {
                 
                 HStack(spacing: DS.Spacing.sm) {
                     TextField("Add pattern...", text: $newExcludePattern)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                         .font(DS.Typography.mono(12))
+                        .foregroundStyle(DS.Colors.text)
                     
                     Button {
                         if !newExcludePattern.isEmpty {
@@ -833,13 +1321,17 @@ struct TerminalSettingsContent: View {
         VStack(spacing: DS.Spacing.lg) {
             SettingsSection("Font") {
                 SettingsRow("Font Family") {
-                    Picker("", selection: $config.terminalFontFamily) {
-                        ForEach(FontOption.monospaceFonts) { font in
-                            Text(font.name).tag(font.family)
+                    DSDropdown(
+                        selection: $config.terminalFontFamily,
+                        options: FontOption.monospaceFonts.map { $0.family },
+                        label: { family in
+                            Text(FontOption.monospaceFonts.first(where: { $0.family == family })?.name ?? family)
+                        },
+                        row: { family in
+                            Text(FontOption.monospaceFonts.first(where: { $0.family == family })?.name ?? family)
                         }
-                    }
+                    )
                     .frame(width: 180)
-                    .pickerStyle(.menu)
                 }
                 
                 DSDivider()
@@ -847,32 +1339,40 @@ struct TerminalSettingsContent: View {
                 SettingsRow("Font Size") {
                     HStack(spacing: DS.Spacing.sm) {
                         TextField("", value: $config.terminalFontSize, format: .number)
-                            .textFieldStyle(.roundedBorder)
+                            .textFieldStyle(.plain)
+                            .padding(4)
+                            .background(DS.Colors.tertiaryBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                             .frame(width: 60)
+                            .foregroundStyle(DS.Colors.text)
                         
-                        Stepper("", value: $config.terminalFontSize, in: 8...24)
-                            .labelsHidden()
+                        DSDoubleStepper(value: $config.terminalFontSize, range: 8...24, step: 1)
                     }
                 }
             }
             
             SettingsSection("Shell") {
                 SettingsRow("Default Shell") {
-                    Picker("", selection: $config.terminalShell) {
-                        Text("/bin/zsh").tag("/bin/zsh")
-                        Text("/bin/bash").tag("/bin/bash")
-                        Text("/bin/sh").tag("/bin/sh")
-                    }
+                    let shells = ["/bin/zsh", "/bin/bash", "/bin/sh"]
+                    DSDropdown(
+                        selection: $config.terminalShell,
+                        options: shells,
+                        label: { shell in Text(shell) },
+                        row: { shell in Text(shell) }
+                    )
                     .frame(width: 150)
-                    .pickerStyle(.menu)
                 }
                 
                 DSDivider()
                 
                 SettingsRow("Scrollback Lines") {
                     TextField("", value: $config.terminalScrollback, format: .number)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(4)
+                        .background(DS.Colors.tertiaryBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
                         .frame(width: 100)
+                        .foregroundStyle(DS.Colors.text)
                 }
             }
         }
@@ -899,14 +1399,17 @@ struct GitSettingsContent: View {
                     DSDivider()
                     
                     SettingsRow("Fetch Interval") {
-                        Picker("", selection: $config.gitAutoFetchInterval) {
-                            Text("1 min").tag(60)
-                            Text("5 min").tag(300)
-                            Text("15 min").tag(900)
-                            Text("30 min").tag(1800)
-                        }
+                        let intervals = [60, 300, 900, 1800]
+                        DSDropdown(
+                            selection: Binding(
+                                get: { Int(config.gitAutoFetchInterval) },
+                                set: { config.gitAutoFetchInterval = Double($0) }
+                            ),
+                            options: intervals,
+                            label: { interval in Text("\(interval/60) min") },
+                            row: { interval in Text("\(interval/60) min") }
+                        )
                         .frame(width: 100)
-                        .pickerStyle(.menu)
                     }
                 }
             }

@@ -25,6 +25,11 @@ class OllamaService {
     
     /// Performance tracker for benchmarks and cost savings
     var performanceTracker: PerformanceTrackingService?
+
+    /// External model routing configuration
+    var externalModelConfig: ExternalModelConfigurationService?
+    var apiKeyStore: APIKeyStore?
+    var pricingService: PricingService?
     
     // MARK: - Stream Cancellation
     private var currentStreamTask: Task<Void, Never>?
@@ -139,9 +144,18 @@ class OllamaService {
         let keepAlive = "30m"
         
         // 1. Always warm orchestrator first - it handles every request
-        print("🔥 [1/4] Warming up Qwen3 (orchestrator)...")
-        warmupProgress?("Loading Qwen3 (orchestrator)...", 0.1)
-        await warmupModelWithTiming(.qwen3, keepAlive: keepAlive)
+        if let config = externalModelConfig {
+            let role = resolveRole(for: .qwen3, taskType: nil, needsTools: false, hasImages: false)
+            if config.config(for: role).provider == .local {
+                print("🔥 [1/4] Warming up Qwen3 (orchestrator)...")
+                warmupProgress?("Loading Qwen3 (orchestrator)...", 0.1)
+                await warmupModelWithTiming(.qwen3, keepAlive: keepAlive)
+            }
+        } else {
+            print("🔥 [1/4] Warming up Qwen3 (orchestrator)...")
+            warmupProgress?("Loading Qwen3 (orchestrator)...", 0.1)
+            await warmupModelWithTiming(.qwen3, keepAlive: keepAlive)
+        }
         
         // 2. Warm remaining models in background, sorted by size (smallest first)
         // This ensures faster availability of more models
@@ -154,6 +168,13 @@ class OllamaService {
                 .sorted { (Self.modelSizes[$0] ?? 10) < (Self.modelSizes[$1] ?? 10) }
             
             for (index, model) in remainingModels.enumerated() {
+                if let config = externalModelConfig {
+                    let role = resolveRole(for: model, taskType: nil, needsTools: false, hasImages: model == .vision)
+                    if config.config(for: role).provider != .local {
+                        continue
+                    }
+                }
+                
                 let completedCount = index + 2  // +2 because qwen3 was first
                 let progress = Double(completedCount) / Double(OllamaModel.allCases.count)
                 
@@ -226,6 +247,13 @@ class OllamaService {
     /// Warm up a specific model - call this when switching models
     @MainActor
     func preloadModel(_ model: OllamaModel, keepAlive: String = "30m") async {
+        if let config = externalModelConfig {
+            let role = resolveRole(for: model, taskType: nil, needsTools: false, hasImages: model == .vision)
+            if config.config(for: role).provider != .local {
+                return
+            }
+        }
+        
         if warmedUpModels.contains(model.rawValue) {
             print("⚡ \(model.displayName) already in memory")
             return
@@ -248,6 +276,13 @@ class OllamaService {
         print("🔥 Warming up all \(sortedModels.count) models (smallest first)...")
         
         for (index, model) in sortedModels.enumerated() {
+            if let config = externalModelConfig {
+                let role = resolveRole(for: model, taskType: nil, needsTools: false, hasImages: model == .vision)
+                if config.config(for: role).provider != .local {
+                    continue
+                }
+            }
+            
             let progressValue = Double(index + 1) / Double(sortedModels.count)
             progress?("Loading \(model.displayName)...", progressValue)
             await warmupModelWithTiming(model, keepAlive: keepAlive)
@@ -319,6 +354,18 @@ class OllamaService {
     
     /// Optional model tag override for tier-aware model selection
     var modelTagOverrides: [OllamaModel: String] = [:]
+
+    private struct ExternalRoute {
+        let provider: ExternalModelConfigurationService.ProviderKind
+        let providerName: String
+        let modelId: String
+        let baseURL: String
+        let authHeader: String
+        let authPrefix: String
+        let apiKey: String
+        let inputCostPer1K: Double
+        let outputCostPer1K: Double
+    }
     
     /// Get the actual Ollama model tag to use
     func getModelTag(for model: OllamaModel) -> String {
@@ -335,6 +382,101 @@ class OllamaService {
         ]
         print("🔧 OllamaService configured for \(tierManager.selectedTier.rawValue) tier")
     }
+
+    private func resolveRole(
+        for model: OllamaModel,
+        taskType: TaskType?,
+        needsTools: Bool,
+        hasImages: Bool
+    ) -> ExternalModelConfigurationService.Role {
+        if needsTools || taskType == .orchestration {
+            return .orchestrator
+        }
+        if hasImages {
+            return .vision
+        }
+        switch model {
+        case .qwen3:
+            return .writing
+        case .commandR:
+            return .researcher
+        case .coder:
+            return .coder
+        case .vision:
+            return .vision
+        }
+    }
+
+    private func resolveExternalRoute(
+        role: ExternalModelConfigurationService.Role,
+        needsTools: Bool,
+        hasImages: Bool
+    ) -> ExternalRoute? {
+        guard let config = externalModelConfig,
+              let apiKeyStore = apiKeyStore else {
+            return nil
+        }
+        
+        let roleConfig = config.config(for: role)
+        if roleConfig.provider == .local {
+            return nil
+        }
+        
+        if needsTools && !config.providerSupportsTools(roleConfig.provider) {
+            return nil
+        }
+        
+        if hasImages && !config.providerSupportsVision(roleConfig.provider) {
+            return nil
+        }
+        
+        let modelId = roleConfig.modelId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !modelId.isEmpty else { return nil }
+        
+        guard let key = apiKeyStore.key(for: roleConfig.provider.keychainId) else {
+            return nil
+        }
+        
+        var inputCost = roleConfig.inputCostPer1K
+        var outputCost = roleConfig.outputCostPer1K
+        
+        if inputCost == 0 && outputCost == 0 {
+            let providerId = pricingProviderId(provider: roleConfig.provider, baseURL: config.providerBaseURL(roleConfig.provider))
+            if let providerId,
+               let pricing = pricingService?.rate(provider: providerId, modelId: modelId) {
+                inputCost = pricing.inputPer1K
+                outputCost = pricing.outputPer1K
+            }
+        }
+        
+        return ExternalRoute(
+            provider: roleConfig.provider,
+            providerName: config.providerDisplayName(roleConfig.provider),
+            modelId: modelId,
+            baseURL: config.providerBaseURL(roleConfig.provider),
+            authHeader: config.providerAuthHeader(roleConfig.provider),
+            authPrefix: config.providerAuthPrefix(roleConfig.provider),
+            apiKey: key,
+            inputCostPer1K: inputCost,
+            outputCostPer1K: outputCost
+        )
+    }
+
+    private func pricingProviderId(
+        provider: ExternalModelConfigurationService.ProviderKind,
+        baseURL: String
+    ) -> String? {
+        switch provider {
+        case .openai: return "openai"
+        case .anthropic: return "anthropic"
+        case .gemini: return "gemini"
+        case .cohere: return "cohere"
+        case .openaiCompatible:
+            return pricingService?.inferredProviderId(from: baseURL)
+        case .local:
+            return nil
+        }
+    }
     
     func chat(
         model: OllamaModel,
@@ -348,6 +490,16 @@ class OllamaService {
         
         // Infer task type from model if not specified
         let task = taskType ?? inferTaskType(for: model)
+        let role = resolveRole(for: model, taskType: task, needsTools: false, hasImages: !images.isEmpty)
+        if let route = resolveExternalRoute(role: role, needsTools: false, hasImages: !images.isEmpty) {
+            return externalChatStream(
+                route: route,
+                messages: messages,
+                context: context,
+                images: images,
+                taskType: task
+            )
+        }
         
         return AsyncThrowingStream { continuation in
             // Store continuation for cancellation
@@ -385,6 +537,98 @@ class OllamaService {
         case .commandR: return .research
         case .coder: return .coding
         case .vision: return .vision
+        }
+    }
+
+    private func externalChatStream(
+        route: ExternalRoute,
+        messages: [(String, String)],
+        context: String?,
+        images: [Data],
+        taskType: TaskType
+    ) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            self.streamContinuation = continuation
+            continuation.onTermination = { [weak self] _ in
+                self?.streamContinuation = nil
+                self?.currentStreamTask = nil
+            }
+            
+            self.currentStreamTask = Task(priority: .userInitiated) { [weak self] in
+                guard let self = self else { return }
+                do {
+                    var chatMessages: [[String: Any]] = []
+                    if let context = context, !context.isEmpty {
+                        let maxContextChars = 8192 * 3
+                        let truncated = truncateContext(context, maxLength: maxContextChars)
+                        chatMessages.append(["role": "system", "content": "Context:\n\(truncated)"])
+                    }
+                    for (role, content) in messages {
+                        chatMessages.append(["role": role, "content": content])
+                    }
+                    
+                    let inputEstimate = PerformanceTrackingService.estimateTokens(from: messages)
+                        + PerformanceTrackingService.estimateTokens(from: context ?? "")
+                    
+                    let costRates: PerformanceTrackingService.ProviderCostRates? = {
+                        let input = route.inputCostPer1K
+                        let output = route.outputCostPer1K
+                        if input > 0 || output > 0 {
+                            return PerformanceTrackingService.ProviderCostRates(
+                                inputPer1K: input,
+                                outputPer1K: output
+                            )
+                        }
+                        return nil
+                    }()
+                    
+                    performanceTracker?.startInference(
+                        model: "\(route.providerName):\(route.modelId)",
+                        provider: route.providerName,
+                        inputTokenEstimate: inputEstimate,
+                        costRates: costRates,
+                        isLocal: false
+                    )
+                    
+                    let result = try await ExternalLLMService.chat(
+                        provider: route.provider,
+                        baseURL: route.baseURL,
+                        apiKey: route.apiKey,
+                        model: route.modelId,
+                        messages: chatMessages,
+                        tools: nil,
+                        temperature: taskType.temperature,
+                        maxTokens: taskType.maxTokens,
+                        images: images,
+                        authHeader: route.authHeader,
+                        authPrefix: route.authPrefix
+                    )
+                    
+                    if Task.isCancelled || self.isCancelled {
+                        continuation.finish()
+                        return
+                    }
+                    
+                    if let content = result.content, !content.isEmpty {
+                        continuation.yield(content)
+                    }
+                    
+                    if let usage = result.usage {
+                        performanceTracker?.endInference(
+                            actualInputTokens: usage.inputTokens,
+                            actualOutputTokens: usage.outputTokens
+                        )
+                    } else {
+                        performanceTracker?.endInference()
+                    }
+                    
+                    continuation.finish()
+                } catch {
+                    if !Task.isCancelled && !self.isCancelled {
+                        continuation.finish(throwing: error)
+                    }
+                }
+            }
         }
     }
     
@@ -446,7 +690,13 @@ class OllamaService {
         
         // Start performance tracking
         let inputTokenEstimate = PerformanceTrackingService.estimateTokens(from: messages)
-        performanceTracker?.startInference(model: model.displayName, inputTokenEstimate: inputTokenEstimate)
+        performanceTracker?.startInference(
+            model: model.displayName,
+            provider: "Ollama Local",
+            inputTokenEstimate: inputTokenEstimate,
+            costRates: nil,
+            isLocal: true
+        )
         
         let (bytes, response) = try await session.bytes(for: request)
         
@@ -532,6 +782,59 @@ class OllamaService {
         messages: [[String: Any]],
         tools: [[String: Any]]
     ) async throws -> ChatResponse {
+        let role = resolveRole(for: model, taskType: .orchestration, needsTools: true, hasImages: false)
+        if let route = resolveExternalRoute(role: role, needsTools: true, hasImages: false) {
+            let inputEstimate = PerformanceTrackingService.estimateTokens(from: messages.compactMap {
+                guard let role = $0["role"] as? String, let content = $0["content"] as? String else { return ("", "") }
+                return (role, content)
+            })
+            
+            let costRates: PerformanceTrackingService.ProviderCostRates? = {
+                let input = route.inputCostPer1K
+                let output = route.outputCostPer1K
+                if input > 0 || output > 0 {
+                    return PerformanceTrackingService.ProviderCostRates(
+                        inputPer1K: input,
+                        outputPer1K: output
+                    )
+                }
+                return nil
+            }()
+            
+            performanceTracker?.startInference(
+                model: "\(route.providerName):\(route.modelId)",
+                provider: route.providerName,
+                inputTokenEstimate: inputEstimate,
+                costRates: costRates,
+                isLocal: false
+            )
+            
+            let result = try await ExternalLLMService.chat(
+                provider: route.provider,
+                baseURL: route.baseURL,
+                apiKey: route.apiKey,
+                model: route.modelId,
+                messages: messages,
+                tools: tools,
+                temperature: TaskType.orchestration.temperature,
+                maxTokens: TaskType.orchestration.maxTokens,
+                images: [],
+                authHeader: route.authHeader,
+                authPrefix: route.authPrefix
+            )
+            
+            if let usage = result.usage {
+                performanceTracker?.endInference(
+                    actualInputTokens: usage.inputTokens,
+                    actualOutputTokens: usage.outputTokens
+                )
+            } else {
+                performanceTracker?.endInference()
+            }
+            
+            return ChatResponse(content: result.content, toolCalls: result.toolCalls)
+        }
+        
         guard let url = URL(string: "\(baseURL)/api/chat") else {
             throw OllamaError.invalidURL
         }
@@ -539,6 +842,18 @@ class OllamaService {
         // Tool calling requires precise, low-temperature responses
         let contextWindow = Self.modelContextWindows[model] ?? 8192
         let modelTag = getModelTag(for: model)
+
+        let inputEstimate = PerformanceTrackingService.estimateTokens(from: messages.compactMap {
+            guard let role = $0["role"] as? String, let content = $0["content"] as? String else { return ("", "") }
+            return (role, content)
+        })
+        performanceTracker?.startInference(
+            model: model.displayName,
+            provider: "Ollama Local",
+            inputTokenEstimate: inputEstimate,
+            costRates: nil,
+            isLocal: true
+        )
         
         let requestBody: [String: Any] = [
             "model": modelTag,
@@ -579,6 +894,12 @@ class OllamaService {
             toolCalls = calls.compactMap { ToolCall(from: $0) }
         }
         
+        let outputEstimate = PerformanceTrackingService.estimateTokens(from: content ?? "")
+        performanceTracker?.endInference(
+            actualInputTokens: inputEstimate,
+            actualOutputTokens: outputEstimate
+        )
+        
         return ChatResponse(content: content, toolCalls: toolCalls)
     }
     
@@ -593,11 +914,71 @@ class OllamaService {
             return cached.content
         }
         
+        let task = taskType ?? inferTaskType(for: model)
+        let role = resolveRole(for: model, taskType: task, needsTools: false, hasImages: false)
+        if let route = resolveExternalRoute(role: role, needsTools: false, hasImages: false) {
+            let inputEstimate = PerformanceTrackingService.estimateTokens(from: prompt)
+            let costRates: PerformanceTrackingService.ProviderCostRates? = {
+                let input = route.inputCostPer1K
+                let output = route.outputCostPer1K
+                if input > 0 || output > 0 {
+                    return PerformanceTrackingService.ProviderCostRates(
+                        inputPer1K: input,
+                        outputPer1K: output
+                    )
+                }
+                return nil
+            }()
+            
+            performanceTracker?.startInference(
+                model: "\(route.providerName):\(route.modelId)",
+                provider: route.providerName,
+                inputTokenEstimate: inputEstimate,
+                costRates: costRates,
+                isLocal: false
+            )
+            
+            let result = try await ExternalLLMService.chat(
+                provider: route.provider,
+                baseURL: route.baseURL,
+                apiKey: route.apiKey,
+                model: route.modelId,
+                messages: [
+                    ["role": "user", "content": prompt]
+                ],
+                tools: nil,
+                temperature: task.temperature,
+                maxTokens: task.maxTokens,
+                images: [],
+                authHeader: route.authHeader,
+                authPrefix: route.authPrefix
+            )
+            
+            if let usage = result.usage {
+                performanceTracker?.endInference(
+                    actualInputTokens: usage.inputTokens,
+                    actualOutputTokens: usage.outputTokens
+                )
+            } else {
+                performanceTracker?.endInference()
+            }
+            
+            return result.content ?? ""
+        }
+        
         guard let url = URL(string: "\(baseURL)/api/generate") else {
             throw OllamaError.invalidURL
         }
         
-        let task = taskType ?? inferTaskType(for: model)
+        let inputEstimate = PerformanceTrackingService.estimateTokens(from: prompt)
+        performanceTracker?.startInference(
+            model: model.displayName,
+            provider: "Ollama Local",
+            inputTokenEstimate: inputEstimate,
+            costRates: nil,
+            isLocal: true
+        )
+        
         let contextWindow = Self.modelContextWindows[model] ?? 8192
         
         let requestBody: [String: Any] = [
@@ -630,6 +1011,12 @@ class OllamaService {
               let responseText = json["response"] as? String else {
             throw OllamaError.invalidResponse
         }
+
+        let outputEstimate = PerformanceTrackingService.estimateTokens(from: responseText)
+        performanceTracker?.endInference(
+            actualInputTokens: inputEstimate,
+            actualOutputTokens: outputEstimate
+        )
         
         // Cache the response
         if useCache {

@@ -2,10 +2,10 @@
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  OllamaBot Build Script
-#  Creates a proper macOS .app bundle
+#  Creates a proper macOS .app bundle (fast rebuild optimized)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-set -e
+set -euo pipefail
 
 # Colors
 CYAN='\033[0;36m'
@@ -21,36 +21,150 @@ BUILD_DIR="$PROJECT_DIR/build"
 APP_NAME="OllamaBot"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 
+CONFIG_DIR="$HOME/.config/ollamabot"
+BUILD_CONFIG_FILE="$CONFIG_DIR/build.conf"
+
 echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║              🤖 OllamaBot Build Script                        ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
-# Parse arguments
+# Defaults
 RELEASE=false
 CLEAN=false
+DEEP_CLEAN=false
+OPEN_APP=false
+SIGN_APP=true
+AUTO_TUNE=false
+
+BUILD_JOBS=""
+DISABLE_SANDBOX=""
+DISABLE_INDEX_STORE=""
+BUILD_SYSTEM=""
+
+# Load saved build config (if present)
+if [ -f "$BUILD_CONFIG_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$BUILD_CONFIG_FILE"
+fi
+
+# Map saved config variables (if set)
+if [ -n "${BUILD_DISABLE_SANDBOX:-}" ] && [ -z "${DISABLE_SANDBOX:-}" ]; then
+    DISABLE_SANDBOX="$BUILD_DISABLE_SANDBOX"
+fi
+if [ -n "${BUILD_DISABLE_INDEX_STORE:-}" ] && [ -z "${DISABLE_INDEX_STORE:-}" ]; then
+    DISABLE_INDEX_STORE="$BUILD_DISABLE_INDEX_STORE"
+fi
+
+# Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --release|-r)
             RELEASE=true
-            shift
             ;;
         --clean|-c)
             CLEAN=true
+            ;;
+        --deep-clean|--pristine)
+            DEEP_CLEAN=true
+            ;;
+        --open|--launch)
+            OPEN_APP=true
+            ;;
+        --no-sign)
+            SIGN_APP=false
+            ;;
+        --sign)
+            SIGN_APP=true
+            ;;
+        --jobs)
+            BUILD_JOBS="$2"
             shift
+            ;;
+        --disable-sandbox)
+            DISABLE_SANDBOX=1
+            ;;
+        --sandbox)
+            DISABLE_SANDBOX=0
+            ;;
+        --disable-index-store)
+            DISABLE_INDEX_STORE=1
+            ;;
+        --enable-index-store)
+            DISABLE_INDEX_STORE=0
+            ;;
+        --build-system)
+            BUILD_SYSTEM="$2"
+            shift
+            ;;
+        --auto|--benchmark)
+            AUTO_TUNE=true
             ;;
         *)
-            shift
             ;;
     esac
+    shift
 done
+
+# Auto-tune if requested and no config exists
+if [ "$AUTO_TUNE" = true ] && [ ! -f "$BUILD_CONFIG_FILE" ]; then
+    echo -e "${YELLOW}No build config found. Running benchmark...${NC}"
+    python3 "$SCRIPT_DIR/benchmark-build.py" --save
+    if [ -f "$BUILD_CONFIG_FILE" ]; then
+        # shellcheck disable=SC1090
+        source "$BUILD_CONFIG_FILE"
+    fi
+fi
+
+# Heuristic defaults if config/flags did not set values
+PHYSICAL_CORES=$(sysctl -n hw.physicalcpu 2>/dev/null || echo 1)
+PERF_CORES=$(sysctl -n hw.perflevel0.physicalcpu 2>/dev/null || echo "")
+
+if [ -z "${BUILD_JOBS:-}" ]; then
+    if [ -n "$PERF_CORES" ] && [ "$PERF_CORES" -gt 0 ]; then
+        BUILD_JOBS="$PERF_CORES"
+    else
+        BUILD_JOBS="$PHYSICAL_CORES"
+    fi
+fi
+
+if [ -z "${DISABLE_SANDBOX:-}" ]; then
+    DISABLE_SANDBOX=0
+fi
+
+if [ -z "${DISABLE_INDEX_STORE:-}" ]; then
+    DISABLE_INDEX_STORE=0
+fi
+
+if [ -z "${BUILD_SYSTEM:-}" ]; then
+    BUILD_SYSTEM="native"
+fi
+
+# Validate jobs
+if ! [[ "$BUILD_JOBS" =~ ^[0-9]+$ ]] || [ "$BUILD_JOBS" -lt 1 ]; then
+    echo -e "${YELLOW}Invalid jobs count '${BUILD_JOBS}'. Falling back to ${PHYSICAL_CORES}.${NC}"
+    BUILD_JOBS="$PHYSICAL_CORES"
+fi
+
+SANDBOX_LABEL="on"
+if [ "$DISABLE_SANDBOX" = "1" ]; then SANDBOX_LABEL="off"; fi
+INDEX_LABEL="auto"
+if [ "$DISABLE_INDEX_STORE" = "1" ]; then INDEX_LABEL="off"; fi
 
 # Clean if requested
 if [ "$CLEAN" = true ]; then
-    echo -e "${YELLOW}Cleaning build directory...${NC}"
+    echo -e "${YELLOW}Cleaning app bundle...${NC}"
+    rm -rf "$APP_BUNDLE"
+    rm -rf "$BUILD_DIR"
+fi
+
+if [ "$DEEP_CLEAN" = true ]; then
+    echo -e "${YELLOW}Deep cleaning build caches...${NC}"
     rm -rf "$BUILD_DIR"
     rm -rf "$PROJECT_DIR/.build"
+    rm -rf "$PROJECT_DIR/.swiftpm"
+    rm -rf ~/Library/Developer/Xcode/DerivedData/*OllamaBot* 2>/dev/null || true
 fi
 
 # Create build directory
@@ -60,20 +174,32 @@ mkdir -p "$BUILD_DIR"
 if [ "$RELEASE" = true ]; then
     echo -e "${BOLD}Building for RELEASE...${NC}"
     BUILD_CONFIG="release"
-    SWIFT_FLAGS="-c release"
 else
     echo -e "${BOLD}Building for DEBUG...${NC}"
     BUILD_CONFIG="debug"
-    SWIFT_FLAGS=""
 fi
 
 # Build the executable
 echo -e "\n${BOLD}📦 Compiling Swift code...${NC}"
+echo -e "  Config: ${BUILD_CONFIG} | Jobs: ${BUILD_JOBS} | Sandbox: ${SANDBOX_LABEL} | Index: ${INDEX_LABEL} | Build system: ${BUILD_SYSTEM}"
 cd "$PROJECT_DIR"
-swift build $SWIFT_FLAGS
+
+SWIFT_ARGS=(build --configuration "$BUILD_CONFIG" --product "$APP_NAME" --jobs "$BUILD_JOBS")
+if [ "$DISABLE_SANDBOX" = "1" ]; then SWIFT_ARGS+=(--disable-sandbox); fi
+if [ "$DISABLE_INDEX_STORE" = "1" ]; then SWIFT_ARGS+=(--disable-index-store); fi
+if [ -n "$BUILD_SYSTEM" ] && [ "$BUILD_SYSTEM" != "native" ]; then
+    SWIFT_ARGS+=(--build-system "$BUILD_SYSTEM")
+fi
+
+swift "${SWIFT_ARGS[@]}"
 
 # Get the built executable path
-EXECUTABLE="$PROJECT_DIR/.build/$BUILD_CONFIG/$APP_NAME"
+SHOW_BIN_ARGS=(build --show-bin-path --configuration "$BUILD_CONFIG")
+if [ -n "$BUILD_SYSTEM" ] && [ "$BUILD_SYSTEM" != "native" ]; then
+    SHOW_BIN_ARGS+=(--build-system "$BUILD_SYSTEM")
+fi
+BIN_PATH=$(swift "${SHOW_BIN_ARGS[@]}")
+EXECUTABLE="$BIN_PATH/$APP_NAME"
 
 if [ ! -f "$EXECUTABLE" ]; then
     echo -e "${RED}Error: Executable not found at $EXECUTABLE${NC}"
@@ -147,7 +273,12 @@ chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 touch "$APP_BUNDLE"
 
 # Ad-hoc code signing to prevent caching issues
-codesign --force --deep --sign - "$APP_BUNDLE"
+if [ "$SIGN_APP" = true ]; then
+    codesign --force --deep --sign - "$APP_BUNDLE"
+    echo "  ✓ Code signed"
+else
+    echo -e "${YELLOW}  ⚠ Skipped code signing${NC}"
+fi
 
 echo -e "\n${GREEN}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
@@ -174,4 +305,9 @@ echo ""
 if [ "$RELEASE" = true ]; then
     echo -e "${CYAN}Opening build folder...${NC}"
     open "$BUILD_DIR"
+fi
+
+if [ "$OPEN_APP" = true ]; then
+    echo -e "${CYAN}Launching app...${NC}"
+    open "$APP_BUNDLE"
 fi

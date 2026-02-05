@@ -234,7 +234,7 @@ struct ProcessManagerView: View {
             DSDivider()
             
             // Process rows
-            ScrollView {
+            DSScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(sortedProcesses) { process in
                         ProcessRow(
