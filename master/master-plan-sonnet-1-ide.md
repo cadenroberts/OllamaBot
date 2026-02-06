@@ -1,205 +1,90 @@
-# OllamaBot IDE Master Harmonization Plan
+# Master Plan: sonnet-1 — IDE (OllamaBot)
 
-**Agent:** sonnet-1
-**Product:** OllamaBot IDE (Swift/macOS)
-**Scope:** Complete harmonization strategy for the IDE side
-
----
-
-## Executive Summary
-
-OllamaBot (IDE) and obot (CLI) must function as complementary interfaces to a unified AI coding platform. This master plan covers the IDE-side harmonization: what must change in the Swift codebase, what must be adopted from the CLI, and what shared contracts the IDE must honor.
-
-**Current State:**
-- ~34,489 LOC Swift (macOS IDE)
-- 63 Swift files across Agent, Models, Services, Utilities, Views
-- Shared code with CLI: 0%
+**Agent:** sonnet-1  
+**Scope:** OllamaBot IDE (Swift/SwiftUI)  
+**Date:** 2026-02-05  
+**Recovery:** 2026-02-06
 
 ---
 
-## Part 1: IDE Architecture (Current)
+## IDE Harmonization Requirements
 
-### Core Modules
+### Protocol Compliance
 
-- `Sources/OllamaBotApp.swift` -- App entry, state management
-- `Sources/Agent/AgentExecutor.swift` -- Infinite Mode engine (1,069 lines, monolithic)
-- `Sources/Agent/ExploreAgentExecutor.swift` -- Autonomous improvement mode
-- `Sources/Agent/CycleAgentManager.swift` -- Multi-agent orchestration
-- `Sources/Services/OllamaService.swift` -- Ollama API client with streaming
-- `Sources/Services/ContextManager.swift` -- Token-budgeted context with semantic compression
-- `Sources/Services/IntentRouter.swift` -- Keyword-based model routing
-- `Sources/Services/OBotService.swift` -- .obotrules, bots, context snippets, templates
-- `Sources/Services/MentionService.swift` -- @mention system (14+ types)
-- `Sources/Services/CheckpointService.swift` -- Windsurf-style save/restore
+The IDE must implement or validate against all 6 Unified Protocols:
 
-### IDE Tool Set (18 tools)
-
-```
-Core:       think, complete, ask_user
-Files:      read_file, write_file, edit_file, search_files, list_directory
-System:     run_command, take_screenshot
-Delegation: delegate_to_coder, delegate_to_researcher, delegate_to_vision
-Web:        web_search, fetch_url
-Git:        git_status, git_diff, git_commit
-```
-
-### IDE Strengths
-
-1. Sophisticated ContextManager with token budget allocation (task 25%, files 33%, project 16%, history 12%, memory 12%, errors 6%)
-2. Multi-model delegation (4 specialized models: Qwen3, Command-R, Qwen-Coder, Qwen-VL)
-3. OBot ecosystem (.obotrules, bots, context snippets, templates)
-4. @Mention system for context injection
-5. Checkpoint system for code state management
-6. Parallel tool execution with LRU caching
-7. Streaming response visualization
-8. Integrated terminal, editor, file explorer
+1. **Agent Execution Protocol (AEP)** — Standardize agent step types (thinking, tool, user_input, error, complete) with JSON Schema validation
+2. **Orchestration Protocol (OP)** — Add 5-schedule structured mode (Knowledge, Plan, Implement, Scale, Production) with 1-2-3 process navigation alongside existing Infinite Mode
+3. **Context Management Protocol (CMP)** — Current ContextManager.swift already implements token budgeting; validate compliance with shared spec (task 25%, files 33%, project 16%, history 12%, memory 12%, errors 6%)
+4. **Tool Registry Specification (TRS)** — Load 22 standardized tools from shared registry YAML; normalize existing 18 tools to canonical IDs
+5. **Configuration Schema (CS)** — Migrate from UserDefaults + tier.json to unified ~/.ollamabot/config.yaml
+6. **Session Format (SF)** — Save sessions in unified JSON format enabling CLI resume
 
 ---
 
-## Part 2: IDE Shortcomings (What CLI Has That IDE Lacks)
+### IDE-Specific Enhancements Required
 
-| Feature | CLI Implementation | Priority |
-|---------|-------------------|----------|
-| Orchestration framework | 5 schedules x 3 processes with navigation rules | CRITICAL |
-| Quality presets | fast/balanced/thorough pipeline | HIGH |
-| Cost savings tracking | Token cost comparison vs Claude/GPT-4 | HIGH |
-| Session persistence | Resume interrupted work from disk | HIGH |
-| Human consultation with timeout | 60s timeout, AI fallback | MEDIUM |
-| Flow code tracking | S1P123S2P12 format | MEDIUM |
-| Line-range editing | -10 +25 syntax | MEDIUM |
-| LLM-as-judge | Expert model review post-completion | MEDIUM |
-| Dry-run mode | Preview without writing | LOW |
-| Memory visualization | Live RAM usage graph | LOW |
+#### From CLI (Features IDE Lacks)
+- Quality presets UI (fast/balanced/thorough selector)
+- Cost savings tracker (token cost comparison vs commercial APIs)
+- Structured orchestration mode (5 schedules, flow code tracking, human consultation with timeout)
+- Line-range targeting for code fixes
+- Dry-run preview mode
+- Session export to CLI-compatible format
 
----
-
-## Part 3: IDE Changes Required for Harmonization
-
-### 3.1 Shared Configuration System
-
-**Current:** SwiftUI AppStorage + UserDefaults (not portable)
-**Target:** Read/write `~/.ollamabot/config.yaml`
-
-New file: `Sources/Services/SharedConfigService.swift`
-- Read same YAML config that CLI reads
-- Sync changes bidirectionally
-- Honor CLI flags when launched from terminal
-
-### 3.2 Orchestration Framework Port
-
-**Current:** Simple agent executor loop until complete tool
-**Target:** 5-schedule orchestration matching CLI behavior
-
-New file: `Sources/Services/OrchestrationService.swift`
-- Schedule enum: knowledge, plan, implement, scale, production
-- Process enum: p1, p2, p3
-- Navigation rules: P1->{P1,P2}, P2->{P1,P2,P3}, P3->{P2,P3,terminate}
-- Flow code generation: S1P123S2P12...
-
-### 3.3 Tool Registry Unification
-
-**Current:** 18 hardcoded tools in AgentTools.swift
-**Target:** Load from shared tool registry YAML
-
-Add missing tools from CLI:
-- file.delete (delete_file)
-- file.create_dir (create_dir)
-- file.delete_dir (delete_dir)
-- file.rename (rename)
-- file.move (move)
-- file.copy (copy)
-- git.push (git_push)
-- core.note (note)
-
-### 3.4 Quality Presets
-
-New integration in agent settings:
-- fast: Single pass, no plan or review
-- balanced: Plan + execute + review
-- thorough: Plan + execute + review + revise loop
-
-### 3.5 Cost Tracking
-
-New file: `Sources/Services/CostTrackingService.swift`
-- Track total tokens used
-- Calculate savings vs Claude Opus ($0.015/$0.075), Sonnet ($0.003/$0.015), GPT-4o ($0.005/$0.015)
-
-### 3.6 Session Persistence
-
-New file: `Sources/Services/SharedSessionService.swift`
-- Save/load sessions to ~/.ollamabot/sessions/
-- Cross-platform format compatible with CLI
-- Export to CLI format for session handoff
-
-### 3.7 Human Consultation Framework
-
-New file: `Sources/Services/ConsultationService.swift`
-- 60s timeout with countdown
-- AI substitute fallback
-- Optional vs mandatory consultation types
-
-### 3.8 AgentExecutor Refactoring
-
-Split 1,069-line monolithic file into:
-- Agent/Core/AgentExecutor.swift (~200 lines, loop only)
-- Agent/Core/ToolExecutor.swift (~150 lines, dispatch)
-- Agent/Core/VerificationEngine.swift (~100 lines)
-- Agent/Tools/FileTools.swift
-- Agent/Tools/SystemTools.swift
-- Agent/Tools/AITools.swift
-- Agent/Tools/WebTools.swift
-- Agent/Tools/GitTools.swift
+#### IDE Architecture Changes
+- Split AgentExecutor.swift (1069 lines) into modular components
+- Create OrchestrationService.swift for 5-schedule state machine
+- Create SharedConfigService.swift to read unified YAML config
+- Create ToolRegistryService.swift to load shared tool definitions
+- Create CLIBridgeService.swift for optional CLI server communication
+- Create UnifiedSessionService.swift for cross-product session persistence
 
 ---
 
-## Part 4: Shared Contracts IDE Must Honor
+### Current IDE State (Verified)
 
-### 4.1 Unified Config at ~/.ollamabot/config.yaml
-### 4.2 Shared Session Schema (JSON, cross-platform)
-### 4.3 Shared Prompt Templates at ~/.ollamabot/prompts/
-### 4.4 .obotrules parsing in project root
+**Source files:** 63 Swift files across Sources/Agent, Sources/Services, Sources/Views, Sources/Models, Sources/Utilities
 
----
+**Existing strengths (carry forward):**
+- Multi-model orchestration (4 specialized models: Qwen3, Qwen2.5-Coder, Command-R, Qwen3-VL)
+- Sophisticated ContextManager with token budgeting and semantic compression
+- OBot system (.obotrules, custom bots, context snippets, templates)
+- @Mention system (14+ mention types)
+- Checkpoint system (Windsurf-style save/restore)
+- Composer for multi-file changes
+- 18 agent tools including delegation, web search, git
 
-## Part 5: Implementation Phases (IDE Side)
-
-### Phase 1: Foundation (Weeks 1-2)
-- SharedConfigService -- Read shared YAML config
-- Shared prompt loader -- Load YAML templates
-- Tool registry -- Load from shared tools.yaml
-
-### Phase 2: Feature Parity (Weeks 3-5)
-- OrchestrationService -- 5-schedule framework
-- CostTrackingService -- Savings tracker
-- Quality presets -- fast/balanced/thorough
-- ConsultationService -- Timeout-based human-in-loop
-
-### Phase 3: Architecture (Weeks 5-7)
-- AgentExecutor split into focused modules
-- SharedSessionService -- Cross-platform sessions
-- Test suite (target: 75% coverage)
-
-### Phase 4: Polish (Weeks 7-8)
-- OrchestrationView -- Schedule/process UI
-- Session handoff UI
-- Migration tool for existing UserDefaults
+**Existing gaps (must address):**
+- No testing infrastructure (zero unit tests)
+- No CI/CD pipeline
+- No quality presets
+- No structured orchestration (5-schedule framework)
+- No cost tracking
+- No unified configuration (uses UserDefaults)
+- No cross-product session format
+- Monolithic services (700-1300 lines each)
 
 ---
 
-## Part 6: Success Criteria (IDE)
+### Implementation Priority
 
-- IDE reads ~/.ollamabot/config.yaml
-- IDE reads shared prompt templates
-- IDE implements 5-schedule orchestration with navigation rules
-- IDE sessions exportable to CLI format
-- IDE has quality presets (fast/balanced/thorough)
-- IDE has cost tracking
-- IDE has human consultation with timeout
-- AgentExecutor split into <300 line files
-- 75% test coverage on agent and services
-- All 22 unified tools available
-- No regression in startup time or streaming performance
+| Priority | Item | Effort |
+|----------|------|--------|
+| P0 | Configuration migration to YAML | Small |
+| P0 | Tool registry loader | Small |
+| P0 | CLI bridge service | Medium |
+| P1 | Orchestration mode UI | Large |
+| P1 | Quality presets UI | Small |
+| P1 | Session persistence (unified format) | Medium |
+| P1 | AgentExecutor split | Medium |
+| P1 | Cost savings tracker | Small |
 
 ---
 
-END OF IDE MASTER PLAN
+### Recovery Metadata
+
+- Agent: sonnet-1
+- This file: new creation per recovery mandate
+- Content: verifiable IDE state and requirements derived from Round 0-1 analysis
+- No patches to existing files
