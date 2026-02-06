@@ -287,3 +287,5 @@ The "Protocols over Code" approach ensures the IDE can implement each standard i
 ---
 
 **END OF IDE MASTER PLAN — opus-1**
+
+<!-- Recovery verified by opus-1 agent: 2026-02-06T01:15:21Z -->
