@@ -1,412 +1,276 @@
-> RECOVERY_STATUS: RECOVERED
-> AGENT_ID: opus-1
-> ROUND: 2
-> RECOVERY_DATE: 2026-02-05
-
-# obot CLI Master Plan (opus-1)
+# ITERATION-2 FINAL MASTER PLAN — CLI (obot)
 
 **Agent**: opus-1
-**Product**: obot CLI (Go)
-**Round**: 2 (Final Consolidation)
-**Consensus Level**: 95%+ agreement across all agents
+**Round**: 4 (Iteration 2 of consolidation loop)
+**Date**: 2026-02-05
+**Scope**: obot CLI (Go)
+**Inputs Consumed**: 20+ plan documents across plans_0 through plans_4, from agents sonnet-1, sonnet-2, opus-1, opus-2, composer-1, composer-2, gemini-1 through gemini-7
+**Status**: MASTER VERSION
 
 ---
 
-## Executive Summary
+## A. Cross-Round Delta Analysis
 
-After two rounds of consolidation across 40+ agent submissions, unanimous consensus emerged: obot CLI becomes the canonical execution engine. It exposes a JSON-RPC server mode for the IDE while retaining its standalone CLI interface. All orchestration, context management, tool execution, and model coordination logic lives here.
+### Round 0 (5 plans): Fragmentation Discovery
+- Identified 47 shortcomings, 90 optimizations, 10 areas of duplicated implementation
+- Three competing architectures proposed: Rust Core (sonnet), Go Core (gemini), Protocol-Only (composer/opus)
+- Key CLI files analyzed: internal/tier/detect.go, internal/orchestrate/orchestrator.go, internal/fixer/agent.go, internal/cli/root.go, internal/session/session.go, internal/ollama/client.go
 
-**Architecture**: Go Core + JSON-RPC Server
-**Key Decision**: REJECT Rust rewrite. The Go codebase absorbs IDE intelligence (context management, mentions, OBot rules) and exposes it via server mode.
+### Round 1 (4 plans): First Consolidation
+- "CLI-as-Engine" philosophy adopted (from gemini-1)
+- Rust core still on the table (from sonnet/composer consolidation)
+- 90 optimizations prioritized P0-P4
+- 22 Unified Tools defined
 
----
+### Round 2: Convergence
+- Rust rewrite rejected on risk grounds
+- Go Core + Strict Protocols selected as winning hybrid
 
-## Part 1: CLI Architecture
+### Round 3 (8 plans per repo): Refinement
+- 6 Unified Protocols formalized: UOP, UTR, UCP, UMC, UC, USF
+- Implementation plan counts ranged from 8 to 52 depending on agent
 
-### 1.1 Role in Unified Stack
+### Round 4 (pre-existing + opus-1): Stabilization
+- consolidated-master-plan-round-4.md established the 13-Plan Strategy
+- All agents endorsed "Pragmatic Go Core" with JSON-RPC server
+- opus-1 expanded to 40-agent decomposition for parallel execution
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         obot Engine (Go)                                    │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                      cmd/server  (JSON-RPC)                         │   │
-│  │  Initialize project | Session management | Streaming state updates  │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                   │                                         │
-│  ┌──────────────┬────────────────┬──────────────┬──────────────────────┐   │
-│  │pkg/orchestrator│pkg/context   │pkg/model     │pkg/tools             │   │
-│  │               │               │              │                      │   │
-│  │ 5-Schedule    │ Token Budget  │ 4-Model      │ 22 Unified Tools    │   │
-│  │ 3-Process     │ Compression   │ Coordinator  │ File/Shell/Web/Git  │   │
-│  │ Navigation    │ Memory/Learn  │ Tier Detect  │ Delegation          │   │
-│  └──────────────┴────────────────┴──────────────┴──────────────────────┘   │
-│                                   │                                         │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                      pkg/ollama (Ollama Client)                      │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 1.2 Dual Mode Operation
-
-```bash
-# Mode 1: Standalone CLI (existing)
-obot main.go "fix the nil pointer dereference"
-obot orchestrate
-obot --saved
-
-# Mode 2: JSON-RPC Server (new, for IDE)
-obot server --stdio
-```
+### What Changed Between Rounds
+- DROPPED: Rust rewrite (Round 0-1), deemed too risky
+- EVOLVED: Protocol-Only (Round 0) -> Hybrid Protocol+Engine (Round 2+)
+- STABILIZED: 6 Protocols, Go Engine + Swift View, 13 -> 40 Atomic Plans
 
 ---
 
-## Part 2: Directory Structure (Target)
+## B. The Consensus Architecture
+
+- **obot (Go)** becomes the Universal Engine, exposing `obot server` via JSON-RPC over Stdio
+- **ollamabot (Swift)** becomes the High-Performance View Layer, communicating exclusively via JSON-RPC
+- **6 Unified Protocols** serve as the contract between engine and view
+
+---
+
+## C. The 6 Unified Protocols
+
+### UOP — Unified Orchestration Protocol
+- 5 Schedules: Knowledge, Plan, Implement, Scale, Production
+- 3 Processes per schedule with strict 1-2-3 adjacency navigation
+- Prompt termination requires all 5 schedules executed, Production last
+- Human consultation: optional at Plan/Clarify, mandatory at Implement/Feedback
+
+### UTR — Unified Tool Registry
+- 22 canonical tools across 6 categories:
+  - Core (3): think, complete, ask_user
+  - Files (10): read_file, create_file, edit_file, delete_file, create_dir, delete_dir, rename, move, copy, search_files, list_directory
+  - System (2): run_command, take_screenshot
+  - Delegation (3): delegate_to_coder, delegate_to_researcher, delegate_to_vision
+  - Web (2): web_search, fetch_url
+  - Git (3): git_status, git_diff, git_commit
+- Defined by tools.schema.json
+
+### UCP — Unified Context Protocol
+- Token-budgeted context allocation: Task 25%, Files 35%, Structure 15%, History 15%, Memory 8%, Errors 2%
+- Semantic compression for over-budget sections
+- Ported from Swift ContextManager.swift to Go pkg/context
+
+### UMC — Unified Model Coordinator
+- Hardware-aware tier detection (RAM-based): Minimal, Compact, Balanced, Performance, Advanced, Maximum
+- Intent routing: task type -> model role (orchestrator, coder, researcher, vision)
+- Merges IDE cloud pricing data with CLI hardware detection
+
+### UC — Unified Configuration
+- File: ~/.obot/config.yaml (YAML)
+- Scope: Tiers, Models, Quality Presets, Agent Settings, Orchestration, Consultation
+- Both products read the same file
+
+### USF — Unified State Format
+- File: ~/.obot/sessions/{id}.json
+- Scope: Full session persistence including flow code, recurrence relations, checkpoints, notes, stats
+- Sessions started in CLI can be resumed in IDE and vice versa
+
+---
+
+## D. CLI-Specific Architecture Changes
+
+### What the CLI Gains
+1. **Token-budgeted context** — Ported from Swift ContextManager; replaces simple text summary
+2. **Intent routing** — Automatic model selection based on task type, not just tier
+3. **.obotrules support** — CLI respects project-level AI rules
+4. **@mention system** — @file, @folder, @codebase, @context, @bot, @git syntax in CLI input
+5. **22-tool registry** — Adds web search, delegation, vision tools that CLI currently lacks
+6. **JSON-RPC server mode** — `obot server` exposes all engine functionality for IDE consumption
+7. **LLM-as-Judge** — Multi-expert analysis with TLDR synthesis at session end
+8. **Full GitHub/GitLab integration** — Repository creation, PR/MR, auto-push on completion
+
+### What the CLI Restructures
+- `internal/` packages move to `pkg/` for reusability
+- CLI-specific wiring stays in `internal/cli/`
+- New `cmd/server/` entry point for JSON-RPC mode
+
+### New CLI Directory Structure
 
 ```
 obot/
-├── cmd/
-│   ├── obot/           # CLI entrypoint (existing)
-│   │   └── main.go
-│   └── server/         # NEW: JSON-RPC server for IDE
-│       └── main.go
-├── pkg/                # NEW: Shared packages (extracted from internal/)
-│   ├── orchestrator/   # 5-Schedule orchestration
-│   │   ├── scheduler.go
-│   │   ├── navigator.go
-│   │   ├── types.go
-│   │   └── state.go
-│   ├── context/        # PORTED: From Swift ContextManager
-│   │   ├── manager.go
-│   │   ├── budget.go
-│   │   ├── compression.go
-│   │   ├── memory.go
-│   │   └── mentions.go
-│   ├── model/          # Multi-model coordination
-│   │   ├── coordinator.go
-│   │   ├── tier.go
-│   │   └── delegation.go
-│   ├── tools/          # 22 unified tools
-│   │   ├── registry.go
-│   │   ├── file.go
-│   │   ├── shell.go
-│   │   ├── web.go
-│   │   ├── git.go
-│   │   └── delegation.go
-│   ├── session/        # Session persistence
-│   │   ├── session.go
-│   │   ├── storage.go
-│   │   └── recovery.go
-│   ├── obot/           # .obotrules + bots (PORTED from Swift)
-│   │   ├── rules.go
-│   │   ├── bots.go
-│   │   ├── templates.go
-│   │   └── snippets.go
-│   ├── server/         # JSON-RPC protocol
-│   │   ├── handler.go
-│   │   ├── protocol.go
-│   │   └── stream.go
-│   └── ollama/         # Ollama client (existing, enhanced)
-│       ├── client.go
-│       ├── stream.go
-│       └── models.go
-├── internal/           # CLI-specific internals
-│   └── cli/
-│       └── ...
-└── configs/
-    └── schema/         # JSON schemas for protocols
-        ├── action.json
-        ├── context.json
-        └── session.json
+  cmd/
+    obot/main.go              — Existing CLI entry point
+    server/main.go            — NEW: JSON-RPC server entry point
+  pkg/
+    config/
+      loader.go               — YAML config loader + validation
+      schema.go               — Schema conformance checking
+      migrate.go              — Legacy config migration
+    context/
+      manager.go              — Token budgeting engine
+      budget.go               — Budget allocation logic
+      compress.go             — Semantic compression
+    tier/
+      detect.go               — Cross-platform RAM detection
+      models.go               — Tier-to-model mapping
+      router.go               — Intent-based model routing
+    tools/
+      think.go                — Internal reasoning tool
+      complete.go             — Process completion signal
+      ask_user.go             — User input with timeout
+      file_read.go            — File read
+      file_create.go          — File create with auto-mkdir
+      file_edit.go            — Search-and-replace editing
+      file_delete.go          — File deletion
+      file_list.go            — Directory listing
+      file_search.go          — Text search (ripgrep-style)
+      file_rename.go          — Rename file/dir
+      file_move.go            — Move file/dir
+      file_copy.go            — Copy file/dir
+      dir_create.go           — Create directory
+      dir_delete.go           — Delete directory
+      run_command.go           — Shell command execution
+      screenshot.go            — Screenshot capture
+      delegate_coder.go        — Delegate to coder model
+      delegate_researcher.go   — Delegate to researcher model
+      delegate_vision.go       — Delegate to vision model
+      web_search.go            — DuckDuckGo search
+      fetch_url.go             — HTTP GET with content extraction
+      git_status.go            — Git status
+      git_diff.go              — Git diff
+      git_commit.go            — Git commit
+    orchestrator/
+      orchestrator.go          — 5-schedule state machine
+      navigator.go             — 1-2-3 process navigation
+      terminator.go            — Prompt termination logic
+    session/
+      session.go               — USF persistence
+      recurrence.go            — State recurrence relations (BFS)
+      restore.go               — Restore script generation
+      migrate.go               — Legacy session migration
+    server/
+      handler.go               — JSON-RPC 2.0 handler
+      methods.go               — RPC method implementations
+      transport.go             — Stdio transport layer
+    rules/
+      parser.go                — .obotrules markdown parser
+      loader.go                — Rules file discovery + loading
+    mention/
+      parser.go                — @mention syntax parser
+      resolver.go              — Mention-to-content resolution
+    judge/
+      coordinator.go           — Multi-expert analysis orchestration
+      expert.go                — Individual expert analysis
+      synthesis.go             — Orchestrator TLDR synthesis
+    consultation/
+      handler.go               — Human consultation framework
+      timeout.go               — 60s timeout + 15s countdown
+      substitute.go            — AI substitute generation
+    git/
+      manager.go               — Git operation coordinator
+      github.go                — GitHub API client
+      gitlab.go                — GitLab API client
+  internal/
+    cli/                       — CLI-specific wiring (thin, delegates to pkg/)
 ```
 
 ---
 
-## Part 3: Components Ported FROM IDE
+## E. CLI Agent Assignments (From 40-Agent Explosion)
 
-### 3.1 Context Manager (Swift -> Go)
+The following agents are CLI-scoped:
 
-**Source:** `ollamabot/Sources/Services/ContextManager.swift`
-**Target:** `obot/pkg/context/manager.go`
+| Agent | Plan | Owns | Est. Lines |
+|-------|------|------|-----------|
+| A04 | CORE-REFACTOR | pkg/core/, cmd restructure | ~600 |
+| A05 | CONFIG-GO | pkg/config/ (loader, schema, migrate) | ~400 |
+| A06 | TIER-GO | pkg/tier/ (detect, models, router) | ~500 |
+| A07 | CONTEXT-GO | pkg/context/ (manager, budget, compress) | ~700 |
+| A08 | SESSION-GO | pkg/session/ (session, recurrence, restore) | ~600 |
+| A09 | ORCHESTRATOR-GO | pkg/orchestrator/ (orchestrator, navigator, terminator) | ~800 |
+| A10 | TOOLS-CORE | pkg/tools/ (think, complete, ask_user) | ~200 |
+| A11 | TOOLS-FILE-CRUD | pkg/tools/ (read, create, edit, delete) | ~350 |
+| A12 | TOOLS-FILE-MGMT | pkg/tools/ (list, search, rename, move, copy, dirs) | ~450 |
+| A13 | TOOLS-SYSTEM | pkg/tools/ (run_command, screenshot) | ~200 |
+| A14 | TOOLS-DELEGATION | pkg/tools/ (delegate_coder/researcher/vision) | ~300 |
+| A15 | TOOLS-WEB | pkg/tools/ (web_search, fetch_url) | ~300 |
+| A16 | TOOLS-GIT | pkg/tools/ (git_status, git_diff, git_commit) | ~250 |
+| A17 | RPC-SERVER | pkg/server/, cmd/server/ | ~600 |
+| A18 | OBOTRULES-GO | pkg/rules/ (parser, loader) | ~300 |
+| A19 | MENTION-GO | pkg/mention/ (parser, resolver) | ~400 |
+| A20 | JUDGE-GO | pkg/judge/ (coordinator, expert, synthesis) | ~500 |
+| A21 | CONSULTATION-GO | pkg/consultation/ (handler, timeout, substitute) | ~350 |
+| A22 | GIT-INTEGRATION | pkg/git/ (manager, github, gitlab) | ~500 |
+| A34 | SESSION-MIGRATION | pkg/session/migrate.go | ~250 |
 
-Key types: Manager, Config, TokenBudget.
-Methods: BuildContext, compressContent, isPreservableLine.
-Token budget allocation: System 8%, Rules 10%, Task 25%, Files 33%, Structure 16%, History 12%, Memory 8%, Errors 4%.
-
-Features to port:
-- Token budget allocation with percentage-based sections
-- Semantic compression (preserve imports, signatures, error handling)
-- Conversation memory with relevance scoring
-- Error pattern learning with warning thresholds
-- Inter-agent context passing for delegation
-- Project semantic cache
-
-### 3.2 OBot Rules System (Swift -> Go)
-
-**Source:** `ollamabot/Sources/Services/OBotService.swift`
-**Target:** `obot/pkg/obot/rules.go`
-
-Key types: Rules, Bot, Step.
-Functions: LoadRules (reads .obotrules), LoadBots (reads .obot/bots/*.yaml).
-
-### 3.3 Mention Resolution (Swift -> Go)
-
-**Source:** `ollamabot/Sources/Services/MentionService.swift`
-**Target:** `obot/pkg/context/mentions.go`
-
-Key types: MentionType, Mention, MentionResolver.
-Supported types: file, bot, context, web, git, selection, folder, docs.
-
-### 3.4 Multi-Model Coordination (Swift -> Go)
-
-**Source:** `ollamabot/Sources/Services/ModelTierManager.swift`
-**Target:** `obot/pkg/model/coordinator.go`
-
-4-model coordination: orchestrator, coder, researcher, vision.
-RAM-based tier detection with 6 tiers (minimal through maximum).
-Intent-based routing for automatic model selection.
+**Total new Go**: ~7,850 lines
+**Total moved (internal -> pkg)**: ~2,000 lines
 
 ---
 
-## Part 4: Orchestration System Enhancement
+## F. Success Criteria (CLI-Specific)
 
-### 4.1 Existing 5-Schedule System
-
-Already implemented in `internal/orchestrate/orchestrator.go`:
-- Knowledge -> Plan -> Implement -> Scale -> Production
-- 3 processes per schedule (P1, P2, P3)
-- Navigation rules: P1->{P1,P2}, P2->{P1,P2,P3}, P3->{P2,P3}
-- Termination: all 5 schedules visited, Production last, at P3
-
-### 4.2 Enhancements Needed
-
-- Add JSON-RPC state streaming (emit StateUpdate on every navigation)
-- Add human consultation handler with configurable timeout (60s default)
-- Add flow code tracking (S1P123S2P12 format)
-- Add model delegation per schedule (researcher for Knowledge, coder for Implement)
-- Add session persistence in USF format
+1. `go build ./...` passes with new pkg/ structure
+2. `go test ./...` passes with >70% coverage on pkg/
+3. `obot server` starts and responds to JSON-RPC `initialize` call
+4. All 22 tools execute via both CLI and RPC paths
+5. Token-budgeted context produces output within budget for 32K window
+6. Orchestration state machine rejects P1->P3 navigation, accepts P1->P2
+7. Prompt termination blocked until all 5 schedules have run
+8. .obotrules parsed and injected into system prompts
+9. @mention syntax resolves @file:main.go to file content
+10. Session round-trips through save/load with correct flow code
+11. Config migration converts legacy JSON to unified YAML
+12. LLM-as-Judge produces structured TLDR with scores
 
 ---
 
-## Part 5: IDE Features to Port INTO CLI (16)
+## G. Risk Register (CLI-Specific)
 
-| # | Feature | Priority | Implementation |
-|---|---------|----------|----------------|
-| 1 | OBot System | P0 | Parse .obotrules, .obot/bots/*.yaml |
-| 2 | Multi-Model Coordination | P0 | 4-model orchestrator/coder/researcher/vision |
-| 3 | Context Management (UCP) | P0 | Token budgets, compression, memory |
-| 4 | @Mention System | P1 | @file, @folder, @git, @bot resolution |
-| 5 | Checkpoint System | P1 | Save/restore code states |
-| 6 | Web Tools | P1 | web_search, fetch_url tools |
-| 7 | Vision Integration | P2 | Image analysis via vision model |
-| 8 | Intent Routing | P2 | Auto model selection by task type |
-| 9 | Chat History | P2 | Persistent conversation storage |
-| 10 | File Indexing | P3 | Background codebase search index |
-| 11 | Inline Completions | P3 | Tab completion suggestions |
-| 12 | Explorer Mode | P3 | Continuous autonomous improvement |
-| 13 | Composer Mode | P3 | Multi-file agent orchestration |
-| 14 | Design System | - | N/A (CLI has no GUI) |
-| 15 | Process Monitoring | P3 | Resource usage tracking |
-| 16 | Command Palette | - | N/A (CLI has no GUI) |
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| pkg/ refactor breaks existing CLI commands | High | High | Keep internal/cli/ as thin wrapper; comprehensive integration tests |
+| Orchestration state machine has undiscovered bugs | Medium | High | Validate end-to-end before IDE port; navigation rule unit tests |
+| Context port from Swift introduces semantic drift | Medium | Medium | Golden tests comparing Go output to Swift reference output |
+| RPC server Stdio transport limits concurrency | Medium | Medium | Single-request pipelining initially; evaluate multiplexing if needed |
+| Legacy config migration loses user settings | Low | High | Back up originals to ~/.obot/legacy/; dry-run mode for migration |
+| 22-tool registry increases attack surface | Low | Medium | Sandbox run_command; validate all file paths against project root |
 
 ---
 
-## Part 6: Unified Specifications (CLI Must Conform)
+## H. Agent-to-Agent Meta-Analysis
 
-### 6.1 Five Core Standards
+### Design Tendencies Observed
 
-| Standard | Abbrev. | CLI Role |
-|----------|---------|----------|
-| Unified Config Schema (UCS) | config.json | Read/write shared config |
-| Unified Session Format (USF) | sessions/*.json | Persist and restore sessions |
-| Unified Tool Registry (UTR) | tools.json | Load tool definitions |
-| Unified Context Protocol (UCP) | Runtime | Build and manage context |
-| Unified Orchestration Protocol (UOP) | Runtime | Execute 5x3 schedule system |
+1. **Metaphor-driven prioritization**: Gemini-3 named the context port "Brain Transplant" and it dominated subsequent attention, while the RPC server (higher engineering risk) received less analysis.
 
-### 6.2 Unified Action Schema
+2. **Consensus by manufactured urgency**: A March deadline appears only in Gemini plans and was never a stated user requirement, yet it was the forcing function to reject Rust.
 
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "id": { "type": "string", "format": "uuid" },
-    "type": {
-      "enum": [
-        "think", "complete", "ask_user",
-        "read_file", "create_file", "edit_file", "delete_file",
-        "create_dir", "delete_dir", "rename", "move", "copy",
-        "search_files", "list_directory",
-        "run_command", "take_screenshot",
-        "delegate_to_coder", "delegate_to_researcher", "delegate_to_vision",
-        "web_search", "fetch_url",
-        "git_status", "git_diff", "git_commit"
-      ]
-    },
-    "params": { "type": "object" },
-    "result": { "type": "object" },
-    "timestamp": { "type": "string", "format": "date-time" },
-    "duration_ms": { "type": "integer" },
-    "schedule": { "enum": ["knowledge", "plan", "implement", "scale", "production"] },
-    "process": { "enum": [1, 2, 3] }
-  },
-  "required": ["id", "type", "params", "timestamp"]
-}
-```
+3. **Relabeling as contribution**: The 6 Unified Protocols in Round 3 are structurally identical to Opus-2's 6 shared contracts from Round 0, renamed with acronyms.
 
-### 6.3 Context Protocol
+4. **Premature convergence**: By Round 3, agents were writing endorsement and polling-status documents rather than contributing new analysis.
 
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "version": { "const": "2.0" },
-    "budget": {
-      "type": "object",
-      "properties": {
-        "total_tokens": { "type": "integer" },
-        "allocated": {
-          "type": "object",
-          "properties": {
-            "system": { "type": "number" },
-            "rules": { "type": "number" },
-            "task": { "type": "number" },
-            "files": { "type": "number" },
-            "structure": { "type": "number" },
-            "history": { "type": "number" },
-            "memory": { "type": "number" },
-            "errors": { "type": "number" }
-          }
-        }
-      }
-    }
-  }
-}
-```
+5. **Narrative coherence over operational parallelism**: Every agent gravitated toward fewer, larger plans (8-13) despite the 40-agent requirement.
 
-### 6.4 Session Format (USF)
+### Unquestioned Assumptions Worth Revisiting
 
-```json
-{
-  "version": "1.0.0",
-  "session_id": "uuid",
-  "platform_origin": "cli|ide",
-  "prompt": { "original": "...", "working_directory": "/path" },
-  "flow_code": "S1P123S2P12",
-  "orchestration": {
-    "current_schedule": "implement",
-    "current_process": 2,
-    "history": [...]
-  },
-  "actions": [...],
-  "checkpoints": [...],
-  "statistics": { "tokens_used": 45000, "savings": 0.45 }
-}
-```
-
-### 6.5 Shared Config (UCS)
-
-```json
-{
-  "version": "1.0.0",
-  "ai": {
-    "ollama_url": "http://localhost:11434",
-    "models": {
-      "orchestrator": "qwen3:32b",
-      "coder": "qwen2.5-coder:32b",
-      "researcher": "command-r:35b",
-      "vision": "qwen3-vl:32b"
-    },
-    "temperature": { "coding": 0.3, "research": 0.7 },
-    "maxTokens": 4096
-  },
-  "agent": {
-    "quality": "balanced",
-    "maxSteps": 50,
-    "confirmDestructive": true
-  },
-  "tiers": {
-    "auto_detect": true,
-    "definitions": {
-      "minimal": { "ram_gb": 8, "model": "deepseek-coder:1.3b" },
-      "performance": { "ram_gb": 32, "model": "qwen2.5-coder:32b" }
-    }
-  }
-}
-```
+1. JSON-RPC over Stdio — no evaluation of alternatives (gRPC, Unix sockets, embedded Go)
+2. The 5-Schedule model — the current Go implementation is largely stubbed
+3. Protocol-Only was dismissed early but remains the lowest-risk Phase 1 option
 
 ---
 
-## Part 7: Implementation Roadmap (CLI)
-
-### Week 1-2: Refactoring
-- Move `internal/` -> `pkg/` for shared packages
-- Implement `pkg/context/manager.go` (port from Swift)
-- Implement `pkg/obot/rules.go` (port from Swift)
-- Add JSON-RPC scaffolding to `cmd/server/`
-
-### Week 3-4: Server Mode
-- Define all JSON schemas in `configs/schema/`
-- Implement full `pkg/server/handler.go`
-- Add streaming state updates via JSON-RPC notifications
-- Implement multi-model coordinator
-- Add web tools (search, fetch)
-
-### Week 5-6: Feature Parity
-- Add @mention resolution to context builder
-- Add checkpoint system
-- Add vision model integration
-- Add intent routing
-- Reduce packages from 27 to 12
-
-### Week 7-8: Testing & Polish
-- Cross-platform session tests
-- Performance benchmarks
-- Golden test suite for prompts/outputs
-- Documentation and migration guide
-
----
-
-## Part 8: Success Metrics (CLI)
-
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Go LOC increase | +30% | Ported logic from Swift |
-| Protocol compliance | 100% | Schema validation |
-| Session portability | 100% | CLI<->IDE handoff |
-| Tool parity | 22/22 | All unified tools |
-| Server mode latency | <50ms | RPC round-trip |
-| Test coverage | 75% | Unit + integration tests |
-| Package count | 12 | Reduced from 27 |
-
----
-
-## Part 9: Risk Mitigation (CLI)
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| internal/ to pkg/ breakage | Medium | Incremental migration with aliases |
-| Context port fidelity | Medium | Golden tests comparing Swift vs Go output |
-| Server mode stability | High | Graceful shutdown, connection recovery |
-| Model coordination complexity | Medium | Start with 2-model, scale to 4 |
-| Breaking CLI users | High | Feature flags, backward compatibility |
-
----
-
-## Conclusion
-
-The obot CLI transforms from a standalone tool into the canonical execution engine for the entire OllamaBot ecosystem. It absorbs the IDE's intelligence (context management, mentions, OBot rules, multi-model coordination) while exposing everything via JSON-RPC for the IDE client. This provides:
-
-1. Single source of truth for all AI/orchestration logic
-2. Automatic feature parity - IDE features become CLI features and vice versa
-3. Testable core - unit test Go packages independently
-4. Session continuity - sessions created in CLI are resumable in IDE
-5. Pragmatic migration - incremental porting, no rewrite
-
----
-
-**Plan Author:** opus-1
-**Plan Version:** 2.0.0
-**Round:** 2
+*This is the definitive CLI master plan. See explosion-plan-opus-1.md for the full 40-agent decomposition.*
