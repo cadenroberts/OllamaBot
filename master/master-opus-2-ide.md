@@ -1,359 +1,234 @@
-# OllamaBot IDE Harmonization Master Plan
-## Agent: opus-2 | Platform: IDE (Swift/SwiftUI)
-
-**Date:** 2026-02-05
-**Round:** Final Consolidation
-**Scope:** All IDE-side changes required for OllamaBot/obot harmonization
-**Target:** March 2026 Release
+# MASTER PLAN: OllamaBot IDE Harmonization
+## Agent: opus-2 | Final Consolidation | March 2026 Release
 
 ---
 
 ## Executive Summary
 
-This plan specifies every IDE-side change needed to harmonize OllamaBot (Swift/macOS) with obot (Go CLI) under a protocol-first, zero-shared-code architecture. The IDE gains orchestration, quality presets, cost tracking, session portability, and shared configuration -- while preserving its existing strengths in multi-model delegation, context management, and rich UI.
+This is the IDE-specific master plan for harmonizing OllamaBot (Swift/macOS IDE) with obot (Go CLI) into a unified product ecosystem. It covers all IDE enhancements, refactoring, and protocol adoption required for the March 2026 release.
+
+**Architecture:** Protocol-First -- shared YAML/JSON behavioral contracts, zero shared code, independent Swift implementation.
 
 ---
 
-## Architecture Decision
+## Part 1: IDE Current State
 
-**Protocol-Native, Zero Shared Code.** Both products implement the same behavioral contracts (JSON schemas, YAML configuration) in their native languages. The IDE does NOT wrap or call the CLI binary. Instead, it ports the orchestration state machine to Swift natively and reads the same shared configuration files.
+| Metric | Value |
+|--------|-------|
+| LOC | ~34,489 |
+| Files | 63 |
+| Modules | 5 (Agent, Models, Services, Utilities, Views) |
+| Agent Tools | 18+ (read-write) |
+| Models | 4 (orchestrator, coder, researcher, vision) |
+| Token Management | Sophisticated (ContextManager) |
+| Orchestration | None (infinite loop + explore mode) |
+| Config | UserDefaults |
+| Session Persistence | In-memory only |
 
----
+**Key Strengths:**
+- Multi-model delegation (4 specialized models)
+- Token-budgeted context management with semantic compression
+- Rich SwiftUI interface with streaming responses
+- 18 agent tools including web search, git, vision
+- Intent-based model routing
 
-## Part 1: Shared Configuration Integration
-
-### 1.1 SharedConfigService (NEW)
-
-**File:** `Sources/Services/SharedConfigService.swift`
-**Purpose:** Read the unified YAML configuration at `~/.config/ollamabot/config.yaml`
-**Dependencies:** Yams (Swift YAML parser)
-
-```swift
-import Yams
-
-@Observable
-class SharedConfigService {
-    var config: UnifiedConfig
-
-    struct UnifiedConfig: Codable {
-        var version: String
-        var platform: PlatformConfig
-        var models: ModelsConfig
-        var quality: QualityConfig
-        var context: ContextConfig
-        var orchestration: OrchestrationConfig
-        var platforms: PlatformsConfig
-    }
-
-    struct ModelsConfig: Codable {
-        var orchestrator: ModelEntry
-        var coder: ModelEntry
-        var researcher: ModelEntry
-        var vision: ModelEntry
-    }
-
-    struct ModelEntry: Codable {
-        var primary: String
-        var tierMapping: [String: String]
-    }
-
-    func load() throws {
-        let configPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".config/ollamabot/config.yaml")
-        let yaml = try String(contentsOf: configPath)
-        config = try YAMLDecoder().decode(UnifiedConfig.self, from: yaml)
-    }
-}
-```
-
-### 1.2 ConfigurationService Updates
-
-**File:** `Sources/Services/ConfigurationService.swift`
-**Change:** Read shared config for model definitions, quality presets, context budgets. Retain UserDefaults ONLY for IDE-specific visual preferences (theme, font size, editor settings).
-
-**Specific changes:**
-- Add `SharedConfigService` dependency
-- Replace hardcoded model names with `config.models.{role}.primary`
-- Replace hardcoded tier detection with `config.models.{role}.tierMapping`
-- Load quality preset definitions from `config.quality.presets`
-- Load context budget allocation from `config.context.budgetAllocation`
+**Key Gaps:**
+- No formal orchestration framework (CLI has 5-schedule x 3-process)
+- No quality presets (fast/balanced/thorough)
+- No cost/savings tracking
+- No dry-run/preview mode
+- No cross-platform session persistence
+- Configuration not shared with CLI
+- AgentExecutor.swift is 1,069 lines (needs splitting)
 
 ---
 
-## Part 2: Orchestration Service (NEW)
+## Part 2: The 6 Protocols (IDE Perspective)
 
-### 2.1 OrchestrationService
+### UC -- Unified Configuration
+- **IDE Action:** Read `~/.config/ollamabot/config.yaml` via new `SharedConfigService.swift`
+- **Retain:** UserDefaults for IDE-only visual prefs (theme, font size, sidebar width)
+- **Library:** Yams (Swift YAML parser)
 
-**File:** `Sources/Services/OrchestrationService.swift`
-**Purpose:** Port obot's 5-schedule x 3-process orchestration framework to Swift
+### UTR -- Unified Tool Registry
+- **IDE Action:** Validate existing 18 tools against `tools.schema.json`
+- **Normalize:** Tool IDs to canonical format (e.g., `read_file` -> `file.read`)
+- **Add missing:** `git.push`, `session.note`
 
-```swift
-@Observable
-class OrchestrationService {
-    enum Schedule: Int, CaseIterable {
-        case knowledge = 1    // Research, Crawl, Retrieve
-        case plan = 2         // Brainstorm, Clarify, Plan
-        case implement = 3    // Implement, Verify, Feedback
-        case scale = 4        // Scale, Benchmark, Optimize
-        case production = 5   // Analyze, Systemize, Harmonize
-    }
+### UCP -- Unified Context Protocol
+- **IDE Action:** Validate ContextManager output against `context.schema.json`
+- **Already implemented:** Token budgets, semantic compression, error learning
+- **Export:** Add UCP JSON export for cross-platform context sharing
 
-    enum Process: Int, CaseIterable {
-        case first = 1, second = 2, third = 3
-    }
+### UOP -- Unified Orchestration Protocol
+- **IDE Action:** NEW `OrchestrationService.swift` implementing 5-schedule state machine
+- **Port from:** CLI's `internal/orchestrate/orchestrator.go` (behavioral port, not code port)
+- **Integration:** Add as third mode alongside Infinite Mode and Explore Mode
 
-    var currentSchedule: Schedule?
-    var currentProcess: Process?
-    var flowCode: String = ""
-    var completedSchedules: Set<Schedule> = []
-    var consultations: [Consultation] = []
+### USF -- Unified Session Format
+- **IDE Action:** NEW `UnifiedSessionService.swift` for JSON session read/write
+- **Enable:** Session export to CLI-compatible format, import from CLI sessions
+- **Update:** CheckpointService to persist using USF format
 
-    // Navigation rules: strict 1<->2<->3
-    func canNavigate(from: Process, to: Process) -> Bool {
-        abs(from.rawValue - to.rawValue) <= 1
-    }
-
-    // Flow code generation: S1P123S2P12...
-    func appendFlowCode(schedule: Schedule, process: Process) {
-        flowCode += "S\(schedule.rawValue)P\(process.rawValue)"
-    }
-
-    // Termination: all 5 schedules visited, production last
-    func canTerminate() -> Bool {
-        completedSchedules.count == 5 &&
-        currentSchedule == .production &&
-        currentProcess == .third
-    }
-}
-```
-
-### 2.2 OrchestrationView (NEW)
-
-**File:** `Sources/Views/OrchestrationView.swift`
-**Purpose:** UI for schedule/process visualization with flow code display
-
-Components:
-- Schedule progress indicator (5 phases with completion state)
-- Process navigator (P1/P2/P3 with navigation rules enforced)
-- Flow code display bar (e.g., S1P123S2P12)
-- Human consultation modal integration
-
-### 2.3 FlowCodeView (NEW)
-
-**File:** `Sources/Views/FlowCodeView.swift`
-**Purpose:** Compact flow code display showing orchestration path
-
-### 2.4 AgentExecutor Integration
-
-**File:** `Sources/Agent/AgentExecutor.swift`
-**Change:** Add orchestration mode alongside existing infinite and explore modes
-
-```swift
-enum AgentMode {
-    case infinite      // Existing: loop until complete
-    case explore       // Existing: 6-phase autonomous
-    case orchestration // NEW: 5-schedule framework
-}
-```
-
-When `mode == .orchestration`, the executor delegates to `OrchestrationService` for schedule/process navigation and uses the standard tool system for execution within each process.
+### UMC -- Unified Model Coordinator
+- **IDE Action:** Update `ModelTierManager.swift` to read tier mappings from shared config
+- **Remove:** Hardcoded model names from `OllamaModel` enum
+- **Add:** RAM-aware fallback chains from shared config
 
 ---
 
-## Part 3: Quality Presets (NEW)
+## Part 3: IDE Implementation Plans (I-01 through I-10)
 
-### 3.1 QualityPresetService
+### I-01: Shared Config Service (YAML Reader)
+- **New file:** `Sources/Services/SharedConfigService.swift`
+- **Purpose:** Read `~/.config/ollamabot/config.yaml` using Yams
+- **Modify:** `Sources/Services/ConfigurationService.swift` to delegate shared settings
+- **Priority:** P0 | **Effort:** Medium | **Week:** 1
 
-**File:** `Sources/Services/QualityPresetService.swift`
+### I-02: OrchestrationService (5-Schedule State Machine)
+- **New file:** `Sources/Services/OrchestrationService.swift`
+- **Purpose:** 5-schedule x 3-process state machine with navigation rules
+- **Schedules:** Knowledge, Plan, Implement, Scale, Production
+- **Navigation:** P1->{P1,P2}, P2->{P1,P2,P3}, P3->{P2,P3,terminate}
+- **Flow code:** Generate S1P123S2P12... tracking strings
+- **Priority:** P0 | **Effort:** Large | **Week:** 3
 
-```swift
-enum QualityPreset: String, CaseIterable {
-    case fast       // Single pass, no plan, no review
-    case balanced   // Plan + execute + review
-    case thorough   // Plan + execute + review + revise loop
-}
+### I-03: Orchestration UI
+- **New file:** `Sources/Views/OrchestrationView.swift`
+- **New file:** `Sources/Views/FlowCodeView.swift`
+- **Purpose:** Schedule/process visualization with flow code display
+- **Modify:** `Sources/Agent/AgentExecutor.swift` to add orchestration mode
+- **Priority:** P1 | **Effort:** Medium | **Week:** 3
 
-@Observable
-class QualityPresetService {
-    var activePreset: QualityPreset = .balanced
+### I-04: Quality Presets UI
+- **New file:** `Sources/Views/QualityPresetView.swift`
+- **Purpose:** Fast/Balanced/Thorough selector
+- **Presets from config:** pipeline steps, verification level, target time
+- **Priority:** P1 | **Effort:** Small | **Week:** 4
 
-    var pipeline: [ExecutionPhase] {
-        switch activePreset {
-        case .fast:     return [.execute]
-        case .balanced: return [.plan, .execute, .review]
-        case .thorough: return [.plan, .execute, .review, .revise]
-        }
-    }
-}
-```
+### I-05: Cost Tracking Service
+- **New file:** `Sources/Services/CostTrackingService.swift`
+- **Purpose:** Token usage calculator, savings vs commercial APIs
+- **Pricing:** Claude Opus $0.015/$0.075, Sonnet $0.003/$0.015, GPT-4o $0.005/$0.015
+- **Priority:** P2 | **Effort:** Small | **Week:** 4
 
-### 3.2 QualityPresetView (NEW)
+### I-06: Human Consultation Modal
+- **New file:** `Sources/Views/ConsultationView.swift`
+- **Purpose:** Modal dialog with countdown timer and AI fallback
+- **Timeouts:** Clarify=60s (optional), Feedback=300s (mandatory)
+- **Priority:** P1 | **Effort:** Medium | **Week:** 4
 
-**File:** `Sources/Views/QualityPresetView.swift`
-**Purpose:** Segmented control for Fast/Balanced/Thorough selection in the chat toolbar
+### I-07: Dry-Run Preview Mode
+- **New file:** `Sources/Services/PreviewService.swift`
+- **Purpose:** Execute agent without writing files, show diff preview
+- **Priority:** P1 | **Effort:** Medium | **Week:** 4
 
----
+### I-08: Unified Session Service (USF)
+- **New file:** `Sources/Services/UnifiedSessionService.swift`
+- **Purpose:** Read/write USF JSON sessions
+- **Schema:** version, session_id, task, workspace, orchestration_state, history, checkpoints
+- **Priority:** P1 | **Effort:** Large | **Week:** 5
 
-## Part 4: Cost Tracking (NEW)
+### I-09: Session Handoff
+- **New file:** `Sources/Services/SessionHandoffService.swift`
+- **Purpose:** Export IDE session to CLI format, import CLI session into IDE
+- **Modify:** `Sources/Services/CheckpointService.swift` for USF persistence
+- **Priority:** P1 | **Effort:** Medium | **Week:** 5
 
-### 4.1 CostTrackingService
-
-**File:** `Sources/Services/CostTrackingService.swift`
-**Purpose:** Track token usage and calculate savings vs commercial APIs
-
-```swift
-@Observable
-class CostTrackingService {
-    struct CostComparison {
-        var totalTokens: Int64
-        var claudeOpusCost: Double
-        var claudeSonnetCost: Double
-        var gpt4oCost: Double
-        var ollamaCost: Double  // $0 (local)
-        var totalSaved: Double
-    }
-
-    var sessionTokens: Int64 = 0
-    var lifetimeTokens: Int64 = 0
-
-    func calculateSavings() -> CostComparison { ... }
-}
-```
-
----
-
-## Part 5: Human Consultation (NEW)
-
-### 5.1 ConsultationView
-
-**File:** `Sources/Views/ConsultationView.swift`
-**Purpose:** Modal dialog with countdown timer and AI fallback
-
-Behavior:
-- Appears during orchestration Clarify (optional, 60s) and Feedback (mandatory, 300s) processes
-- Shows countdown timer
-- On timeout: falls back to AI substitute response
-- User can respond at any time to cancel timer
+### I-10: Model Tier Manager (Shared Config)
+- **Modify:** `Sources/Services/ModelTierManager.swift`
+- **Purpose:** Read tier mappings from shared YAML config instead of hardcoded values
+- **Priority:** P1 | **Effort:** Small | **Week:** 2
 
 ---
 
-## Part 6: Session Portability (NEW)
+## Part 4: IDE Refactoring Plans (R-01 through R-04)
 
-### 6.1 UnifiedSessionService
+### R-01: Split AgentExecutor
+- **Current:** `Sources/Agent/AgentExecutor.swift` (1,069 lines)
+- **Split into:**
+  - `Sources/Agent/Core/AgentExecutor.swift` (~200 lines, loop only)
+  - `Sources/Agent/Core/ToolExecutor.swift` (~150 lines)
+  - `Sources/Agent/Core/VerificationEngine.swift` (~100 lines)
+- **Priority:** P1 | **Effort:** Medium | **Week:** 3
 
-**File:** `Sources/Services/UnifiedSessionService.swift`
-**Purpose:** Read/write Unified Session Format (USF) JSON files
+### R-02: Tools Modularization
+- **Split tool implementations into:**
+  - `Sources/Agent/Tools/FileTools.swift`
+  - `Sources/Agent/Tools/SystemTools.swift`
+  - `Sources/Agent/Tools/AITools.swift`
+  - `Sources/Agent/Tools/WebTools.swift`
+  - `Sources/Agent/Tools/GitTools.swift`
+- **Priority:** P2 | **Effort:** Medium | **Week:** 3
 
-```swift
-struct UnifiedSession: Codable {
-    var version: String = "1.0"
-    var sessionId: String
-    var createdAt: Date
-    var sourcePlatform: String
-    var task: TaskState
-    var orchestrationState: OrchestrationState?
-    var conversationHistory: [Message]
-    var filesModified: [String]
-    var checkpoints: [Checkpoint]
-    var stats: SessionStats
-}
-```
+### R-03: Decision/Execution Separation
+- **New file:** `Sources/Agent/Support/DelegationHandler.swift`
+- **New file:** `Sources/Agent/Support/ErrorRecovery.swift`
+- **Priority:** P2 | **Effort:** Small | **Week:** 3
 
-### 6.2 SessionHandoffService
-
-**File:** `Sources/Services/SessionHandoffService.swift`
-**Purpose:** Export IDE sessions to CLI-compatible USF, import CLI sessions into IDE
-
-Session directory: `~/.config/ollamabot/sessions/{session_id}.json`
-
----
-
-## Part 7: Dry-Run Preview Mode (NEW)
-
-**File:** `Sources/Services/PreviewService.swift`
-**Purpose:** Execute agent in dry-run mode where file writes are captured but not applied. Shows diff preview for all proposed changes before user confirms.
+### R-04: Mode Executors Refactor
+- **Purpose:** Clean separation between Infinite, Explore, and Orchestration modes
+- **Each mode gets its own executor that delegates to shared ToolExecutor
+- **Priority:** P2 | **Effort:** Medium | **Week:** 3
 
 ---
 
-## Part 8: IDE Refactoring
+## Part 5: Success Criteria (IDE)
 
-### 8.1 Split AgentExecutor
+### Must-Have for March
+- [ ] Reads shared `config.yaml` from `~/.config/ollamabot/`
+- [ ] Orchestration mode with 5-schedule framework
+- [ ] Quality presets (fast/balanced/thorough)
+- [ ] Session export/import in USF format
+- [ ] AgentExecutor split into <500 line files
+- [ ] Model tier mappings from shared config
 
-**Current:** `Sources/Agent/AgentExecutor.swift` (1069 lines)
-**Target:** Split into:
-- `Sources/Agent/OrchestratorEngine.swift` -- Decision logic, model routing, schedule navigation
-- `Sources/Agent/ExecutionAgent.swift` -- Tool execution, file operations, result reporting
+### Performance Gates
+- No UI regression (maintain 60fps)
+- Config loading: <50ms additional overhead
+- Session save/load: <200ms
+- Orchestration state transitions: <10ms
 
-### 8.2 Model Tier Manager Update
-
-**File:** `Sources/Services/ModelTierManager.swift`
-**Change:** Read tier mappings from shared `config.yaml` instead of hardcoded Swift enum
-
-### 8.3 Context Manager Schema Compliance
-
-**File:** `Sources/Services/ContextManager.swift`
-**Change:** Validate output against UCP JSON schema. Add `exportUCP()` method.
-
----
-
-## Part 9: New Files Summary
-
-| File | Lines (est.) | Purpose |
-|------|-------------|---------|
-| `SharedConfigService.swift` | ~200 | YAML config reader |
-| `OrchestrationService.swift` | ~400 | 5-schedule state machine |
-| `OrchestrationView.swift` | ~300 | Schedule/process UI |
-| `FlowCodeView.swift` | ~80 | Flow code display |
-| `QualityPresetService.swift` | ~100 | Fast/Balanced/Thorough |
-| `QualityPresetView.swift` | ~80 | Preset selector UI |
-| `CostTrackingService.swift` | ~150 | Token savings calculator |
-| `ConsultationView.swift` | ~200 | Human consultation modal |
-| `UnifiedSessionService.swift` | ~250 | USF read/write |
-| `SessionHandoffService.swift` | ~150 | Export/import sessions |
-| `PreviewService.swift` | ~200 | Dry-run mode |
-| `OrchestratorEngine.swift` | ~500 | Decision engine (split) |
-| `ExecutionAgent.swift` | ~400 | Execution engine (split) |
-
-**Total new code:** ~3,010 lines
-
-## Part 10: Modified Files Summary
-
-| File | Change |
-|------|--------|
-| `ConfigurationService.swift` | Read shared config, UserDefaults for UI only |
-| `AgentExecutor.swift` | Add orchestration mode, delegate to split engines |
-| `ContextManager.swift` | UCP schema validation, exportUCP() |
-| `ModelTierManager.swift` | Read tiers from shared config |
-| `IntentRouter.swift` | Read intent keywords from shared config |
-| `ChatView.swift` | Add quality preset selector, orchestration toggle |
+### Quality Gates
+- All schemas validate against JSON Schema
+- Session round-trip (export -> import) preserves all data
+- Orchestration state machine passes all CLI behavioral test cases
 
 ---
 
-## Part 11: Success Criteria
+## Part 6: File Change Summary
 
-- [ ] IDE reads `~/.config/ollamabot/config.yaml` for all shared settings
-- [ ] Orchestration mode runs 5-schedule x 3-process framework with flow code
-- [ ] Quality presets control execution pipeline
-- [ ] Cost tracking displays savings vs Claude/GPT-4o
-- [ ] Human consultation modal appears with countdown timer
-- [ ] Sessions export to USF format readable by CLI
-- [ ] CLI sessions import into IDE and resume
-- [ ] Dry-run mode shows diff preview before applying changes
-- [ ] No regression > 5% in existing IDE performance
+### New Files (12)
+| File | Purpose | Week |
+|------|---------|------|
+| `Sources/Services/SharedConfigService.swift` | YAML config reader | 1 |
+| `Sources/Services/OrchestrationService.swift` | 5-schedule state machine | 3 |
+| `Sources/Views/OrchestrationView.swift` | Schedule/process UI | 3 |
+| `Sources/Views/FlowCodeView.swift` | Flow code display | 3 |
+| `Sources/Views/QualityPresetView.swift` | Quality selector | 4 |
+| `Sources/Services/CostTrackingService.swift` | Savings calculator | 4 |
+| `Sources/Views/ConsultationView.swift` | Human consultation modal | 4 |
+| `Sources/Services/PreviewService.swift` | Dry-run mode | 4 |
+| `Sources/Services/UnifiedSessionService.swift` | USF read/write | 5 |
+| `Sources/Services/SessionHandoffService.swift` | Cross-platform handoff | 5 |
+| `Sources/Agent/Support/DelegationHandler.swift` | Delegation logic | 3 |
+| `Sources/Agent/Support/ErrorRecovery.swift` | Error handling | 3 |
+
+### Modified Files (6)
+| File | Change | Week |
+|------|--------|------|
+| `Sources/Services/ConfigurationService.swift` | Delegate to SharedConfigService | 1 |
+| `Sources/Services/ModelTierManager.swift` | Read from shared config | 2 |
+| `Sources/Services/ContextManager.swift` | UCP schema validation | 2 |
+| `Sources/Services/IntentRouter.swift` | Validate against shared config | 2 |
+| `Sources/Agent/AgentExecutor.swift` | Split + add orchestration mode | 3 |
+| `Sources/Services/CheckpointService.swift` | USF persistence | 5 |
+
+### Split Files (1 -> 5+)
+| Original | New Files | Week |
+|----------|-----------|------|
+| `AgentExecutor.swift` (1069 lines) | Core/AgentExecutor, Core/ToolExecutor, Core/VerificationEngine, Tools/*, Support/* | 3 |
 
 ---
 
-## Part 12: Protocol Schemas (IDE Implements)
-
-| Protocol | Schema | IDE Responsibility |
-|----------|--------|-------------------|
-| UC (Unified Config) | `config.yaml` | Read and apply |
-| UTR (Tool Registry) | `tools.schema.json` | Validate tool calls |
-| UCP (Context Protocol) | `context.schema.json` | Export context state |
-| UOP (Orchestration Protocol) | `orchestration.schema.json` | Run state machine |
-| USF (Session Format) | `session.schema.json` | Read/write sessions |
-| UMC (Model Coordinator) | Part of config.yaml | Route model selection |
-
----
-
-*Agent: opus-2 | Platform: IDE | Final Consolidation*
+*Agent: Claude Opus (opus-2) | IDE Master Plan | FLOW EXIT COMPLETE*
