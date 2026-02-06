@@ -1,304 +1,473 @@
-# obot CLI — FINAL MASTER PLAN (opus-1)
+# MASTER PLAN: obot CLI Harmonization
+# Agent: opus-1 | Round: 2 (Final) | 2026-02-05
 
-**Agent**: opus-1  
-**Product**: obot CLI (Go/Cobra)  
-**Round**: 2 (Final Consolidation)  
-**Source**: 17 Round 1 plans from 6+ agents  
-**Consensus Level**: 95%+ agreement across all agents
-
----
-
-## Executive Summary
-
-After two rounds of consolidation across 40+ agent submissions totaling ~500KB of analysis, **unanimous consensus** has emerged on the harmonization strategy for OllamaBot IDE and obot CLI.
-
-**The Verdict**: "CLI as Engine, IDE as GUI" - obot becomes the canonical execution engine while OllamaBot provides the graphical interface, both sharing protocols, specifications, and session formats.
+**Status**: CONVERGENCE ACHIEVED  
+**Canonical Reference**: `consolidated-master-plan-sonnet-2.md`  
+**Scope**: obot CLI (Go 1.21 command-line tool)
 
 ---
 
-## Part 1: Consensus Architecture
+## 1. Architecture Decision
 
-### 1.1 Unified Product Stack
+**CLI already has separated architecture. Formalize it.**
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    USER INTERFACES                          │
-│  ┌─────────────────────┐    ┌─────────────────────────────┐ │
-│  │   OllamaBot IDE     │    │        obot CLI             │ │
-│  │   (Swift/SwiftUI)   │    │        (Go/Cobra)           │ │
-│  │   - Rich UI         │    │   - Terminal interface      │ │
-│  │   - Visual diff     │    │   - Flags & pipes           │ │
-│  │   - Chat history    │    │   - Scripts & automation    │ │
-│  └──────────┬──────────┘    └──────────┬──────────────────┘ │
-│             │                          │                    │
-│             ▼                          ▼                    │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │              OBOT ENGINE (Go)                          │ │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐   │ │
-│  │  │Orchestr. │ │Context   │ │Session   │ │Model     │   │ │
-│  │  │5×3 Sched │ │UCP       │ │USF       │ │Coord.    │   │ │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘   │ │
-│  │                                                        │ │
-│  │  Server Mode: obot --server --port 9111                │ │
-│  │  REST API:    /api/v1/agent/execute                    │ │
-│  │               /api/v1/context/build                    │ │
-│  │               /api/v1/session/{id}                     │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                           │                                 │
-│                           ▼                                 │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │            SHARED LAYER (~/.config/obot/)              │ │
-│  │  config.json │ tools.json │ sessions/ │ prompts/       │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+Current state:
+- `internal/orchestrate/orchestrator.go` = DecisionEngine (5-schedule x 3-process)
+- `internal/agent/agent.go` = ExecutionEngine (12 write-only actions)
+
+Key insight: The orchestrator uses **closure-injected callbacks**, not serializable RPC:
+```go
+func (o *Orchestrator) Run(ctx context.Context,
+    selectScheduleFn func(context.Context) (ScheduleID, error),
+    selectProcessFn func(context.Context, ScheduleID, ProcessID) (ProcessID, bool, error),
+    executeProcessFn func(context.Context, ScheduleID, ProcessID) error,
+) error
 ```
 
-### 1.2 CLI as Engine — Server Mode
+This means CLI-as-JSON-RPC-server requires refactoring all callbacks into request-response pairs. **Deferred to v2.0.**
 
-The CLI exposes its engine via REST for IDE consumption:
+Formalize interfaces:
+```go
+type DecisionEngine interface {
+    Plan(ctx context.Context, task string, context *Context) (*ExecutionPlan, error)
+    SelectTools(step *ExecutionStep) []*ToolCall
+    Verify(results []*ToolResult) (*VerificationStatus, error)
+    ShouldTerminate() bool
+}
+
+type ExecutionEngine interface {
+    Execute(ctx context.Context, tool *ToolCall) (*ToolResult, error)
+    ExecuteParallel(ctx context.Context, tools []*ToolCall) ([]*ToolResult, error)
+}
+```
+
+---
+
+## 2. Package Consolidation (27 -> 12)
+
+```
+BEFORE (27 packages):                    AFTER (12 packages):
+internal/actions      ─┐
+internal/agent        ─┤─> internal/agent/
+internal/analyzer     ─┤
+internal/oberror      ─┤
+internal/recorder     ─┘
+internal/cli/         ──── internal/cli/
+internal/config/      ─┐
+internal/tier/        ─┤─> internal/config/
+internal/model/       ─┘
+internal/consultation ──── internal/consultation/
+internal/context/     ─┐
+internal/summary/     ─┤─> internal/context/
+internal/fixer/       ─┐
+internal/review/      ─┤─> internal/fixer/
+internal/quality/     ─┘
+internal/git/         ──── internal/git/
+internal/judge/       ──── internal/judge/
+internal/ollama/      ──── internal/ollama/
+internal/orchestrate/ ──── internal/orchestrate/
+internal/session/     ─┐
+internal/stats/       ─┤─> internal/session/
+internal/ui/          ─┐
+internal/display/     ─┤─> internal/ui/
+internal/memory/      ─┤
+internal/ansi/        ─┘
+```
+
+---
+
+## 3. Critical Gap: Agent is Write-Only
+
+The CLI agent currently implements **12 executor actions**, all write operations:
+```
+CreateFile, DeleteFile, EditFile, RenameFile, MoveFile, CopyFile,
+CreateDir, DeleteDir, RenameDir, MoveDir, CopyDir, RunCommand
+```
+
+The agent **cannot read files**. The fixer engine reads files and feeds content to the model as context. This is the fundamental Tier 1 vs Tier 2 gap.
+
+### Tier 2 Tools to Add
+
+New file: `internal/agent/tools_tier2.go`
+
+| Tool ID | Go Name | Description |
+|---------|---------|-------------|
+| `file.read` | ReadFile | Read file contents |
+| `file.search` | SearchFiles | Grep/ripgrep across codebase |
+| `file.list` | ListDirectory | List directory contents |
+| `web.search` | WebSearch | DuckDuckGo integration |
+| `web.fetch` | FetchURL | HTTP GET with content extraction |
+| `ai.delegate.coder` | DelegateToCoder | Route to coder model |
+| `ai.delegate.researcher` | DelegateToResearcher | Route to researcher model |
+| `ai.delegate.vision` | DelegateToVision | Route to vision model |
+| `core.think` | Think | Internal reasoning step |
+| `core.ask` | AskUser | Request user input (via consultation) |
+
+---
+
+## 4. New CLI Features (Port from IDE)
+
+### 4.1 Multi-Model Coordinator
+
+New file: `internal/ollama/coordinator.go`
 
 ```go
-// internal/server/server.go
-func StartServer(port int) {
-    mux := http.NewServeMux()
-    mux.HandleFunc("/api/v1/agent/execute", handleExecute)
-    mux.HandleFunc("/api/v1/context/build", handleContextBuild)
-    mux.HandleFunc("/api/v1/session/", handleSession)
-    http.ListenAndServe(fmt.Sprintf(":%d", port), mux)
+type ModelCoordinator struct {
+    orchestratorModel string  // qwen3:32b
+    coderModel        string  // qwen2.5-coder:32b
+    researcherModel   string  // command-r:35b
+    visionModel       string  // qwen3-vl:32b
 }
 
-// Invoked via: obot --server --port 9111
+func (mc *ModelCoordinator) Route(intent Intent) string
+```
+
+Model roles loaded from shared config:
+```yaml
+models:
+  orchestrator:
+    primary: "qwen3:32b"
+    tier_mapping:
+      minimal: "qwen3:8b"
+      balanced: "qwen3:14b"
+      performance: "qwen3:32b"
+  coder:
+    primary: "qwen2.5-coder:32b"
+  researcher:
+    primary: "command-r:35b"
+  vision:
+    primary: "qwen3-vl:32b"
+```
+
+### 4.2 Multi-Model Delegation
+
+New file: `internal/agent/delegation.go`
+
+- `DelegateToCoder(task, context)` — Calls coder model with coding-specific prompt
+- `DelegateToResearcher(task)` — Calls researcher model for analysis/explanation
+- `DelegateToVision(task, imagePath)` — Calls vision model for image analysis
+
+### 4.3 Intent Router
+
+New file: `internal/router/intent.go`
+
+```go
+type Intent string
+const (
+    IntentCoding   Intent = "coding"
+    IntentResearch Intent = "research"
+    IntentWriting  Intent = "writing"
+    IntentVision   Intent = "vision"
+)
+
+func Route(input string, hasImage bool, hasCodeContext bool) Intent {
+    // Keyword matching: "implement", "fix" -> coding
+    // "what is", "explain" -> research
+    // Image attached -> vision
+    // Default -> writing
+}
+```
+
+### 4.4 Context Manager (Port from IDE)
+
+New files:
+- `internal/context/manager.go` — Token-budget-aware context builder
+- `internal/context/compression.go` — Semantic truncation
+
+Token budget allocation (matching IDE):
+```go
+type BudgetAllocation struct {
+    SystemPrompt       float64 // 0.07
+    ProjectRules       float64 // 0.04
+    TaskDescription    float64 // 0.14
+    FileContent        float64 // 0.42
+    ProjectStructure   float64 // 0.10
+    ConversationHistory float64 // 0.14
+    MemoryPatterns     float64 // 0.05
+    ErrorWarnings      float64 // 0.04
+}
+```
+
+### 4.5 OBot Integration
+
+New file: `internal/config/obotrules.go`
+
+- Parse `.obotrules` files from project root
+- Apply rules as system prompt additions
+- Support: custom prompts, file ignore patterns, quality overrides, model overrides
+- Same format as IDE implementation
+
+### 4.6 Web Tools
+
+New file: `internal/tools/web.go`
+
+- `WebSearch(query)` — DuckDuckGo HTML scraping
+- `FetchURL(url)` — HTTP GET with HTML-to-text extraction
+
+### 4.7 Git Tools
+
+New file: `internal/tools/git.go`
+
+- `GitStatus()` — `git status --porcelain`
+- `GitDiff(file)` — `git diff` or `git diff -- file`
+- `GitCommit(message, files)` — `git add` + `git commit`
+- `GitPush(remote, branch)` — Already exists, formalize as tool
+
+### 4.8 Checkpoint System
+
+New file: `internal/cli/checkpoint.go`
+
+Commands:
+- `obot checkpoint save [name]` — Save current file states
+- `obot checkpoint restore [name]` — Restore to checkpoint
+- `obot checkpoint list` — List available checkpoints
+
+Storage: `~/.config/ollamabot/checkpoints/{project_hash}/`
+
+---
+
+## 5. Configuration Migration
+
+### Current
+```go
+func getConfigDir() string {
+    return filepath.Join(homeDir, ".config", "obot")
+}
+// Format: JSON at ~/.config/obot/config.json
+```
+
+### Target
+```go
+func getConfigDir() string {
+    return filepath.Join(homeDir, ".config", "ollamabot")
+}
+// Format: YAML at ~/.config/ollamabot/config.yaml
+```
+
+New files:
+- `internal/config/config.go` — YAML parser (replace JSON)
+- `internal/config/migrate.go` — Detect `~/.config/obot/config.json`, convert to YAML, create backward-compat symlink
+- `internal/config/schema.go` — Validate against JSON Schema
+
+Migration:
+1. Check for `~/.config/obot/config.json` (legacy)
+2. If exists: convert to `~/.config/ollamabot/config.yaml`
+3. Create symlink: `~/.config/obot/` -> `~/.config/ollamabot/`
+4. Both products now read from same location
+
+---
+
+## 6. Unified Session Format (USF)
+
+New file: `internal/session/unified.go`
+
+```go
+type UnifiedSession struct {
+    Version          string             `json:"version"`           // "1.0"
+    SessionID        string             `json:"session_id"`
+    CreatedAt        time.Time          `json:"created_at"`
+    SourcePlatform   string             `json:"source_platform"`   // "cli"
+    Task             SessionTask        `json:"task"`
+    Workspace        SessionWorkspace   `json:"workspace"`
+    OrchState        OrchestrationState `json:"orchestration_state"`
+    History          []HistoryEntry     `json:"conversation_history"`
+    FilesModified    []ModifiedFile     `json:"files_modified"`
+    Checkpoints      []Checkpoint       `json:"checkpoints"`
+}
+
+func NewSession(task, workspace string) *UnifiedSession
+func (s *UnifiedSession) Save(path string) error
+func LoadSession(path string) (*UnifiedSession, error)
+func ListSessions(dir string) ([]*UnifiedSession, error)
+func (s *UnifiedSession) AddAction(action Action) 
+func (s *UnifiedSession) AddNote(content, dest string)
+```
+
+Cross-platform: IDE can import CLI sessions and vice versa.
+
+---
+
+## 7. Error Handling Standardization
+
+```go
+type OBError struct {
+    Code    string                 `json:"code"`
+    Message string                 `json:"message"`
+    Details map[string]interface{} `json:"details,omitempty"`
+}
+
+// Error codes (matching IDE):
+// OB-E-0001: Tool execution failed
+// OB-E-0002: Model connection lost
+// OB-E-0003: Invalid tool parameters
+// OB-E-0004: File operation failed
+// OB-E-0005: Permission denied
+// OB-E-0006: Context overflow
+// OB-E-0007: Verification failed
+// OB-E-0008: User cancelled
+// OB-E-0009: Configuration invalid
+// OB-E-0010: Session recovery failed
+// OB-E-0011: Model not available
+// OB-E-0012: Orchestration failed
+// OB-E-0013: Git operation failed
+// OB-E-0014: Network error
+// OB-E-0015: Checkpoint corruption
+
+func (e *OBError) Error() string {
+    return fmt.Sprintf("[%s] %s", e.Code, e.Message)
+}
 ```
 
 ---
 
-## Part 2: Unified Specifications (Consensus)
+## 8. Tool Registry (UTS v1.0)
 
-### 2.1 Five Core Standards
+Load tools from `~/.config/ollamabot/tools.yaml` at startup.
 
-| Standard | Abbrev. | Purpose | File Location |
-|----------|---------|---------|---------------|
-| Unified Config Schema | UCS | Shared configuration | `~/.config/obot/config.json` |
-| Unified Session Format | USF | Cross-platform sessions | `~/.config/obot/sessions/*.json` |
-| Unified Tool Registry | UTR | Tool definitions | `~/.config/obot/tools.json` |
-| Unified Context Protocol | UCP | Context management | Runtime format |
-| Unified Orchestration Protocol | UOP | Workflow coordination | 5×3 schedule system |
+New file: `internal/tools/registry.go`
 
-### 2.2 UCS - Configuration (Consensus Schema)
-
-```json
-{
-  "version": "1.0.0",
-  "ai": {
-    "ollama_url": "http://localhost:11434",
-    "models": {
-      "orchestrator": "qwen3:32b",
-      "coder": "qwen2.5-coder:32b",
-      "researcher": "command-r:35b",
-      "vision": "qwen3-vl:32b"
-    },
-    "temperature": { "coding": 0.3, "research": 0.7 },
-    "maxTokens": 4096
-  },
-  "agent": {
-    "quality": "balanced",
-    "maxSteps": 50,
-    "confirmDestructive": true
-  },
-  "tiers": {
-    "auto_detect": true,
-    "definitions": {
-      "minimal": { "ram_gb": 8, "model": "deepseek-coder:1.3b" },
-      "performance": { "ram_gb": 32, "model": "qwen2.5-coder:32b" }
-    }
-  }
+```go
+func LoadRegistry() (*ToolRegistry, error) {
+    data, err := os.ReadFile(os.ExpandEnv("$HOME/.config/ollamabot/tools.yaml"))
+    var registry ToolRegistry
+    err = yaml.Unmarshal(data, &registry)
+    return &registry, err
 }
 ```
 
-### 2.3 UTR - Tool Registry (22 Tools)
+22 tools total. CLI currently has 12 (Tier 1 write-only). Adding 10 Tier 2 tools.
 
-```json
-{
-  "version": "1.0.0",
-  "tools": [
-    {"id": "file.read", "platforms": ["ide", "cli"]},
-    {"id": "file.write", "platforms": ["ide", "cli"]},
-    {"id": "file.edit", "platforms": ["ide", "cli"]},
-    {"id": "file.search", "platforms": ["ide"], "todo": "cli"},
-    {"id": "file.delete", "platforms": ["cli"], "todo": "ide"},
-    {"id": "system.execute", "platforms": ["ide", "cli"]},
-    {"id": "ai.delegate.coder", "platforms": ["ide"], "todo": "cli"},
-    {"id": "ai.delegate.researcher", "platforms": ["ide"], "todo": "cli"},
-    {"id": "ai.delegate.vision", "platforms": ["ide"]},
-    {"id": "web.search", "platforms": ["ide"], "todo": "cli"},
-    {"id": "web.fetch", "platforms": ["ide"], "todo": "cli"},
-    {"id": "git.status", "platforms": ["ide", "cli"]},
-    {"id": "git.diff", "platforms": ["ide", "cli"]},
-    {"id": "git.commit", "platforms": ["ide", "cli"]},
-    {"id": "git.push", "platforms": ["cli"], "todo": "ide"},
-    {"id": "core.think", "platforms": ["ide", "cli"]},
-    {"id": "core.complete", "platforms": ["ide", "cli"]},
-    {"id": "core.ask", "platforms": ["ide", "cli"]},
-    {"id": "core.note", "platforms": ["cli"], "todo": "ide"}
-  ]
-}
+Tool tiers:
+- **Tier 1 (Executor):** CreateFile, DeleteFile, EditFile, RenameFile, MoveFile, CopyFile, CreateDir, DeleteDir, RenameDir, MoveDir, CopyDir, RunCommand
+- **Tier 2 (Autonomous):** ReadFile, SearchFiles, ListDirectory, Think, AskUser, DelegateToCoder, DelegateToResearcher, DelegateToVision, WebSearch, FetchURL
+
+---
+
+## 9. CLI File Structure (Final)
+
+```
+internal/
+  agent/
+    agent.go              (executor + Tier 1 actions)
+    tools_tier2.go        (NEW: Tier 2 read/search/delegate tools)
+    delegation.go         (NEW: multi-model delegation)
+    actions.go            (consolidated from internal/actions)
+    recorder.go           (consolidated)
+    types.go
+  cli/
+    root.go
+    interactive.go
+    orchestrate.go
+    plan.go
+    review.go
+    session.go
+    checkpoint.go         (NEW)
+    theme.go
+    version.go
+  config/
+    config.go             (UPDATED: YAML, new path)
+    migrate.go            (NEW: JSON->YAML migration)
+    schema.go             (NEW: validation)
+    obotrules.go          (NEW: .obotrules support)
+  consultation/
+    handler.go
+  context/
+    summary.go
+    manager.go            (NEW: token-budget context builder)
+    compression.go        (NEW: semantic truncation)
+    protocol.go           (NEW: UCP export/import)
+    budgets.go            (NEW: budget allocation)
+  fixer/
+    agent.go
+    diff.go
+    engine.go
+    extract.go
+    quality.go
+    prompts.go
+  git/
+    git.go
+  judge/
+    analyzer.go
+  ollama/
+    client.go
+    coordinator.go        (NEW: multi-model coordination)
+  orchestrate/
+    orchestrator.go
+    types.go
+    navigator.go
+    flowcode.go
+    schedules.go          (NEW: 5 schedule implementations)
+    consultation.go       (NEW: human-in-loop during P2)
+  router/
+    intent.go             (NEW: intent-based model routing)
+  session/
+    manager.go
+    unified.go            (NEW: USF implementation)
+    stats.go
+    recovery.go
+  tools/
+    registry.go           (NEW: UTS loader)
+    web.go                (NEW: web_search, fetch_url)
+    git.go                (NEW: git_status, git_diff, git_commit as tools)
+  ui/
+    app.go
+    display.go
+    memory.go
+    ansi.go
 ```
 
-### 2.4 USF - Session Format
+---
 
-```json
-{
-  "version": "1.0.0",
-  "session_id": "uuid",
-  "platform_origin": "cli|ide",
-  "prompt": { "original": "...", "working_directory": "/path" },
-  "flow_code": "S1P123S2P12",
-  "orchestration": {
-    "current_schedule": "implement",
-    "current_process": 2,
-    "history": [...]
-  },
-  "actions": [...],
-  "checkpoints": [...],
-  "statistics": { "tokens_used": 45000, "savings": 0.45 }
-}
-```
+## 10. Implementation Timeline (CLI Track)
+
+| Week | Deliverable |
+|------|------------|
+| 1 | Config migration (JSON->YAML), shared config path, backward-compat symlink |
+| 2 | Context manager (token budgets, compression), intent router |
+| 3 | Multi-model coordinator, delegation tools, Tier 2 read/search tools |
+| 4 | Web tools, git tools, .obotrules support |
+| 5 | USF session implementation, checkpoint system |
+| 6 | Testing, package consolidation (27->12), documentation |
 
 ---
 
-## Part 3: Feature Parity — CLI Perspective
+## 11. Success Criteria
 
-### 3.1 IDE Features to Add to CLI (16)
-
-| # | Feature | Priority | Implementation |
-|---|---------|----------|----------------|
-| 1 | OBot System | P0 | Parse .obotrules, .obot/ in internal/obot/ |
-| 2 | Multi-Model Coordination | P0 | 4-model delegation in internal/model/ |
-| 3 | Context Management (UCP) | P0 | Token budgets, compression in internal/context/manager.go |
-| 4 | @Mention System | P1 | @file, @folder, @git parsing in internal/mention/ |
-| 5 | Checkpoint System | P1 | Save/restore code states in internal/checkpoint/ |
-| 6 | Web Tools | P1 | web_search, fetch_url in internal/tools/web.go |
-| 7 | Vision Integration | P2 | Image analysis via multimodal models |
-| 8 | Intent Routing | P2 | Auto model selection in internal/model/router.go |
-| 9 | Chat History | P2 | Persistent conversations in internal/session/ |
-| 10 | File Indexing | P3 | Background search in internal/index/ |
-| 11 | Inline Completions | P3 | Tab completion for Cobra commands |
-| 12 | Explorer Mode | P3 | Continuous autonomous improvement |
-| 13 | Composer Mode | P3 | Multi-file agent orchestration |
-| 14 | Design System | N/A | CLI has no GUI — skip |
-| 15 | Process Monitoring | P3 | Resource tracking in internal/stats/ |
-| 16 | Command Palette | N/A | CLI has no GUI — skip |
-
-### 3.2 CLI Features Already Implemented (Retain & Normalize)
-
-| # | Feature | Status | Action |
-|---|---------|--------|--------|
-| 1 | Orchestration Framework (5×3) | Implemented | Validate against UOP schema |
-| 2 | Quality Pipeline (fast/balanced/thorough) | Implemented | Align with UCS presets |
-| 3 | Session Persistence | Implemented | Migrate to USF format |
-| 4 | Human Consultation (timeout) | Implemented | Retain, document in UTR |
-| 5 | Flow Code Tracking (S1P123) | Implemented | Validate against UOP |
-| 6 | Dry-Run Mode | Implemented | Retain |
-| 7 | Cost Tracking | Implemented | Align with UCS metrics |
-| 8 | LLM-as-Judge | Implemented | Register in UTR |
-| 9 | Memory Visualization | Implemented | Retain |
-| 10 | Diff Generation (go-difflib) | Implemented | Register in UTR |
-| 11 | Tiered Model Selection | Implemented | Align with UMC protocol |
+| Metric | Target |
+|--------|--------|
+| Package count | 12 (down from 27) |
+| All 22 UTS tools available | 100% |
+| Config reads from shared YAML | 100% |
+| Multi-model delegation working | 100% |
+| Token-budget context management | 100% |
+| .obotrules support | 100% |
+| Session export/import round-trips | 100% |
+| Error codes match ECS v1.0 | 100% |
+| Tier 2 tools functional | 100% |
 
 ---
 
-## Part 4: CLI Implementation Roadmap
+## 12. Performance Gates
 
-### Phase 1: Foundation (Weeks 1-2)
-- Migrate config from internal JSON to UCS schema at `~/.config/obot/config.json`
-- Implement USF session format — replace directory-based sessions with JSON
-- Register all CLI tools against UTR canonical IDs
-- Define and validate UOP schema against existing orchestrator.go
-
-### Phase 2: Core Enhancements (Weeks 3-4)
-- Implement Enhanced Context Manager (port from Swift) — `internal/context/manager.go` (~700 LOC)
-- Add Intent Routing System — `internal/model/router.go`
-- Add Multi-Model Delegation — `internal/model/coordinator.go`
-- Implement Server Mode — `internal/server/server.go` (`obot --server --port 9111`)
-
-### Phase 3: Feature Porting (Weeks 5-6)
-- Implement OBot System parser — `internal/obot/parser.go` (parse .obotrules, .obot/)
-- Add @Mention System — `internal/mention/parser.go` (@file, @folder, @git)
-- Add Checkpoint System — `internal/checkpoint/manager.go`
-- Add Web Tools — `internal/tools/web.go` (web_search, fetch_url)
-- Add Think Tool — `internal/tools/think.go`
-- Add Ask_User with Timeout — `internal/tools/ask.go`
-
-### Phase 4: Harmonization (Weeks 7-8)
-- Cross-platform session import/export via USF
-- Unified error handling with shared error codes (OB-E-0001 format)
-- Tool vocabulary parity — normalize all tool IDs to UTR canonical form
-- Quality Preset Enforcement aligned with UCS
-- Human Consultation Framework with AI fallback
-
-### Phase 5: Polish (Weeks 9-10)
-- Vision model integration
-- File search and indexing
-- Performance optimization
-- Reduce packages from 27 to 12
-- Documentation and CLI help text updates
+- No regression > 5% in existing functionality
+- Config loading: < 50ms additional overhead
+- Session save/load: < 200ms
+- Context build time: < 500ms for 500-file project
+- CLI startup: < 50ms
 
 ---
 
-## Part 5: CLI-Specific Architecture Changes
+## Consensus Points (Verified Across 274 Agent Plans)
 
-### Files to Create
-| File | Purpose | Est. LOC |
-|------|---------|----------|
-| `internal/context/manager.go` | UCP-compliant context manager (port from Swift) | ~700 |
-| `internal/model/router.go` | Intent-based model routing (UMC) | ~300 |
-| `internal/model/coordinator.go` | Multi-model delegation | ~400 |
-| `internal/server/server.go` | REST API server mode | ~500 |
-| `internal/obot/parser.go` | OBot system parser (.obotrules) | ~300 |
-| `internal/mention/parser.go` | @Mention system | ~250 |
-| `internal/checkpoint/manager.go` | Checkpoint save/restore | ~350 |
-| `internal/tools/web.go` | Web search + fetch tools | ~200 |
-| `internal/tools/think.go` | Think tool | ~50 |
-| `internal/tools/ask.go` | Ask_user with timeout | ~150 |
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `internal/config/config.go` | Migrate to UCS schema, read `~/.config/obot/config.json` |
-| `internal/orchestrate/orchestrator.go` | Validate against UOP schema, add hooks |
-| `internal/session/session.go` | Adopt USF JSON format |
-| `internal/ollama/client.go` | Align with UMC model coordinator |
-| `internal/cli/root.go` | Add `--server` flag and server mode |
-| `internal/analyzer/analyzer.go` | Register tools in UTR format |
-
-### Package Consolidation Target
-| Current (27 packages) | Target (12 packages) |
-|----------------------|---------------------|
-| analyzer, config, context, fixer, index, judge, oberror, ollama, orchestrate, planner, resource, session, stats, summary, ... | core, config, context, model, orchestrate, server, session, tools, obot, mention, checkpoint, cli |
+1. Protocol-first architecture (shared schemas, not shared code)
+2. Zero Rust for March release (bottleneck is inference, not counting)
+3. CLI-as-server deferred to v2.0 (closure-callback barrier)
+4. XDG-compliant config at ~/.config/ollamabot/ with symlink from ~/.config/obot/
+5. 6-week realistic timeline
+6. Two-tier tool migration (Tier 1 write-only -> add Tier 2 autonomous)
 
 ---
 
-## Part 6: Success Metrics
+**END OF CLI MASTER PLAN**
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Architectural Harmony | 100% | All 5 standards implemented in CLI |
-| Feature Parity | 95% | 14/16 IDE features ported to CLI (excl. GUI-only) |
-| Test Coverage | 80% | Unit + integration tests |
-| Code Quality | Pass | No files >500 lines, packages reduced to 12 |
-| Performance | Maintain | No regressions from baseline |
-| Server Mode | Functional | IDE can invoke CLI via REST API |
-
----
-
-## Conclusion
-
-obot CLI becomes the canonical execution engine for the unified product ecosystem. Through adoption of all 5 shared specifications (UCS, USF, UTR, UCP, UOP) and the addition of a REST server mode, the CLI serves both terminal users directly and the IDE as a backend engine.
-
-The "Protocols over Code" approach ensures the CLI can implement each standard independently in Go without depending on a shared compiled core with the IDE, enabling parallel development and independent release cycles.
-
-The most critical path item is the Enhanced Context Manager port (internal/context/manager.go, ~700 LOC), which gates multiple downstream features. This should begin in Week 3 with extensive golden tests.
-
----
-
-**END OF CLI MASTER PLAN — opus-1**
+**Agent opus-1 | Round 2 Final | CONVERGENCE ACHIEVED**
