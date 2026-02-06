@@ -1,391 +1,273 @@
-# obot CLI Harmonization Master Plan
-## Agent: opus-2 | Platform: CLI (Go)
-
-**Date:** 2026-02-05
-**Round:** Final Consolidation
-**Scope:** All CLI-side changes required for OllamaBot/obot harmonization
-**Target:** March 2026 Release
+# MASTER PLAN: obot CLI Harmonization
+## Agent: opus-2 | Final Consolidation | March 2026 Release
 
 ---
 
 ## Executive Summary
 
-This plan specifies every CLI-side change needed to harmonize obot (Go CLI) with OllamaBot (Swift/macOS IDE) under a protocol-first, zero-shared-code architecture. The CLI gains multi-model delegation, token-budgeted context management, read/search tools, web search, git tools, and shared configuration -- while preserving its existing strengths in orchestration, quality presets, session persistence, and human consultation.
+This is the CLI-specific master plan for harmonizing obot (Go CLI) with OllamaBot (Swift/macOS IDE) into a unified product ecosystem. It covers all CLI enhancements, refactoring, and protocol adoption required for the March 2026 release.
+
+**Architecture:** Protocol-First -- shared YAML/JSON behavioral contracts, zero shared code, independent Go implementation.
 
 ---
 
-## Architecture Decision
+## Part 1: CLI Current State
 
-**Protocol-Native, Zero Shared Code.** Both products implement the same behavioral contracts (JSON schemas, YAML configuration) in their native languages. The CLI does NOT become a JSON-RPC server for the IDE (deferred to v2.0). Instead, it continues as a standalone tool that reads the same shared configuration and writes sessions in a cross-compatible format.
+| Metric | Value |
+|--------|-------|
+| LOC | ~27,114 |
+| Files | 61 |
+| Packages | 27 |
+| Agent Actions | 12 (write-only) |
+| Models | 1 (per RAM tier) |
+| Token Management | None |
+| Orchestration | 5-schedule x 3-process |
+| Config | JSON at `~/.config/obot/` |
+| Session Persistence | Bash scripts |
 
-### Code-Grounded Reality
+**Key Strengths:**
+- Formal 5-schedule orchestration framework (Knowledge, Plan, Implement, Scale, Production)
+- Quality presets (fast/balanced/thorough)
+- Cost savings tracking vs commercial APIs
+- Session persistence with bash-only restoration
+- Human consultation with AI fallback (60s timeout)
+- Flow code tracking (S1P123S2P12...)
+- Line-range editing (-start +end)
+- Diff/dry-run/print modes
 
-The CLI agent (`internal/agent/agent.go`) currently implements **12 write-only executor actions**:
-```
-CreateFile, DeleteFile, EditFile, RenameFile, MoveFile, CopyFile,
-CreateDir, DeleteDir, RenameDir, MoveDir, CopyDir, RunCommand
-```
-
-The agent cannot read files. The fixer engine (`internal/fixer/engine.go`) reads files and feeds content to the model. This means tool unification requires a **migration path** with two tiers:
-- **Tier 1 (Executor):** File mutations + commands (current CLI capability)
-- **Tier 2 (Autonomous):** Read, search, delegate, web, git (needs porting from IDE)
-
-The CLI orchestrator (`internal/orchestrate/orchestrator.go`) uses closure-injected callbacks in its `Run()` method. These are Go function closures, NOT serializable RPC interfaces. Making this a JSON-RPC server would require refactoring all callbacks -- a multi-week rewrite deferred to v2.0.
-
----
-
-## Part 1: Configuration Migration
-
-### 1.1 YAML Config Replacement
-
-**File:** `internal/config/config.go`
-**Change:** Replace JSON config at `~/.config/obot/config.json` with YAML at `~/.config/ollamabot/config.yaml`
-
-```go
-import "gopkg.in/yaml.v3"
-
-type UnifiedConfig struct {
-    Version       string           `yaml:"version"`
-    Platform      PlatformConfig   `yaml:"platform"`
-    Models        ModelsConfig     `yaml:"models"`
-    Quality       QualityConfig    `yaml:"quality"`
-    Context       ContextConfig    `yaml:"context"`
-    Orchestration OrchConfig       `yaml:"orchestration"`
-    Platforms     PlatformsConfig  `yaml:"platforms"`
-}
-
-type ModelsConfig struct {
-    Orchestrator ModelEntry `yaml:"orchestrator"`
-    Coder        ModelEntry `yaml:"coder"`
-    Researcher   ModelEntry `yaml:"researcher"`
-    Vision       ModelEntry `yaml:"vision"`
-}
-
-type ModelEntry struct {
-    Primary     string            `yaml:"primary"`
-    TierMapping map[string]string `yaml:"tier_mapping"`
-}
-
-func LoadConfig() (*UnifiedConfig, error) {
-    configPath := filepath.Join(homeDir, ".config", "ollamabot", "config.yaml")
-    data, err := os.ReadFile(configPath)
-    if err != nil {
-        return nil, err
-    }
-    var cfg UnifiedConfig
-    return &cfg, yaml.Unmarshal(data, &cfg)
-}
-```
-
-### 1.2 Migration Tool (NEW)
-
-**File:** `internal/config/migrate.go`
-**Purpose:** Detect old `~/.config/obot/config.json`, convert to YAML, create backward-compatible symlink
-
-### 1.3 Schema Validation (NEW)
-
-**File:** `internal/config/schema.go`
-**Purpose:** Validate config against JSON Schema definitions
+**Key Gaps:**
+- Agent is write-only (12 actions, no read/search/web/git/delegation)
+- Single model per operation (no multi-model coordination)
+- No token-budgeted context management
+- No intent-based model routing
+- No .obotrules support
+- No @mention system
+- No checkpoint system
+- Orchestration partially stubbed (process execution sleeps/logs without real tool execution)
+- 27 packages is excessive (should be ~12)
 
 ---
 
-## Part 2: Context Management (NEW)
+## Part 2: The 6 Protocols (CLI Perspective)
 
-### 2.1 Token-Budgeted Context Manager
+### UC -- Unified Configuration
+- **CLI Action:** Migrate from JSON to YAML at `~/.config/ollamabot/config.yaml`
+- **Backward compat:** Symlink `~/.config/obot/` -> `~/.config/ollamabot/`
+- **Library:** `gopkg.in/yaml.v3`
+- **Migration:** Auto-detect old JSON config, convert, create symlink
 
-**File:** `internal/context/manager.go`
-**Purpose:** Port IDE's ContextManager token budgeting to Go
+### UTR -- Unified Tool Registry
+- **CLI Action:** Expand agent from 12 write-only actions to include Tier 2 tools
+- **Tier 1 (existing):** CreateFile, DeleteFile, EditFile, RenameFile, MoveFile, CopyFile, CreateDir, DeleteDir, RenameDir, MoveDir, CopyDir, RunCommand
+- **Tier 2 (new):** ReadFile, SearchFiles, ListFiles, DelegateToCoder, DelegateToResearcher, DelegateToVision, WebSearch, FetchURL, GitStatus, GitDiff, GitCommit, Think, Complete, AskUser
 
-```go
-type Manager struct {
-    maxTokens     int
-    budgetAlloc   BudgetAllocation
-    compression   bool
-    memoryEnabled bool
-    errorLearning bool
-    tokenizer     Tokenizer
-}
+### UCP -- Unified Context Protocol
+- **CLI Action:** NEW `internal/context/manager.go` porting IDE's token budget system
+- **Budget allocation:** system_prompt 7%, project_rules 4%, task 14%, files 42%, project 10%, history 14%, memory 5%, errors 4%
+- **Features:** Semantic truncation, conversation memory, error pattern learning
+- **Library:** `github.com/pkoukk/tiktoken-go` for token counting
 
-type BudgetAllocation struct {
-    SystemPrompt  float64 // 0.07
-    ProjectRules  float64 // 0.04
-    Task          float64 // 0.14
-    Files         float64 // 0.42
-    Project       float64 // 0.10
-    History       float64 // 0.14
-    Memory        float64 // 0.05
-    Errors        float64 // 0.04
-}
+### UOP -- Unified Orchestration Protocol
+- **CLI Action:** Fix stubbed orchestration -- replace sleep/log with real tool execution
+- **Already has:** 5-schedule state machine, navigation rules, flow code tracking
+- **Fix needed:** `internal/cli/orchestrate.go` and `internal/agent/agent.go` stubs
 
-func (m *Manager) BuildContext(task string, workspace string,
-    files []FileContext, history []Step) (*UCPContext, error) {
-    // Allocate token budgets per section
-    // Compress sections to fit within budgets
-    // Select files by relevance score
-    // Return UCP-compliant context object
-}
-```
+### USF -- Unified Session Format
+- **CLI Action:** NEW `internal/session/unified.go` for JSON session read/write
+- **Enable:** Session export compatible with IDE import
+- **Retain:** Existing bash restore scripts as fallback
 
-### 2.2 Semantic Compression (NEW)
-
-**File:** `internal/context/compression.go`
-**Purpose:** Truncate large content while preserving structure (imports, signatures, key sections)
-
-### 2.3 Tokenizer
-
-**Dependency:** `github.com/pkoukk/tiktoken-go` (pure Go, no FFI)
-
-No Rust. No C bindings. The bottleneck is Ollama inference (2-10s per call), not token counting.
+### UMC -- Unified Model Coordinator
+- **CLI Action:** Expand from single-model to 4-model coordination
+- **Roles:** orchestrator, coder, researcher, vision
+- **Tier mapping:** Read from shared config.yaml per-role
+- **Intent routing:** NEW keyword-based classification
 
 ---
 
-## Part 3: Multi-Model Delegation (NEW)
+## Part 3: CLI Implementation Plans (C-01 through C-10)
 
-### 3.1 Model Coordinator Enhancement
+### C-01: YAML Config Migration
+- **Modify:** `internal/config/config.go` -- Replace JSON with YAML, change path
+- **New file:** `internal/config/migrate.go` -- Auto-migration from old JSON
+- **New file:** `internal/config/schema.go` -- Schema validation
+- **Library:** `gopkg.in/yaml.v3`
+- **Priority:** P0 | **Effort:** Small | **Week:** 1
 
-**File:** `internal/model/coordinator.go`
-**Change:** Support 4 model roles instead of single-model-per-tier
+### C-02: Context Manager (Port from IDE)
+- **New file:** `internal/context/manager.go`
+- **Purpose:** Token-budget-aware context builder
+- **Port from:** IDE's `ContextManager.swift` (behavioral port)
+- **Features:** Budget allocation, priority-based pruning, memory
+- **Priority:** P0 | **Effort:** Large | **Week:** 2
 
-```go
-type Coordinator struct {
-    orchestrator *ollama.Client
-    coder        *ollama.Client
-    researcher   *ollama.Client
-    vision       *ollama.Client
-    config       *config.ModelsConfig
-}
+### C-03: Semantic Compression
+- **New file:** `internal/context/compression.go`
+- **Purpose:** Smart truncation preserving imports, signatures, key sections
+- **Strategy:** Remove function bodies first, then comments, then whitespace
+- **Priority:** P1 | **Effort:** Medium | **Week:** 2
 
-func NewCoordinator(cfg *config.ModelsConfig, tier string) *Coordinator {
-    return &Coordinator{
-        orchestrator: ollama.NewClient(cfg.Orchestrator.ModelForTier(tier)),
-        coder:        ollama.NewClient(cfg.Coder.ModelForTier(tier)),
-        researcher:   ollama.NewClient(cfg.Researcher.ModelForTier(tier)),
-        vision:       ollama.NewClient(cfg.Vision.ModelForTier(tier)),
-    }
-}
+### C-04: Intent Router
+- **New file:** `internal/router/intent.go`
+- **Purpose:** Keyword-based intent classification
+- **Intents:** coding (implement, fix, refactor), research (what is, explain), general (write, help), vision (image, screenshot)
+- **Priority:** P0 | **Effort:** Medium | **Week:** 2
+
+### C-05: Multi-Model Coordinator (4 Roles)
+- **Modify:** `internal/model/coordinator.go`
+- **Purpose:** Support orchestrator, coder, researcher, vision model roles
+- **Read:** Per-role tier mappings from shared config
+- **Fallback:** Auto-select based on available RAM
+- **Priority:** P0 | **Effort:** Medium | **Week:** 3
+
+### C-06: Multi-Model Delegation Tools
+- **New file:** `internal/agent/delegation.go`
+- **Purpose:** delegate_to_coder, delegate_to_researcher, delegate_to_vision
+- **Mechanism:** Call different Ollama models per role with task-specific prompts
+- **Priority:** P0 | **Effort:** Large | **Week:** 3
+
+### C-07: Read/Search/List Tools (Tier 2)
+- **Modify:** `internal/agent/agent.go`
+- **Add:** ReadFile, SearchFiles, ListFiles methods
+- **Purpose:** Agent can now read the codebase autonomously (not just write)
+- **Priority:** P0 | **Effort:** Medium | **Week:** 3
+
+### C-08: Web Search Tool
+- **New file:** `internal/tools/web.go`
+- **Purpose:** DuckDuckGo search integration
+- **Implementation:** HTTP GET to DuckDuckGo HTML, parse results
+- **Priority:** P1 | **Effort:** Medium | **Week:** 4
+
+### C-09: Git Tools
+- **New file:** `internal/tools/git.go`
+- **Purpose:** git status, diff, commit as agent tools
+- **Implementation:** Shell out to git binary, parse output
+- **Priority:** P1 | **Effort:** Medium | **Week:** 4
+
+### C-10: Checkpoint System
+- **New file:** `internal/cli/checkpoint.go`
+- **Commands:** `obot checkpoint save`, `obot checkpoint restore`, `obot checkpoint list`
+- **Storage:** `~/.config/ollamabot/sessions/{session_id}/checkpoints/`
+- **Priority:** P2 | **Effort:** Medium | **Week:** 5
+
+---
+
+## Part 4: CLI Refactoring
+
+### Package Consolidation (27 -> 12)
+
+**Current (27 packages):**
 ```
-
-### 3.2 Delegation Tools (NEW)
-
-**File:** `internal/agent/delegation.go`
-**Purpose:** Add `delegate_to_coder`, `delegate_to_researcher`, `delegate_to_vision` actions
-
-```go
-func (a *Agent) DelegateToCoder(ctx context.Context, task string,
-    files map[string]string) (string, error) {
-    // Build context using ContextManager, call coder model
-}
-
-func (a *Agent) DelegateToResearcher(ctx context.Context,
-    query string) (string, error) {
-    // Build research context, call researcher model
-}
-
-func (a *Agent) DelegateToVision(ctx context.Context,
-    imagePath string, question string) (string, error) {
-    // Load image, call vision model
-}
+internal/actions, internal/agent, internal/analyzer, internal/cli,
+internal/color, internal/config, internal/context, internal/diff,
+internal/fixer, internal/git, internal/model, internal/monitor,
+internal/oberror, internal/ollama, internal/orchestrate, internal/planner,
+internal/resource, internal/review, internal/session, internal/stats,
+internal/summary, internal/tier, internal/tools, internal/ui,
+internal/version, internal/web, cmd/obot
 ```
 
----
-
-## Part 4: Tier 2 Tools (NEW)
-
-### 4.1 Read/Search/List Tools
-
-**File:** `internal/agent/agent.go`
-**Change:** Add Tier 2 autonomous tools to the agent
-
-```go
-func (a *Agent) ReadFile(path string) (string, error)
-func (a *Agent) SearchFiles(pattern string, dir string) ([]SearchResult, error)
-func (a *Agent) ListFiles(dir string) ([]FileEntry, error)
+**Target (12 packages):**
+```
+internal/
+  agent/         (executor + actions + recorder + delegation)
+  cli/           (commands + theme + flags)
+  config/        (settings + tier detection + shared YAML)
+  consultation/  (human-in-loop)
+  context/       (summary + compression + UCP)
+  fixer/         (engine + diff + quality + analyzer)
+  git/           (git operations)
+  judge/         (LLM-as-judge)
+  ollama/        (client + model coordination + routing)
+  orchestrate/   (orchestrator + schedules + navigator)
+  session/       (persistence + stats + recovery)
+  ui/            (display + memory viz + ANSI)
 ```
 
-These transform the CLI agent from a write-only executor into a read-write autonomous system.
+**Merge plan:**
+- `actions` -> `agent`
+- `analyzer` -> `fixer`
+- `oberror` -> stdlib errors
+- `model` -> `ollama`
+- `resource` -> `monitor` -> `ui`
+- `stats` -> `session`
+- `summary` -> `context`
+- `tier` -> `config`
+- `tools` + `web` -> new `tools/` or inline into `agent`
 
-### 4.2 Web Search Tool (NEW)
-
-**File:** `internal/tools/web.go`
-**Purpose:** DuckDuckGo search integration
-
-### 4.3 Git Tools (NEW)
-
-**File:** `internal/tools/git.go`
-**Purpose:** Git status, diff, commit operations
-
-```go
-func GitStatus(dir string) (*GitStatusResult, error)
-func GitDiff(dir string, staged bool) (string, error)
-func GitCommit(dir string, message string) error
-```
-
----
-
-## Part 5: Intent Router (NEW)
-
-**File:** `internal/router/intent.go`
-**Purpose:** Route tasks to appropriate model based on content analysis
-
-```go
-type Intent string
-const (
-    IntentCoding   Intent = "coding"
-    IntentResearch Intent = "research"
-    IntentGeneral  Intent = "general"
-    IntentVision   Intent = "vision"
-)
-
-func ClassifyIntent(task string) Intent {
-    // Keyword-based classification
-}
-
-func (r *Router) SelectModel(intent Intent, coord *Coordinator) *ollama.Client {
-    switch intent {
-    case IntentCoding:   return coord.coder
-    case IntentResearch: return coord.researcher
-    case IntentVision:   return coord.vision
-    default:             return coord.orchestrator
-    }
-}
-```
+### Fix Stubbed Orchestration (CRITICAL)
+- **File:** `internal/cli/orchestrate.go`
+- **Problem:** Process execution sleeps and logs without real tool execution
+- **Fix:** Wire `executeProcessFn` callback to actual agent tool execution
+- **Depends on:** C-06 (delegation) and C-07 (read tools) completing first
 
 ---
 
-## Part 6: Session Format (NEW)
+## Part 5: Success Criteria (CLI)
 
-### 6.1 Unified Session Format
+### Must-Have for March
+- [ ] Reads shared `config.yaml` from `~/.config/ollamabot/`
+- [ ] Backward-compat symlink from `~/.config/obot/`
+- [ ] Multi-model delegation (4 roles)
+- [ ] Token-budgeted context management
+- [ ] Intent-based model routing
+- [ ] Read/search tools (Tier 2 migration)
+- [ ] Orchestration executes real tools (not stubs)
+- [ ] Session export in USF format
 
-**File:** `internal/session/unified.go`
-**Purpose:** Read/write USF JSON files compatible with IDE
+### Performance Gates
+- CLI startup: <50ms
+- Config loading: <50ms additional overhead
+- Context build: <500ms for 500-file project
+- Session save/load: <200ms
+- No regression >5% in fix speed
 
-```go
-type UnifiedSession struct {
-    Version            string      `json:"version"`
-    SessionID          string      `json:"session_id"`
-    CreatedAt          time.Time   `json:"created_at"`
-    SourcePlatform     string      `json:"source_platform"`
-    Task               TaskState   `json:"task"`
-    OrchestrationState *OrchState  `json:"orchestration_state,omitempty"`
-    ConversationHistory []Message  `json:"conversation_history"`
-    FilesModified      []string    `json:"files_modified"`
-    Checkpoints        []Checkpoint `json:"checkpoints"`
-    Stats              SessionStats `json:"stats"`
-}
-
-func SaveUSF(session *UnifiedSession) error
-func LoadUSF(sessionID string) (*UnifiedSession, error)
-```
-
-Session directory: `~/.config/ollamabot/sessions/{session_id}.json`
-
-### 6.2 Checkpoint Commands (NEW)
-
-**File:** `internal/cli/checkpoint.go`
-**Purpose:** `obot checkpoint save/restore/list`
-
-### 6.3 Existing Session Update
-
-**File:** `internal/session/session.go`
-**Change:** Write USF format alongside existing bash restoration scripts for backward compatibility.
+### Quality Gates
+- All schemas validate against JSON Schema
+- Session round-trip (export -> import) preserves all data
+- Config migration preserves all existing settings
+- Orchestration produces valid flow codes
 
 ---
 
-## Part 7: Tier Detection Update
+## Part 6: File Change Summary
 
-**File:** `internal/tier/models.go`
-**Change:** Read model tier mappings from shared `config.yaml` instead of hardcoded Go map
+### New Files (11)
+| File | Purpose | Week |
+|------|---------|------|
+| `internal/config/migrate.go` | JSON->YAML migration | 1 |
+| `internal/config/schema.go` | Schema validation | 1 |
+| `internal/context/manager.go` | Token-budget context | 2 |
+| `internal/context/compression.go` | Semantic truncation | 2 |
+| `internal/router/intent.go` | Intent classification | 2 |
+| `internal/agent/delegation.go` | Multi-model delegation | 3 |
+| `internal/tools/web.go` | Web search | 4 |
+| `internal/tools/git.go` | Git tools | 4 |
+| `internal/session/unified.go` | USF serialization | 5 |
+| `internal/cli/checkpoint.go` | Checkpoint commands | 5 |
+| `.obotrules` | Project rules support | 3 |
 
----
-
-## Part 8: Fixer Engine Integration
-
-### 8.1 Prompt Enhancement
-
-**File:** `internal/fixer/prompts.go`
-**Change:** Use ContextManager for prompt building instead of string concatenation
-
-### 8.2 .obotrules Support
-
-**File:** `internal/fixer/prompts.go`
-**Change:** Read `.obotrules` from project root and inject into system prompt
-
----
-
-## Part 9: New Files Summary
-
-| File | Lines (est.) | Purpose |
-|------|-------------|---------|
-| `internal/config/migrate.go` | ~100 | JSON to YAML migration |
-| `internal/config/schema.go` | ~80 | Schema validation |
-| `internal/context/manager.go` | ~300 | Token-budgeted context |
-| `internal/context/compression.go` | ~150 | Semantic truncation |
-| `internal/agent/delegation.go` | ~200 | Multi-model delegation |
-| `internal/tools/web.go` | ~100 | Web search |
-| `internal/tools/git.go` | ~150 | Git operations |
-| `internal/router/intent.go` | ~100 | Intent classification |
-| `internal/session/unified.go` | ~200 | USF read/write |
-| `internal/cli/checkpoint.go` | ~150 | Checkpoint commands |
-
-**Total new code:** ~1,530 lines
-
-## Part 10: Modified Files Summary
-
-| File | Change |
-|------|--------|
-| `internal/config/config.go` | Replace JSON with YAML, change path |
-| `internal/agent/agent.go` | Add ReadFile, SearchFiles, ListFiles |
-| `internal/model/coordinator.go` | Support 4 model roles |
-| `internal/tier/models.go` | Read from shared config |
-| `internal/fixer/prompts.go` | Use ContextManager, load .obotrules |
-| `internal/session/session.go` | Write USF alongside bash scripts |
-| `internal/cli/root.go` | Load shared config on startup |
+### Modified Files (5)
+| File | Change | Week |
+|------|--------|------|
+| `internal/config/config.go` | JSON->YAML, new path | 1 |
+| `internal/tier/models.go` | Read from shared config | 2 |
+| `internal/model/coordinator.go` | 4-role support | 3 |
+| `internal/agent/agent.go` | Add Tier 2 tools | 3 |
+| `internal/cli/orchestrate.go` | Fix stubs, real execution | 3 |
 
 ---
 
-## Part 11: Success Criteria
+## Part 7: CLI-Specific Risks
 
-- [ ] CLI reads `~/.config/ollamabot/config.yaml` for all shared settings
-- [ ] Migration from old `config.json` works with symlink backward compat
-- [ ] Token-budgeted context management produces UCP-compliant output
-- [ ] Multi-model delegation routes to 4 specialist models
-- [ ] Agent can read files, search, and list directories (Tier 2)
-- [ ] Web search returns results
-- [ ] Git tools provide status, diff, commit
-- [ ] Intent router classifies tasks and selects appropriate model
-- [ ] Sessions save in USF format readable by IDE
-- [ ] IDE sessions import and resume in CLI
-- [ ] Checkpoint save/restore/list commands work
-- [ ] .obotrules loaded and injected into prompts
-- [ ] No regression > 5% in existing CLI performance
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| Context manager port complexity | Medium | High | Start Week 2, allow overflow into Week 3 |
+| Orchestration stub fix cascading | Medium | High | Fix after delegation tools land |
+| YAML migration breaks existing users | Low | High | Auto-migrate + symlink + keep JSON fallback |
+| 27->12 package merge conflicts | Medium | Medium | Do incrementally, not all at once |
+| Multi-model RAM pressure | Medium | Medium | Only load active model, swap on delegate |
 
 ---
 
-## Part 12: Protocol Schemas (CLI Implements)
-
-| Protocol | Schema | CLI Responsibility |
-|----------|--------|-------------------|
-| UC (Unified Config) | `config.yaml` | Read and apply (migrate from JSON) |
-| UTR (Tool Registry) | `tools.schema.json` | Validate actions against registry |
-| UCP (Context Protocol) | `context.schema.json` | Build compliant context objects |
-| UOP (Orchestration Protocol) | `orchestration.schema.json` | Already implemented (validate) |
-| USF (Session Format) | `session.schema.json` | Write sessions in USF format |
-| UMC (Model Coordinator) | Part of config.yaml | Route to 4 model roles |
-
----
-
-## Part 13: Dependencies
-
-### New Go Dependencies
-- `gopkg.in/yaml.v3` -- YAML parsing for shared config
-- `github.com/pkoukk/tiktoken-go` -- Pure Go token counting (no Rust/C FFI)
-
-### Deferred to v2.0
-- CLI JSON-RPC server mode
-- Behavioral equivalence test framework
-- Interactive migration wizard
-- Rust performance libraries
-
----
-
-*Agent: opus-2 | Platform: CLI | Final Consolidation*
+*Agent: Claude Opus (opus-2) | CLI Master Plan | FLOW EXIT COMPLETE*
