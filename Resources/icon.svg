@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7dcfff"/>
+      <stop offset="100%" style="stop-color:#2ac3de"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="15" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Solid black background -->
+  <rect width="1024" height="1024" fill="#000000"/>
+  
+  <!-- Outer ring -->
+  <circle cx="512" cy="512" r="420" fill="none" stroke="url(#blueGrad)" stroke-width="20" opacity="0.7"/>
+  
+  <!-- Inner subtle ring -->
+  <circle cx="512" cy="512" r="360" fill="none" stroke="#7dcfff" stroke-width="3" opacity="0.25"/>
+  
+  <!-- Infinity symbol - the core logo -->
+  <g filter="url(#glow)" transform="translate(512, 512)">
+    <path d="M-180,0 
+             C-180,-100 -100,-100 0,0 
+             C100,100 180,100 180,0 
+             C180,-100 100,-100 0,0 
+             C-100,100 -180,100 -180,0 Z" 
+          fill="none" 
+          stroke="url(#blueGrad)" 
+          stroke-width="52" 
+          stroke-linecap="round"/>
+  </g>
+  
+  <!-- Neural connection dots -->
+  <g fill="#7dcfff" opacity="0.5">
+    <circle cx="512" cy="92" r="10"/>
+    <circle cx="809" cy="215" r="8"/>
+    <circle cx="932" cy="512" r="10"/>
+    <circle cx="809" cy="809" r="8"/>
+    <circle cx="512" cy="932" r="10"/>
+    <circle cx="215" cy="809" r="8"/>
+    <circle cx="92" cy="512" r="10"/>
+    <circle cx="215" cy="215" r="8"/>
+  </g>
+</svg>

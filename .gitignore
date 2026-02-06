@@ -1,38 +1,62 @@
-# Binaries
-bin/
-dist/
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-obot
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
 
-# Test binary, built with `go test -c`
-*.test
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+Packages/
 
-# Output of the go coverage tool
-*.out
-coverage.html
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
 
-# Go workspace file
-go.work
+# Thumbnails
+Thumbs.db
+ehthumbs.db
 
 # IDE
-.idea/
-.vscode/
+*.idea/
+*.vscode/
 *.swp
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
+# Build artifacts
+build/
+*.app
+*.o
+*.a
+*.dylib
 
-# Local config (user-specific)
+# Test artifacts
+*.xcresult
+
+# Benchmark results
+benchmark_results/
+
+# Credentials (never commit!)
+*.pem
+*.key
+secrets.json
 .env
 .env.local
-
-# Debug
-debug/
-*.log

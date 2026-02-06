@@ -1,0 +1,347 @@
+{
+  "": {
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/master.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Agent/AdvancedToolExecutor.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AdvancedToolExecutor.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AdvancedToolExecutor.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AdvancedToolExecutor~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AdvancedToolExecutor.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Agent/AdvancedTools.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AdvancedTools.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AdvancedTools.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AdvancedTools~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AdvancedTools.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Agent/AgentExecutor.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentExecutor.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentExecutor.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentExecutor~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentExecutor.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Agent/AgentTools.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentTools.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentTools.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentTools~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentTools.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Agent/CycleAgentManager.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CycleAgentManager.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CycleAgentManager.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CycleAgentManager~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CycleAgentManager.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Agent/ExploreAgentExecutor.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ExploreAgentExecutor.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ExploreAgentExecutor.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ExploreAgentExecutor~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ExploreAgentExecutor.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Models/ChatMessage.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatMessage.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatMessage.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatMessage~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatMessage.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Models/FileItem.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileItem.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileItem.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileItem~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileItem.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Models/OllamaModel.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaModel.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaModel.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaModel.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/OllamaBotApp.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaBotApp.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaBotApp.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaBotApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaBotApp.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/ChatHistoryService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatHistoryService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatHistoryService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatHistoryService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatHistoryService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/CheckpointService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CheckpointService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CheckpointService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CheckpointService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CheckpointService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/ConfigurationService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ConfigurationService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ConfigurationService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ConfigurationService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ConfigurationService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/ContextManager.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ContextManager.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ContextManager.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ContextManager~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ContextManager.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/FileIndexer.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileIndexer.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileIndexer.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileIndexer~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileIndexer.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/FileSystemService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileSystemService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileSystemService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileSystemService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FileSystemService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/GitService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/GitService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/GitService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/GitService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/GitService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/InlineCompletionService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/InlineCompletionService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/InlineCompletionService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/InlineCompletionService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/InlineCompletionService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/IntentRouter.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/IntentRouter.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/IntentRouter.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/IntentRouter~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/IntentRouter.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/MentionService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/MentionService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/MentionService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/MentionService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/MentionService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/ModelTierManager.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelTierManager.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelTierManager.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelTierManager~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelTierManager.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/NetworkMonitorService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/NetworkMonitorService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/NetworkMonitorService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/NetworkMonitorService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/NetworkMonitorService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/OBotService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OBotService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OBotService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OBotService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OBotService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/OllamaService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OllamaService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/PanelConfiguration.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PanelConfiguration.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PanelConfiguration.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PanelConfiguration~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PanelConfiguration.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/PerformanceTrackingService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceTrackingService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceTrackingService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceTrackingService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceTrackingService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/ResilienceService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ResilienceService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ResilienceService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ResilienceService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ResilienceService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/SessionStateService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SessionStateService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SessionStateService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SessionStateService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SessionStateService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/SystemMonitorService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SystemMonitorService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SystemMonitorService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SystemMonitorService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SystemMonitorService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Services/WebSearchService.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/WebSearchService.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/WebSearchService.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/WebSearchService~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/WebSearchService.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Utilities/Benchmarks.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/Benchmarks.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/Benchmarks.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/Benchmarks~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/Benchmarks.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Utilities/DesignSystem.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/DesignSystem.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/DesignSystem.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/DesignSystem~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/DesignSystem.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Utilities/PerformanceCore.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceCore.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceCore.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceCore~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceCore.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Utilities/SyntaxHighlighter.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SyntaxHighlighter.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SyntaxHighlighter.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SyntaxHighlighter~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SyntaxHighlighter.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/AgentEditReviewView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentEditReviewView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentEditReviewView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentEditReviewView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentEditReviewView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/AgentView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/AgentView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/ChatView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ChatView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/CommandPaletteView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CommandPaletteView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CommandPaletteView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CommandPaletteView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CommandPaletteView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/ComposerView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ComposerView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ComposerView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ComposerView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ComposerView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/ContextIndicatorView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ContextIndicatorView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ContextIndicatorView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ContextIndicatorView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ContextIndicatorView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/CycleAgentView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CycleAgentView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CycleAgentView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CycleAgentView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/CycleAgentView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/EditorView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/EditorView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/EditorView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/EditorView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/EditorView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/ExploreView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ExploreView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ExploreView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ExploreView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ExploreView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/FindReplaceView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FindReplaceView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FindReplaceView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FindReplaceView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/FindReplaceView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/GoToLineView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/GoToLineView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/GoToLineView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/GoToLineView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/GoToLineView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/MainView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/MainView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/MainView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/MainView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/MainView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/ModelConfigurationView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelConfigurationView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelConfigurationView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelConfigurationView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelConfigurationView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/ModelSelectorView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelSelectorView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelSelectorView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelSelectorView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ModelSelectorView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/OBotView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OBotView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OBotView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OBotView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OBotView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/OutlineView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OutlineView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OutlineView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OutlineView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/OutlineView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/PerformanceDashboardView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceDashboardView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceDashboardView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceDashboardView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/PerformanceDashboardView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/ProblemsPanel.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ProblemsPanel.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ProblemsPanel.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ProblemsPanel~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ProblemsPanel.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/ProcessManagerView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ProcessManagerView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ProcessManagerView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ProcessManagerView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/ProcessManagerView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/RulesEditorView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/RulesEditorView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/RulesEditorView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/RulesEditorView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/RulesEditorView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/SettingsView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SettingsView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SettingsView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SettingsView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/SettingsView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/StatusBarView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/StatusBarView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/StatusBarView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/StatusBarView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/StatusBarView.swiftdeps"
+  },
+  "/Users/croberts/ollamabot/Sources/Views/TerminalView.swift": {
+    "dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/TerminalView.d",
+    "object": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/TerminalView.swift.o",
+    "swiftmodule": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/TerminalView~partial.swiftmodule",
+    "swift-dependencies": "/Users/croberts/ollamabot/.build-bench/arm64-apple-macosx/debug/OllamaBot.build/TerminalView.swiftdeps"
+  }
+}

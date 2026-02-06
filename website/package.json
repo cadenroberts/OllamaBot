@@ -1,0 +1,12 @@
+{
+  "name": "ollamabot-website",
+  "version": "1.0.0",
+  "description": "OllamaBot marketing website",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "echo 'Static site - just copy files to hosting'",
+    "serve": "npx serve -s . -p 3000"
+  },
+  "author": "OllamaBot",
+  "license": "MIT"
+}
