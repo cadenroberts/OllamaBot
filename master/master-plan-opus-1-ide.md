@@ -1,218 +1,590 @@
-# ITERATION-2 FINAL MASTER PLAN — IDE (OllamaBot)
+# Ultimate Consolidated Harmonization Plan (Round 2) — IDE Focus
 
-**Agent**: opus-1
-**Round**: 4 (Iteration 2 of consolidation loop)
-**Date**: 2026-02-05
-**Scope**: ollamabot IDE (Swift/SwiftUI)
-**Inputs Consumed**: 20+ plan documents across plans_0 through plans_4, from agents sonnet-1, sonnet-2, opus-1, opus-2, composer-1, composer-2, gemini-1 through gemini-7
-**Status**: MASTER VERSION
+**Agent:** opus-1  
+**Round:** 2 (Final Consolidation)  
+**Date:** 2026-02-05  
+**Sources:** 11 plans from Round 1 (sonnet-2, composer-1/2/3/4, gemini-1/4/5, opus-1, consolidated-opus-1, consolidated-composer-2)
 
 ---
 
-## A. Cross-Round Delta Analysis
+## Executive Summary
 
-### Round 0 (5 plans): Fragmentation Discovery
-- Identified 47 shortcomings, 90 optimizations, 10 areas of duplicated implementation
-- Three competing architectures proposed: Rust Core (sonnet), Go Core (gemini), Protocol-Only (composer/opus)
-- Key IDE files analyzed: Sources/Services/ModelTierManager.swift, Sources/Agent/AgentExecutor.swift, Sources/Services/ContextManager.swift, Sources/Services/OBotService.swift, Sources/Services/MentionService.swift, Sources/Services/OllamaService.swift
+This plan represents the **definitive consensus** from 11 comprehensive analyses. The core strategy is:
 
-### Round 1 (4 plans): First Consolidation
-- "CLI-as-Engine" philosophy adopted (from gemini-1)
-- Rust core still on the table (from sonnet/composer consolidation)
-- 90 optimizations prioritized P0-P4
-- 22 Unified Tools defined
-- Unified config schema proposed at ~/.obotconfig/config.yaml
+> **Protocol-First Harmonization** with **CLI as Execution Engine** and **IDE as Visualization Layer**, connected via shared schemas and JSON-RPC communication.
 
-### Round 2: Convergence
-- Rust rewrite rejected on risk grounds
-- Go Core + Strict Protocols selected as winning hybrid
-
-### Round 3 (8 plans per repo): Refinement
-- 6 Unified Protocols formalized: UOP, UTR, UCP, UMC, UC, USF
-- Implementation plan counts ranged from 8 to 52 depending on agent
-- FINAL_COMPREHENSIVE_ANALYSIS.md confirmed "unanimous consensus"
-
-### Round 4 (pre-existing + opus-1): Stabilization
-- consolidated-master-plan-round-4.md established the 13-Plan Strategy
-- All agents endorsed "Pragmatic Go Core" with JSON-RPC server
-- opus-1 expanded to 40-agent decomposition for parallel execution
-
-### What Changed Between Rounds
-- DROPPED: Rust rewrite (Round 0-1), deemed too risky
-- EVOLVED: Protocol-Only (Round 0) -> Hybrid Protocol+Engine (Round 2+)
-- STABILIZED: 6 Protocols, Go Engine + Swift View, 13 -> 40 Atomic Plans
-- GAP IDENTIFIED: 13-plan decomposition targets ~13 agents; user requirement is 40-agent parallelism
+**Key Consensus Decisions:**
+1. **REJECT** full Rust core rewrite (high-risk, FFI complexity)
+2. **ADOPT** `obot server` mode as execution backend
+3. **ADOPT** shared YAML/JSON protocols (not shared code)
+4. **ADOPT** CLI's 5-schedule orchestration as master protocol
+5. **ADOPT** IDE's context management logic (ported to specs)
 
 ---
 
-## B. The Consensus Architecture
+## Part 1: Unified Architecture
 
-- **obot (Go)** becomes the Universal Engine, exposing `obot server` via JSON-RPC over Stdio
-- **ollamabot (Swift)** becomes the High-Performance View Layer, communicating exclusively via JSON-RPC
-- **6 Unified Protocols** serve as the contract between engine and view
-
----
-
-## C. The 6 Unified Protocols
-
-### UOP — Unified Orchestration Protocol
-- 5 Schedules: Knowledge, Plan, Implement, Scale, Production
-- 3 Processes per schedule with strict 1-2-3 adjacency navigation
-- Prompt termination requires all 5 schedules executed, Production last
-- Human consultation: optional at Plan/Clarify, mandatory at Implement/Feedback
-
-### UTR — Unified Tool Registry
-- 22 canonical tools across 6 categories:
-  - Core (3): think, complete, ask_user
-  - Files (10): read_file, create_file, edit_file, delete_file, create_dir, delete_dir, rename, move, copy, search_files, list_directory
-  - System (2): run_command, take_screenshot
-  - Delegation (3): delegate_to_coder, delegate_to_researcher, delegate_to_vision
-  - Web (2): web_search, fetch_url
-  - Git (3): git_status, git_diff, git_commit
-- Defined by tools.schema.json
-
-### UCP — Unified Context Protocol
-- Token-budgeted context allocation: Task 25%, Files 35%, Structure 15%, History 15%, Memory 8%, Errors 2%
-- Semantic compression for over-budget sections
-- Ported from Swift ContextManager.swift to Go pkg/context
-
-### UMC — Unified Model Coordinator
-- Hardware-aware tier detection (RAM-based): Minimal, Compact, Balanced, Performance, Advanced, Maximum
-- Intent routing: task type -> model role (orchestrator, coder, researcher, vision)
-- Merges IDE cloud pricing data with CLI hardware detection
-
-### UC — Unified Configuration
-- File: ~/.obot/config.yaml (YAML)
-- Scope: Tiers, Models, Quality Presets, Agent Settings, Orchestration, Consultation
-- Both products read the same file
-
-### USF — Unified State Format
-- File: ~/.obot/sessions/{id}.json
-- Scope: Full session persistence including flow code, recurrence relations, checkpoints, notes, stats
-- Sessions started in CLI can be resumed in IDE and vice versa
-
----
-
-## D. IDE-Specific Architecture Changes
-
-### What the IDE Gains
-1. **Formal orchestration framework** — 5-schedule workflow with navigation rules, flow code tracking
-2. **Quality presets** — fast/balanced/thorough pipeline modes
-3. **Human consultation UI** — Structured questions with 60s timeout and AI substitute
-4. **Flow code visualization** — Real-time S1P123S2P12 rendering with color coding
-5. **Memory prediction** — Predictive memory bars from server resource data
-6. **Session portability** — Sessions started in CLI resumable in IDE
-
-### What the IDE Loses (Migrated to Go Engine)
-1. **OllamaService.swift** — Replaced by OBotClient RPC calls
-2. **ContextManager.swift** — Logic ported to Go pkg/context; IDE calls client.buildContext()
-3. **ModelTierManager.swift** — Logic ported to Go pkg/tier; IDE reads config from server
-
-### New IDE Files
+### 1.1 The "Engine & Cockpit" Model
 
 ```
-Sources/
-  Client/
-    OBotClient.swift            — JSON-RPC client over Stdio pipe to obot server
-    RPCTypes.swift              — Type-safe Swift wrappers for all RPC methods
-  Views/
-    OrchestrationView.swift     — Wired to RPC session/state stream
-    ConsultationView.swift      — Human consultation with timeout + countdown
-    FlowCodeView.swift          — Flow code visualization (S=white, P=blue, X=red)
-    QualityPresetsView.swift    — fast/balanced/thorough segmented control
-    MemoryVisualizationView.swift — Current/Peak/Predict memory bars
-  Services/
-    OrchestrationBridge.swift   — Maps RPC state to SwiftUI @Observable
-    ToolBridge.swift            — Replaces local tool dispatch with client.executeTool()
-    ContextBridge.swift         — Replaces ContextManager with client.buildContext()
-    ConsultationBridge.swift    — Manages consultation RPC lifecycle
-    MemoryBridge.swift          — Streams resource data from server
-    ConfigMigration.swift       — Auto-migrates ~/.config/ollamabot/ to ~/.obot/
+┌─────────────────────────────────────────────────────────────┐
+│                   ollamabot IDE (Swift)                     │
+│                   "The Cockpit"                             │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │   SwiftUI   │  │   State     │  │  CLIBridgeService   │ │
+│  │   Views     │  │   Management│  │  (JSON-RPC Client)  │ │
+│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘ │
+│         └────────────────┴───────────────────┬┘            │
+│                                              │              │
+│                     ┌────────────────────────┴─┐           │
+│                     │    IPC Channel (stdio)   │           │
+│                     └────────────────────────┬─┘           │
+└─────────────────────────────────────────────┼──────────────┘
+                                              │
+┌─────────────────────────────────────────────┼──────────────┐
+│                                              │              │
+│                     ┌────────────────────────┴─┐           │
+│                     │ obot server (JSON-RPC)   │           │
+│                     └────────────────────────┬─┘           │
+│                                              │              │
+│  ┌─────────────┐  ┌─────────────┐  ┌────────┴────────────┐ │
+│  │Orchestration│  │   Context   │  │   Agent Engine      │ │
+│  │  (5x3)      │  │   Manager   │  │   (Tools, Models)   │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+│                                                             │
+│                    obot CLI (Go)                            │
+│                    "The Engine"                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Deleted IDE Files (After Migration)
-- Sources/Services/OllamaService.swift
-- Sources/Services/ContextManager.swift
-- Sources/Services/ModelTierManager.swift
+**Benefits:**
+- Single source of truth for execution logic (Go)
+- IDE focuses purely on UX (Swift's strength)
+- Guaranteed behavioral consistency
+- Reduced maintenance (no duplicate logic)
+- CLI works standalone OR as IDE backend
 
-### Modified IDE Files
-- Sources/Agent/AgentExecutor.swift — Replace direct Ollama calls with RPC; replace local tool dispatch with ToolBridge
-- Sources/Views/ChatView.swift — Add quality preset selector; wire to RPC context
-- Sources/OllamaBotApp.swift — Initialize OBotClient; spawn obot server process
+### 1.2 Communication Protocol
 
----
+**Mode:** JSON-RPC over stdio (simplest, fastest, no network)
 
-## E. IDE Agent Assignments (From 40-Agent Explosion)
+**Server Command:**
+```bash
+obot server [--socket /tmp/obot.sock]
+```
 
-The following agents are IDE-scoped:
-
-| Agent | Plan | Owns | Est. Lines |
-|-------|------|------|-----------|
-| A23 | SWIFT-CLIENT | OBotClient.swift, RPCTypes.swift | ~500 |
-| A24 | SWIFT-ORCHESTRATION | OrchestrationView.swift, OrchestrationBridge.swift | ~600 |
-| A25 | SWIFT-TOOLS | ToolExecutionView.swift, ToolBridge.swift | ~400 |
-| A26 | SWIFT-CONTEXT | ContextBridge.swift, ChatView.swift mods | ~400 |
-| A27 | SWIFT-CONSULTATION | ConsultationView.swift, ConsultationBridge.swift | ~300 |
-| A28 | SWIFT-MEMORY | MemoryVisualizationView.swift, MemoryBridge.swift | ~250 |
-| A29 | SWIFT-FLOWCODE | FlowCodeView.swift | ~150 |
-| A30 | SWIFT-QUALITY | QualityPresetsView.swift | ~150 |
-| A31 | SWIFT-CLEANUP-SERVICES | Delete OllamaService, ContextManager, ModelTierManager | ~3000 deleted |
-| A32 | SWIFT-CLEANUP-AGENTS | Refactor AgentExecutor.swift to thin client | ~200 modified |
-| A33 | CONFIG-MIGRATION | ConfigMigration.swift | ~150 |
-
-**Total new Swift**: ~3,100 lines
-**Total deleted Swift**: ~3,000 lines
-**Net change**: Approximately neutral line count, but 100% of complex logic centralized in Go
+**Message Types:**
+```json
+{"jsonrpc": "2.0", "id": 1, "method": "startTask", "params": {"task": "...", "context": {}}}
+{"jsonrpc": "2.0", "id": 1, "result": {"session_id": "...", "status": "running"}}
+{"jsonrpc": "2.0", "method": "event", "params": {"type": "tool_call", "data": {}}}
+```
 
 ---
 
-## F. Success Criteria (IDE-Specific)
+## Part 2: The Five Unified Protocols
 
-1. Swift codebase reduced by ~50% in service layer
-2. All 22 tools function through RPC bridge
-3. Infinite Mode works end-to-end via OBotClient
-4. Session files (.json) from CLI open in IDE
-5. Orchestration UI displays live schedule/process state from server
-6. Quality presets (fast/balanced/thorough) selectable in chat UI
-7. Human consultation renders with countdown timer
-8. Flow code renders with correct color coding
-9. swift build passes with zero references to deleted services
+### 2.1 Unified Configuration Schema (UCS)
+
+**Location:** `~/.config/ollamabot/config.yaml`
+
+```yaml
+version: "1.0"
+
+models:
+  tier: auto
+  orchestrator: "qwen3:32b"
+  coder: "qwen2.5-coder:32b"
+  researcher: "command-r:35b"
+  vision: "qwen3-vl:32b"
+
+ollama:
+  url: "http://localhost:11434"
+  timeout_seconds: 300
+
+generation:
+  temperature: 0.3
+  max_tokens: 4096
+  context_window: 32768
+
+quality:
+  default: balanced
+  presets:
+    fast:
+      steps: [execute]
+      review: false
+    balanced:
+      steps: [plan, execute, review]
+      review: true
+    thorough:
+      steps: [plan, execute, review, revise]
+      review: true
+      max_revisions: 3
+
+orchestration:
+  enabled: true
+  flow_code_tracking: true
+  human_consultation:
+    clarify: optional
+    feedback: mandatory
+
+agent:
+  max_steps: 50
+  allow_terminal: true
+  allow_file_writes: true
+  confirm_destructive: true
+  parallel_tools: true
+
+context:
+  max_tokens: 32000
+  compression: true
+  budget:
+    task: 0.25
+    file_content: 0.33
+    project_structure: 0.16
+    conversation: 0.12
+    memory: 0.12
+    errors: 0.06
+
+sessions:
+  auto_save: true
+  save_interval_seconds: 30
+  storage: "~/.config/ollamabot/sessions/"
+
+ide:
+  theme: dark
+  font_size: 14
+  show_token_usage: true
+
+cli:
+  verbose: true
+  mem_graph: true
+  colors: true
+```
+
+### 2.2 Unified Tool Specification (UTS)
+
+**Location:** `~/.config/ollamabot/tools.yaml`
+
+```yaml
+version: "1.0"
+
+tools:
+  - id: think
+    category: core
+    platforms: [ide, cli]
+    description: "Record internal reasoning steps"
+    parameters: []
+
+  - id: complete
+    category: core
+    platforms: [ide, cli]
+    description: "Signal task completion with summary"
+    parameters:
+      - name: summary
+        type: string
+        required: true
+
+  - id: ask_user
+    category: core
+    platforms: [ide, cli]
+    description: "Request user input (with optional timeout)"
+    parameters:
+      - name: question
+        type: string
+        required: true
+      - name: timeout_seconds
+        type: integer
+        default: 60
+
+  - id: file.read
+    aliases: [read_file, ReadFile]
+    category: file
+    platforms: [ide, cli]
+    parameters:
+      - name: path
+        type: string
+        required: true
+
+  - id: file.write
+    aliases: [write_file, WriteFile, create_file, CreateFile]
+    category: file
+    platforms: [ide, cli]
+    parameters:
+      - name: path
+        type: string
+        required: true
+      - name: content
+        type: string
+        required: true
+
+  - id: file.edit
+    aliases: [edit_file, EditFile]
+    category: file
+    platforms: [ide, cli]
+    parameters:
+      - name: path
+        type: string
+        required: true
+      - name: old_string
+        type: string
+        required: true
+      - name: new_string
+        type: string
+        required: true
+
+  - id: file.delete
+    aliases: [delete_file, DeleteFile]
+    category: file
+    platforms: [ide, cli]
+    parameters:
+      - name: path
+        type: string
+        required: true
+
+  - id: file.search
+    aliases: [search_files, SearchFiles]
+    category: file
+    platforms: [ide, cli]
+    parameters:
+      - name: query
+        type: string
+        required: true
+      - name: scope
+        type: string
+        default: "."
+
+  - id: dir.list
+    aliases: [list_directory, ListDirectory]
+    category: file
+    platforms: [ide, cli]
+    parameters:
+      - name: path
+        type: string
+        required: true
+
+  - id: dir.create
+    aliases: [create_dir, CreateDirectory]
+    category: file
+    platforms: [ide, cli]
+    parameters:
+      - name: path
+        type: string
+        required: true
+
+  - id: sys.exec
+    aliases: [run_command, RunCommand, ShellExec]
+    category: system
+    platforms: [ide, cli]
+    parameters:
+      - name: command
+        type: string
+        required: true
+      - name: timeout_seconds
+        type: integer
+        default: 30
+
+  - id: git.status
+    aliases: [git_status, GitStatus]
+    category: git
+    platforms: [ide, cli]
+
+  - id: git.diff
+    aliases: [git_diff, GitDiff]
+    category: git
+    platforms: [ide, cli]
+    parameters:
+      - name: path
+        type: string
+
+  - id: git.commit
+    aliases: [git_commit, GitCommit]
+    category: git
+    platforms: [ide, cli]
+    parameters:
+      - name: message
+        type: string
+        required: true
+
+  - id: web.search
+    aliases: [web_search]
+    category: web
+    platforms: [ide, cli]
+    parameters:
+      - name: query
+        type: string
+        required: true
+
+  - id: web.fetch
+    aliases: [fetch_url]
+    category: web
+    platforms: [ide, cli]
+    parameters:
+      - name: url
+        type: string
+        required: true
+
+  - id: delegate.coder
+    aliases: [delegate_to_coder]
+    category: delegation
+    platforms: [ide, cli]
+    requires_model: coder
+    parameters:
+      - name: task
+        type: string
+        required: true
+      - name: context
+        type: string
+
+  - id: delegate.researcher
+    aliases: [delegate_to_researcher]
+    category: delegation
+    platforms: [ide, cli]
+    requires_model: researcher
+    parameters:
+      - name: query
+        type: string
+        required: true
+
+  - id: delegate.vision
+    aliases: [delegate_to_vision]
+    category: delegation
+    platforms: [ide, cli]
+    requires_model: vision
+    parameters:
+      - name: task
+        type: string
+        required: true
+      - name: image_path
+        type: string
+        required: true
+```
+
+### 2.3 Unified Orchestration Protocol (UOP)
+
+```yaml
+version: "1.0"
+
+schedules:
+  - id: 1
+    name: Knowledge
+    processes:
+      - {id: 1, name: Research}
+      - {id: 2, name: Crawl}
+      - {id: 3, name: Retrieve}
+    model: researcher
+
+  - id: 2
+    name: Plan
+    processes:
+      - {id: 1, name: Brainstorm}
+      - {id: 2, name: Clarify, consultation: {type: optional, timeout: 60}}
+      - {id: 3, name: Plan}
+    model: coder
+
+  - id: 3
+    name: Implement
+    processes:
+      - {id: 1, name: Implement}
+      - {id: 2, name: Verify}
+      - {id: 3, name: Feedback, consultation: {type: mandatory, timeout: 300}}
+    model: coder
+
+  - id: 4
+    name: Scale
+    processes:
+      - {id: 1, name: Scale}
+      - {id: 2, name: Benchmark}
+      - {id: 3, name: Optimize}
+    model: coder
+
+  - id: 5
+    name: Production
+    processes:
+      - {id: 1, name: Analyze}
+      - {id: 2, name: Systemize}
+      - {id: 3, name: Harmonize}
+    model: [coder, vision]
+
+navigation_rules:
+  P1: [P1, P2]
+  P2: [P1, P2, P3]
+  P3: [P2, P3, terminate]
+
+termination:
+  requires:
+    - all_schedules_run_once
+    - last_schedule_is_production
+
+flow_code:
+  format: "S{schedule}P{process}"
+  example: "S1P123S2P12S3P123S4P123S5P123"
+```
+
+### 2.4 Unified Context Protocol (UCP)
+
+```json
+{
+  "$schema": "https://ollamabot.dev/schemas/context-v1.json",
+  "version": "1.0",
+  "task": {
+    "description": "Build REST API for user management",
+    "files": ["src/api.go", "src/types.go"],
+    "mentions": ["@file:utils.go", "@context:api-docs"]
+  },
+  "budget": {
+    "total": 32000,
+    "allocation": {
+      "task": 8000,
+      "file_content": 10560,
+      "project_structure": 5120,
+      "conversation": 3840,
+      "memory": 3840,
+      "errors": 640
+    },
+    "used": 24500
+  },
+  "files": [
+    {"path": "src/api.go", "summary": "Main API handlers with CRUD operations", "tokens": 1200, "compressed": false}
+  ],
+  "conversation": [
+    {"role": "user", "content": "Add authentication middleware"},
+    {"role": "assistant", "tool_calls": ["..."]}
+  ],
+  "memory": [
+    {"id": "mem_001", "summary": "Fixed authentication bug in JWT validation", "relevance": 0.85, "timestamp": "2026-02-05T03:00:00Z"}
+  ],
+  "errors": {
+    "patterns": [
+      {"pattern": "undefined: jwt.Parse", "solution": "Import github.com/golang-jwt/jwt/v5", "occurrences": 2}
+    ]
+  }
+}
+```
+
+### 2.5 Unified State Format (USF)
+
+```json
+{
+  "$schema": "https://ollamabot.dev/schemas/session-v1.json",
+  "version": "1.0",
+  "session": {
+    "id": "sess_abc123",
+    "created": "2026-02-05T03:00:00Z",
+    "modified": "2026-02-05T03:30:00Z",
+    "platform": "cli",
+    "prompt": "Build REST API for user management"
+  },
+  "orchestration": {
+    "enabled": true,
+    "flow_code": "S1P123S2P12S3P1",
+    "current": {"schedule": 3, "process": 1},
+    "history": [
+      {"schedule": 1, "processes": [1, 2, 3]},
+      {"schedule": 2, "processes": [1, 2]}
+    ],
+    "state": "active"
+  },
+  "context": {},
+  "actions": [
+    {"id": "A00001", "timestamp": "2026-02-05T03:05:00Z", "schedule": 3, "process": 1, "type": "file.write", "params": {"path": "src/auth.go", "content": "..."}, "result": {"success": true}}
+  ],
+  "checkpoints": [
+    {"id": "cp_001", "timestamp": "2026-02-05T03:04:00Z", "description": "Before auth implementation", "auto": true, "files": [{"path": "src/api.go", "hash": "sha256:abc..."}], "git": {"branch": "feature/auth", "commit": "abc123", "dirty": true}}
+  ],
+  "consultation": {
+    "responses": [
+      {"schedule": 2, "process": 2, "question": "Which authentication method?", "response": "Use JWT", "source": "user", "timestamp": "2026-02-05T03:10:00Z"}
+    ]
+  },
+  "stats": {
+    "tokens": {"total": 45230, "by_model": {"orchestrator": 12000, "coder": 28000, "researcher": 5230}},
+    "files": {"created": 3, "modified": 7, "deleted": 0},
+    "commands": 12,
+    "duration": "PT30M"
+  }
+}
+```
 
 ---
 
-## G. Risk Register (IDE-Specific)
+## Part 3: Implementation Roadmap
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| RPC latency degrades streaming chat UX | High | High | Keep inner loop (keystroke handling, streaming token display) native in Swift; only offload macro tasks |
-| OBotClient process management complexity | Medium | Medium | Robust process lifecycle: spawn on app launch, restart on crash, graceful shutdown on quit |
-| Loss of SwiftUI reactivity through RPC | Medium | Medium | OrchestrationBridge uses @Observable with Combine publishers mapped from RPC events |
-| Migration breaks existing IDE users | Low | High | Feature flags: new RPC path opt-in during beta; legacy path preserved until stable |
-| take_screenshot tool requires native access | Low | Low | Keep screenshot as native Swift call; pass result to server as base64 |
+### Phase 1: Foundation (Weeks 1-2)
+- Define JSON Schemas for all 5 protocols
+- Create schema validation libraries (Go + Swift)
+- Implement YAML config loader in Go and Swift
+- Migrate CLI from JSON to YAML
+- Add config sync validation tests
 
----
+### Phase 2: Core Integration (Weeks 3-4)
+- Implement `obot server` command
+- Implement JSON-RPC message handling and event streaming
+- Create `CLIBridgeService.swift` (~400 lines)
+- Wire orchestration UI to bridge with fallback to native execution
 
-## H. Agent-to-Agent Meta-Analysis
+### Phase 3: Feature Parity (Weeks 5-6)
+- Port IDE's ContextManager logic to Go
+- Add `.obotrules` parser and `@mention` system to CLI
+- Add orchestration mode UI, quality presets, flow code visualization to IDE
+- Implement human consultation modal in IDE
 
-### Design Tendencies Observed
-
-1. **Metaphor-driven prioritization**: Gemini-3 named the context port "Brain Transplant" and it dominated subsequent attention, while the RPC server (higher engineering risk) received less analysis.
-
-2. **Consensus by manufactured urgency**: A March deadline appears only in Gemini plans and was never a stated user requirement, yet it was the forcing function to reject Rust.
-
-3. **Relabeling as contribution**: The 6 Unified Protocols in Round 3 are structurally identical to Opus-2's 6 shared contracts from Round 0, renamed with acronyms.
-
-4. **Premature convergence**: By Round 3, agents were writing endorsement and polling-status documents rather than contributing new analysis.
-
-5. **Narrative coherence over operational parallelism**: Every agent gravitated toward fewer, larger plans (8-13) despite the 40-agent requirement.
-
-### Unquestioned Assumptions Worth Revisiting
-
-1. JSON-RPC over Stdio — no evaluation of alternatives (gRPC, Unix sockets, embedded Go)
-2. The 5-Schedule model — the current Go implementation is largely stubbed
-3. IDE as thin client — sacrifices SwiftUI native performance for latency-sensitive operations
-4. Protocol-Only was dismissed early but remains the lowest-risk Phase 1 option
+### Phase 4: Polish (Weeks 7-8)
+- Cross-platform compatibility and session portability tests
+- Performance benchmarking
+- Documentation and migration guides
 
 ---
 
-*This is the definitive IDE master plan. See explosion-plan-opus-1.md for the full 40-agent decomposition.*
+## Part 4: IDE File Changes
+
+### New Files
+
+| File | Lines | Description |
+|------|-------|-------------|
+| `Sources/Services/CLIBridgeService.swift` | ~400 | JSON-RPC client |
+| `Sources/Services/SharedConfigService.swift` | ~300 | YAML config |
+| `Sources/Views/OrchestrationView.swift` | ~450 | Orchestration UI |
+| `Sources/Views/QualityPresetPicker.swift` | ~100 | Quality selector |
+| `Sources/Views/ConsultationView.swift` | ~200 | Human consultation |
+
+### Modified Files
+
+| File | Changes | Description |
+|------|---------|-------------|
+| `Sources/Services/OllamaService.swift` | +100 | Bridge integration |
+| `Sources/Views/ChatView.swift` | +50 | Quality selector |
+| `Sources/Agent/AgentExecutor.swift` | +150 | Orchestration mode |
+
+---
+
+## Part 5: Success Metrics
+
+- **Protocol Compliance:** 100% messages validate against schemas
+- **Feature Parity:** 90%+ core features in both products
+- **Session Portability:** 100% sessions work cross-platform
+- **Performance:** <5% overhead from bridge communication
+- **Test Coverage:** >80% for new code
+
+---
+
+## Part 6: Risk Mitigation
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| IPC latency | Low | Medium | Benchmark early, optimize hot paths |
+| Schema drift | Medium | High | Automated validation, CI checks |
+| User confusion | Medium | Medium | Clear migration guides, feature flags |
+| Scope creep | High | Medium | Strict phase boundaries, weekly reviews |
+| Performance regression | Low | High | Continuous benchmarking |
+
+---
+
+## Conclusion
+
+Protocol-First with CLI-as-Engine provides simplicity, speed, consistency, maintainability, and flexibility. Two products that operate as CLI and IDE versions of the same tool — harmonized in behavior, consistent in experience, optimized for their respective mediums.
+
+---
+
+*End of Ultimate Consolidated Plan (Round 2) — IDE Focus — opus-1*
