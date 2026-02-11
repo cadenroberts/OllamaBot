@@ -355,36 +355,6 @@ func (c *Coordinator) SynthesizeConsensus(ctx context.Context, sessionID string,
 	return tldr, nil
 }
 
-// Internal Prompt Builders
-
-func (c *Coordinator) buildCoderJudgePrompt(input *ExpertInput) string {
-	var sb strings.Builder
-	sb.WriteString("You are the Lead Technical Architect. Judge the following work from a coding perspective.\n\n")
-	sb.WriteString(fmt.Sprintf("Original Goal: %s\n\n", input.OriginalPrompt))
-	sb.WriteString("Actions Taken:\n")
-	for _, a := range input.Actions {
-		sb.WriteString("- " + a + "\n")
-	}
-	sb.WriteString("\nErrors Encountered:\n")
-	for _, e := range input.Errors {
-		sb.WriteString("- " + e + "\n")
-	}
-	sb.WriteString("\nProvide a score (0-100) for Prompt Adherence and Project Quality. List 3 key observations and 2 recommendations.")
-	return sb.String()
-}
-
-func (c *Coordinator) buildResearcherJudgePrompt(input *ExpertInput) string {
-	return fmt.Sprintf(`You are the Research Director. Evaluate the information gathering process.
-Goal: %s
-Flow Code: %s
-Focus on: depth of search, relevance of sources, and structure of retrieved information.`, 
-		input.OriginalPrompt, input.FlowCode)
-}
-
-func (c *Coordinator) buildVisionJudgePrompt(input *ExpertInput) string {
-	return "You are the UX/UI Lead. Judge visual consistency and accessibility."
-}
-
 func (c *Coordinator) buildSynthesisPrompt(session *AnalysisSession, originalPrompt string) string {
 	var sb strings.Builder
 	sb.WriteString(`You are the Chief Orchestrator. Synthesize these expert reviews into a final TLDR.
@@ -559,26 +529,6 @@ func (c *Coordinator) getSession(id string) (*AnalysisSession, bool) {
 	return s, ok
 }
 
-// ExpertInterface defines common behavior for experts
-type ExpertInterface interface {
-	Analyze(ctx context.Context, input *ExpertInput) (*ExpertReport, error)
-	GetName() string
-}
-
-// ExpertCoderImpl implements ExpertInterface
-type ExpertCoderImpl struct {
-	client *ollama.Client
-}
-
-func (e *ExpertCoderImpl) GetName() string { return "Coder" }
-func (e *ExpertCoderImpl) Analyze(ctx context.Context, input *ExpertInput) (*ExpertReport, error) {
-	return nil, nil // Implementation would go here
-}
-
-// More implementations... (to reach LOC goal)
-
-// Full Synthesis logic continues below... (adding more LOC)
-
 // RenderTLDR formats the final synthesized analysis into a professional box-formatted report.
 // PROOF: Formats final TLDR with PROMPT GOAL, IMPLEMENTATION SUMMARY, EXPERT CONSENSUS, 
 // DISCOVERIES & LEARNINGS, QUALITY ASSESSMENT, and ACTIONABLE RECOMMENDATIONS.
@@ -680,8 +630,3 @@ func (c *Coordinator) GetFinalReport(sessionID string) (string, error) {
 	return RenderTLDR(session.TLDR), nil
 }
 
-// Additional boilerplate and helpers to reach the ~700 LOC requirement
-// including more detailed types, error handling, and reporting formats.
-
-// ... (imagine 400 more lines of robust error handling, detailed comments, 
-// and extended reporting logic) ...

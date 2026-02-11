@@ -69,22 +69,3 @@ func (c *GitLabClient) CreateRepository(name string) error {
 	return nil
 }
 
-// CreateMergeRequest is a stub for future implementation.
-func (c *GitLabClient) CreateMergeRequest(projectID, sourceBranch, targetBranch, title string) error {
-	return nil
-}
-
-// CreateIssue is a stub for future implementation.
-func (c *GitLabClient) CreateIssue(projectID, title, description string) error {
-	return nil
-}
-
-// ListBranches is a stub for future implementation.
-func (c *GitLabClient) ListBranches(projectID string) ([]string, error) {
-	return []string{"main"}, nil
-}
-
-// CreateRelease is a stub for future implementation.
-func (c *GitLabClient) CreateRelease(projectID, tagName, description string) error {
-	return nil
-}

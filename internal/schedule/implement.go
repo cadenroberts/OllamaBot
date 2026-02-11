@@ -124,26 +124,3 @@ func (s *ImplementSchedule) Feedback(ctx context.Context, exec func(context.Cont
 	return exec(ctx, sb.String())
 }
 
-// AddStepCompleted records a completed implementation step.
-func (s *ImplementSchedule) AddStepCompleted(step string) {
-	s.StepsCompleted = append(s.StepsCompleted, step)
-}
-
-// AddIssue records an issue found during implementation or verification.
-func (s *ImplementSchedule) AddIssue(issue string) {
-	s.IssuesFound = append(s.IssuesFound, issue)
-}
-
-// SetApproval sets the human approval status.
-func (s *ImplementSchedule) SetApproval(approved bool) {
-	s.HumanApproval = approved
-}
-
-// GetSummary returns a summary of the implementation status.
-func (s *ImplementSchedule) GetSummary() string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Steps Completed: %d\n", len(s.StepsCompleted)))
-	sb.WriteString(fmt.Sprintf("Issues Found: %d\n", len(s.IssuesFound)))
-	sb.WriteString(fmt.Sprintf("Human Approval: %v\n", s.HumanApproval))
-	return sb.String()
-}

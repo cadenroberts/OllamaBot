@@ -484,82 +484,6 @@ func (o *Orchestrator) SelectProcess(processID ProcessID) error {
 	return nil
 }
 
-// selectScheduleLLM selects the next schedule using the LLM.
-func (o *Orchestrator) selectScheduleLLM(ctx context.Context) (ScheduleID, error) {
-	o.mu.Lock()
-	history := o.scheduleHistory
-	flow := o.flowCode.String()
-	prompt := o.prompt
-	client := o.ollamaClient
-	o.mu.Unlock()
-
-	if client == nil {
-		return 0, fmt.Errorf("ollama client not initialized")
-	}
-
-	fullPrompt := fmt.Sprintf(scheduleSelectionSystemPrompt, history, flow, prompt)
-
-	resp, _, err := client.Generate(ctx, fullPrompt)
-	if err != nil {
-		return 0, fmt.Errorf("failed to generate schedule selection: %w", err)
-	}
-
-	resp = strings.TrimSpace(resp)
-	if resp == "0" || strings.ToUpper(resp) == "TERMINATE" {
-		return 0, nil
-	}
-
-	var id int
-	// Try to find the first digit in the response
-	for _, c := range resp {
-		if c >= '0' && c <= '5' {
-			id = int(c - '0')
-			break
-		}
-	}
-
-	return ScheduleID(id), nil
-}
-
-// selectProcessLLM selects the next process using the LLM.
-func (o *Orchestrator) selectProcessLLM(ctx context.Context, scheduleID ScheduleID, lastProcess ProcessID) (ProcessID, bool, error) {
-	o.mu.Lock()
-	flow := o.flowCode.String()
-	client := o.ollamaClient
-	o.mu.Unlock()
-
-	if client == nil {
-		return 0, false, fmt.Errorf("ollama client not initialized")
-	}
-
-	scheduleName := ScheduleNames[scheduleID]
-	fullPrompt := fmt.Sprintf(processSelectionSystemPrompt, scheduleName, lastProcess, flow)
-
-	resp, _, err := client.Generate(ctx, fullPrompt)
-	if err != nil {
-		return 0, false, fmt.Errorf("failed to generate process selection: %w", err)
-	}
-
-	resp = strings.TrimSpace(resp)
-	if resp == "0" || strings.ToUpper(resp) == "TERMINATE" {
-		return 0, true, nil
-	}
-
-	var id int
-	for _, c := range resp {
-		if c >= '1' && c <= '3' {
-			id = int(c - '0')
-			break
-		}
-	}
-
-	if id == 0 {
-		return 0, true, nil
-	}
-
-	return ProcessID(id), false, nil
-}
-
 // CompleteProcess marks the current process as completed
 func (o *Orchestrator) CompleteProcess() error {
 	o.mu.Lock()
@@ -698,24 +622,6 @@ func (o *Orchestrator) TerminatePrompt() error {
 	o.mu.Unlock()
 
 	return nil
-}
-
-// GetTerminationContext returns all context needed for the LLM to decide on termination.
-func (o *Orchestrator) GetTerminationContext() map[string]interface{} {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	return map[string]interface{}{
-		"history": map[string]interface{}{
-			"schedules": o.scheduleHistory,
-			"processes": o.processHistory,
-			"counts":    o.scheduleCounts,
-		},
-		"stats": o.stats,
-		"notes": o.sessionNotes,
-		"flow":  o.flowCode.String(),
-		"can_terminate": o.CanTerminatePrompt(),
-	}
 }
 
 // GetScheduleSelectionContext returns context for the LLM to select the next schedule.

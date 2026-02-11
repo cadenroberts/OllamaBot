@@ -21,7 +21,7 @@ var sessionListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all sessions",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		sessions, err := session.ListUSFSessionIDs("")
+		sessions, err := session.ListAllSessions()
 		if err != nil {
 			return fmt.Errorf("list sessions: %w", err)
 		}
@@ -31,27 +31,27 @@ var sessionListCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Printf("\n%s Sessions (USF):\n\n", cyan("📋"))
+		fmt.Printf("\n%s Sessions:\n\n", cyan("📋"))
 
 		for _, sid := range sessions {
-			usf, err := session.LoadUSFSession("", sid)
+			info, err := session.GetSessionInfo(sid)
 			if err != nil {
 				fmt.Printf("  • %s %s\n", red("✗"), sid)
 				continue
 			}
 
 			status := green("✓")
-			if usf.Task.Status != "completed" {
-				status = yellow("⟳")
+			if info.Format == "legacy" {
+				status = yellow("⚠")
 			}
 
-			fmt.Printf("  %s %s\n", status, cyan(sid))
-			fmt.Printf("    Task: %s\n", usf.Task.Description)
-			fmt.Printf("    Platform: %s | Steps: %d | Tokens: %d\n",
-				usf.Platform, len(usf.History), usf.Stats.TotalTokens)
-			if usf.OrchestrationState.FlowCode != "" {
-				fmt.Printf("    Flow: %s\n", usf.OrchestrationState.FlowCode)
+			fmt.Printf("  %s %s", status, cyan(sid))
+			if info.Format == "legacy" {
+				fmt.Printf(" %s", yellow("[legacy format]"))
 			}
+			fmt.Println()
+			fmt.Printf("    Task: %s\n", info.Description)
+			fmt.Printf("    Platform: %s | Steps: %d\n", info.Platform, info.StepCount)
 			fmt.Println()
 		}
 
@@ -64,16 +64,16 @@ var sessionExportCmd = &cobra.Command{
 	Short: "Export a session in USF JSON",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		usf, err := session.LoadUSFSession("", args[0])
+		usf, err := session.LoadAnySession(args[0])
 		if err != nil {
 			return fmt.Errorf("load session: %w", err)
 		}
 
-		if err := usf.Save(""); err != nil {
+		if err := session.SaveAnySession(usf); err != nil {
 			return fmt.Errorf("export session: %w", err)
 		}
 
-		printSuccess(fmt.Sprintf("Session %s exported", usf.SessionID))
+		printSuccess(fmt.Sprintf("Session %s exported (migrated to unified format)", usf.SessionID))
 		return nil
 	},
 }
@@ -83,14 +83,19 @@ var sessionShowCmd = &cobra.Command{
 	Short: "Show session details",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		usf, err := session.LoadUSFSession("", args[0])
+		usf, err := session.LoadAnySession(args[0])
 		if err != nil {
 			return fmt.Errorf("load session: %w", err)
 		}
 
+		info, _ := session.GetSessionInfo(args[0])
+		
 		fmt.Printf("\n%s Session: %s\n\n", cyan("📋"), cyan(usf.SessionID))
 		fmt.Printf("  Version:  %s\n", usf.Version)
-		fmt.Printf("  Platform: %s\n", usf.Platform)
+		if info != nil && info.Format == "legacy" {
+			fmt.Printf("  Format:   %s\n", yellow("legacy (auto-migrated on save)"))
+		}
+		fmt.Printf("  Platform: %s\n", usf.PlatformOrigin)
 		fmt.Printf("  Created:  %s\n", usf.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("  Updated:  %s\n", usf.UpdatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("  Status:   %s\n", usf.Task.Status)
@@ -98,29 +103,35 @@ var sessionShowCmd = &cobra.Command{
 
 		fmt.Printf("  %s Task\n", cyan("📝"))
 		fmt.Printf("    Description: %s\n", usf.Task.Description)
-		fmt.Printf("    Prompt:      %s\n", usf.Task.Prompt)
+		if usf.Task.Intent != "" {
+			fmt.Printf("    Intent:      %s\n", usf.Task.Intent)
+		}
 		fmt.Println()
 
-		if usf.OrchestrationState.FlowCode != "" {
+		if usf.Orchestration.FlowCode != "" {
 			fmt.Printf("  %s Orchestration\n", cyan("🔄"))
-			fmt.Printf("    Flow Code: %s\n", green(usf.OrchestrationState.FlowCode))
-			fmt.Printf("    Schedule:  S%d P%d\n", usf.OrchestrationState.Schedule, usf.OrchestrationState.Process)
+			fmt.Printf("    Flow Code: %s\n", green(usf.Orchestration.FlowCode))
+			fmt.Printf("    Schedule:  S%d P%d\n", usf.Orchestration.CurrentSchedule, usf.Orchestration.CurrentProcess)
 			fmt.Println()
 		}
 
 		fmt.Printf("  %s Stats\n", cyan("📊"))
 		fmt.Printf("    Tokens:   %d\n", usf.Stats.TotalTokens)
-		fmt.Printf("    Steps:    %d\n", len(usf.History))
+		fmt.Printf("    Steps:    %d\n", len(usf.Steps))
 		fmt.Println()
 
-		if len(usf.History) > 0 {
+		if len(usf.Steps) > 0 {
 			fmt.Printf("  %s Steps (last 10)\n", cyan("📝"))
 			start := 0
-			if len(usf.History) > 10 {
-				start = len(usf.History) - 10
+			if len(usf.Steps) > 10 {
+				start = len(usf.Steps) - 10
 			}
-			for _, step := range usf.History[start:] {
-				fmt.Printf("    %s #%d S%d P%d\n", green("✓"), step.Sequence, step.Schedule, step.Process)
+			for _, step := range usf.Steps[start:] {
+				status := green("✓")
+				if !step.Success {
+					status = red("✗")
+				}
+				fmt.Printf("    %s #%d %s\n", status, step.StepNumber, step.ToolID)
 			}
 		}
 
@@ -182,6 +193,32 @@ var sessionImportCmd = &cobra.Command{
 	},
 }
 
+var sessionMigrateCmd = &cobra.Command{
+	Use:   "migrate",
+	Short: "Migrate all legacy USFSession format sessions to UnifiedSession format",
+	Long: `Converts all sessions stored in the legacy USFSession format (subdirectory with session.usf)
+to the current UnifiedSession format (flat .json files). The legacy directories are renamed to
+.migrated_<sessionID> for backup purposes.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fmt.Println("Scanning for legacy format sessions...")
+		
+		count, err := session.MigrateAllSessions()
+		if err != nil {
+			return fmt.Errorf("migration failed: %w", err)
+		}
+
+		if count == 0 {
+			printInfo("No legacy sessions found. All sessions are already in unified format.")
+		} else {
+			printSuccess(fmt.Sprintf("Successfully migrated %d session(s) to unified format.", count))
+			fmt.Println("\nLegacy session directories have been renamed to .migrated_<sessionID>")
+			fmt.Println("You can safely delete them after verifying the migration.")
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	usfSessionCmd.AddCommand(sessionListCmd)
 	usfSessionCmd.AddCommand(sessionExportCmd)
@@ -189,4 +226,5 @@ func init() {
 	usfSessionCmd.AddCommand(sessionSaveCmd)
 	usfSessionCmd.AddCommand(sessionLoadCmd)
 	usfSessionCmd.AddCommand(sessionImportCmd)
+	usfSessionCmd.AddCommand(sessionMigrateCmd)
 }

@@ -54,18 +54,18 @@ var checkpointSaveCmd = &cobra.Command{
 
 		if sessionID != "" {
 			var err error
-			usf, err = session.LoadUSF(sessionID)
+			usf, err = session.LoadAnySession(sessionID)
 			if err != nil {
 				return fmt.Errorf("failed to load session %s: %w", sessionID, err)
 			}
 		} else {
 			// Find most recent session
-			sessions, err := session.ListUSFSessions()
+			sessions, err := session.ListAllSessions()
 			if err != nil || len(sessions) == 0 {
 				return fmt.Errorf("no active sessions found; start a session first")
 			}
 			latest := sessions[len(sessions)-1]
-			usf, err = session.LoadUSF(latest)
+			usf, err = session.LoadAnySession(latest)
 			if err != nil {
 				return fmt.Errorf("failed to load latest session: %w", err)
 			}
@@ -73,7 +73,7 @@ var checkpointSaveCmd = &cobra.Command{
 
 		// 3. Add the checkpoint
 		usf.AddCheckpoint(name, gitCommit)
-		if err := session.SaveUSF(usf); err != nil {
+		if err := session.SaveAnySession(usf); err != nil {
 			return fmt.Errorf("failed to save checkpoint: %w", err)
 		}
 
@@ -93,7 +93,7 @@ var checkpointListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all available checkpoints",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		sessions, err := session.ListUSFSessions()
+		sessions, err := session.ListAllSessions()
 		if err != nil {
 			return fmt.Errorf("failed to list sessions: %w", err)
 		}
@@ -108,7 +108,7 @@ var checkpointListCmd = &cobra.Command{
 
 		found := false
 		for _, sid := range sessions {
-			usf, err := session.LoadUSF(sid)
+			usf, err := session.LoadAnySession(sid)
 			if err != nil || len(usf.Checkpoints) == 0 {
 				continue
 			}
@@ -141,7 +141,7 @@ var checkpointRestoreCmd = &cobra.Command{
 		targetID := args[0]
 
 		// 1. Locate the checkpoint
-		sessions, err := session.ListUSFSessions()
+		sessions, err := session.ListAllSessions()
 		if err != nil {
 			return err
 		}
@@ -150,7 +150,7 @@ var checkpointRestoreCmd = &cobra.Command{
 		var targetUSF *session.UnifiedSession
 
 		for _, sid := range sessions {
-			usf, err := session.LoadUSF(sid)
+			usf, err := session.LoadAnySession(sid)
 			if err != nil {
 				continue
 			}
@@ -187,7 +187,7 @@ var checkpointRestoreCmd = &cobra.Command{
 		fmt.Printf("Restoring orchestration flow: %s\n", targetCP.FlowCode)
 		targetUSF.Orchestration.FlowCode = targetCP.FlowCode
 		targetUSF.UpdatedAt = time.Now()
-		if err := session.SaveUSF(targetUSF); err != nil {
+		if err := session.SaveAnySession(targetUSF); err != nil {
 			return fmt.Errorf("failed to update session state: %w", err)
 		}
 

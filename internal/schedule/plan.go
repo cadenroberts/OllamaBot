@@ -118,26 +118,3 @@ func (s *PlanSchedule) Plan(ctx context.Context, exec func(context.Context, stri
 	return exec(ctx, sb.String())
 }
 
-// AddApproach adds a potential approach to the schedule.
-func (s *PlanSchedule) AddApproach(approach string) {
-	s.Approaches = append(s.Approaches, approach)
-}
-
-// AddAmbiguity adds an ambiguity to be clarified.
-func (s *PlanSchedule) AddAmbiguity(ambiguity string) {
-	s.Ambiguities = append(s.Ambiguities, ambiguity)
-}
-
-// AddStep adds a finalized step to the plan.
-func (s *PlanSchedule) AddStep(step string) {
-	s.FinalSteps = append(s.FinalSteps, step)
-}
-
-// GetSummary returns a summary of the planning progress.
-func (s *PlanSchedule) GetSummary() string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Approaches Considered: %d\n", len(s.Approaches)))
-	sb.WriteString(fmt.Sprintf("Ambiguities Resolved: %d\n", len(s.Ambiguities)))
-	sb.WriteString(fmt.Sprintf("Final Plan Steps: %d\n", len(s.FinalSteps)))
-	return sb.String()
-}
