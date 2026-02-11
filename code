@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# code — repo-root wrapper for scripts/code.py
+exec python3 "$(dirname "$0")/scripts/code.py" "$@"
