@@ -1,6 +1,0 @@
-[code] server listening on http://127.0.0.1:7337  db=.cursor/code/code.db
-
-[code] received SIGTERM, shutting down...
-
-[code] received SIGTERM, shutting down...
-[code] server stopped

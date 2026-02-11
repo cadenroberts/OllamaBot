@@ -63,6 +63,17 @@ master/
 # Compiled CLI binary
 obot
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
+
+# Cursor IDE
+.cursor/
+
 # Credentials (never commit!)
 *.pem
 *.key
