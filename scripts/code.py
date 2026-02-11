@@ -135,27 +135,31 @@ def add_dep(conn, job_id, dep_id):
 
 def requeue_stale(conn):
     now = time.time()
-    stale = conn.execute(
-        "SELECT id, attempts, max_attempts FROM jobs WHERE status='running' AND lease_until < ?",
-        (now,),
-    ).fetchall()
-    count = 0
-    for row in stale:
-        if row["attempts"] < row["max_attempts"]:
-            conn.execute(
-                "UPDATE jobs SET status='queued', holder=NULL, lease_until=NULL, updated_at=? WHERE id=?",
-                (now, row["id"]),
-            )
-            log_event(conn, row["id"], "requeued", "stale lease")
-        else:
-            conn.execute(
-                "UPDATE jobs SET status='failed', error='max attempts exceeded', updated_at=? WHERE id=?",
-                (now, row["id"]),
-            )
-            log_event(conn, row["id"], "failed", "max attempts exceeded")
-        count += 1
-    if count:
-        conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        stale = conn.execute(
+            "SELECT id, attempts, max_attempts FROM jobs WHERE status='running' AND lease_until < ?",
+            (now,),
+        ).fetchall()
+        count = 0
+        for row in stale:
+            if row["attempts"] < row["max_attempts"]:
+                conn.execute(
+                    "UPDATE jobs SET status='queued', holder=NULL, lease_until=NULL, updated_at=? WHERE id=?",
+                    (now, row["id"]),
+                )
+                log_event(conn, row["id"], "requeued", "stale lease")
+            else:
+                conn.execute(
+                    "UPDATE jobs SET status='failed', error='max attempts exceeded', updated_at=? WHERE id=?",
+                    (now, row["id"]),
+                )
+                log_event(conn, row["id"], "failed", "max attempts exceeded")
+            count += 1
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
     return count
 
 

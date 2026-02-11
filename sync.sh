@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  OllamaBot Sync Script
-#  Stage, commit, and push to ai_interns branch
+#  Git Sync Script
+#  Stage, commit, and push to current branch
 # ═══════════════════════════════════════════════════════════════════════════════
 
 set -e
@@ -15,13 +15,21 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
 
-# Config
-REPO="cadenroberts/ollamabot"
-BRANCH="ai_interns"
+# Get current branch
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Get repo from remote (if it exists)
+if git remote get-url origin > /dev/null 2>&1; then
+    REMOTE_URL=$(git remote get-url origin)
+    # Extract repo name from git@github.com:user/repo.git or https://github.com/user/repo.git
+    REPO=$(echo "$REMOTE_URL" | sed -E 's#.*github\.com[:/]([^/]+/[^/.]+)(\.git)?#\1#')
+else
+    REPO="(no remote configured)"
+fi
 
 echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║                    🤖 OllamaBot Sync Script                   ║"
+echo "║                       🤖 Git Sync Script                      ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -29,13 +37,6 @@ echo -e "${NC}"
 if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
     echo -e "${RED}Error: Not a git repository${NC}"
     exit 1
-fi
-
-# Check if remote exists
-if ! git remote get-url origin > /dev/null 2>&1; then
-    echo -e "${YELLOW}Adding remote origin...${NC}"
-    git remote add origin "git@github.com:${REPO}.git"
-    echo -e "${GREEN}✓ Remote added: github.com/${REPO}${NC}"
 fi
 
 # Show status
@@ -92,8 +93,10 @@ echo -e "\n${GREEN}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║                    ✅ Sync Successful!                        ║"
 echo "╠═══════════════════════════════════════════════════════════════╣"
-echo "║  Repository: github.com/${REPO}                    ║"
-echo "║  Branch:     ${BRANCH}                                      ║"
+if [ "$REPO" != "(no remote configured)" ]; then
+    printf "║  Repository: %-45s║\n" "$REPO"
+fi
+printf "║  Branch:     %-45s║\n" "$BRANCH"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
