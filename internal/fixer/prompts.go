@@ -126,6 +126,8 @@ func DetectFixType(instruction string) FixType {
 	switch {
 	case strings.Contains(lower, "lint") || strings.Contains(lower, "warning"):
 		return FixLint
+	case strings.Contains(lower, "type"):
+		return FixTypes
 	case strings.Contains(lower, "bug") || strings.Contains(lower, "fix"):
 		return FixBug
 	case strings.Contains(lower, "refactor") || strings.Contains(lower, "clean"):
@@ -136,8 +138,6 @@ func DetectFixType(instruction string) FixType {
 		return FixOptimize
 	case strings.Contains(lower, "doc") || strings.Contains(lower, "comment"):
 		return FixDoc
-	case strings.Contains(lower, "type"):
-		return FixTypes
 	default:
 		return FixGeneral
 	}

@@ -77,10 +77,11 @@ type Stats struct {
 	EndTime          time.Time                                 `json:"end_time"`
 }
 
-// NewSession creates a new session with default base directory
+// NewSession creates a new session with default base directory.
+// Uses the unified config directory at ~/.config/ollamabot/sessions/.
 func NewSession() *Session {
 	homeDir, _ := os.UserHomeDir()
-	return NewSessionWithBaseDir(filepath.Join(homeDir, ".obot", "sessions"))
+	return NewSessionWithBaseDir(filepath.Join(homeDir, ".config", "ollamabot", "sessions"))
 }
 
 // NewSessionWithBaseDir creates a new session with custom base directory

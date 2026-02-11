@@ -15,6 +15,7 @@ import (
 	"github.com/croberts/obot/internal/ollama"
 	"github.com/croberts/obot/internal/orchestrate"
 	"github.com/croberts/obot/internal/resource"
+	"github.com/croberts/obot/internal/router"
 	orchsession "github.com/croberts/obot/internal/session"
 	"github.com/croberts/obot/internal/ui"
 	"github.com/spf13/cobra"
@@ -146,6 +147,14 @@ func runOrchestrate(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 	}
+
+	// Classify intent for model routing
+	intentRouter := router.NewIntentRouter()
+	intent := intentRouter.Classify(initialPrompt)
+	modelRole := intentRouter.SelectModelRole(intent)
+	fmt.Printf("%s %s %s\n", ui.FormatLabel("Intent"),
+		ui.FormatBullet()+ui.FormatValue(string(intent)),
+		ui.FormatValueMuted("("+modelRole+")"))
 
 	// Initialize components
 	orch := orchestrate.NewOrchestrator()
@@ -573,9 +582,9 @@ func listOrchestrateSessions() error {
 	fmt.Println()
 	fmt.Println(ui.FormatLabel("Sessions"))
 
-	// Check for sessions directory
+	// Check for sessions directory (unified config path)
 	homeDir, _ := os.UserHomeDir()
-	sessionsDir := homeDir + "/.obot/sessions"
+	sessionsDir := homeDir + "/.config/ollamabot/sessions"
 
 	entries, err := os.ReadDir(sessionsDir)
 	if err != nil {
@@ -610,7 +619,7 @@ func restoreOrchestrateState(stateID string) error {
 
 	// Look for restore script
 	homeDir, _ := os.UserHomeDir()
-	restoreScript := fmt.Sprintf("%s/.obot/sessions/%s/restore.sh", homeDir, stateID)
+	restoreScript := fmt.Sprintf("%s/.config/ollamabot/sessions/%s/restore.sh", homeDir, stateID)
 
 	if _, err := os.Stat(restoreScript); os.IsNotExist(err) {
 		fmt.Printf("  %s %s\n", ui.FormatError("✗"), "Session not found: "+stateID)

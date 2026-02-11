@@ -3,11 +3,11 @@
 
 class Obot < Formula
   desc "Local AI-powered code fixer CLI"
-  homepage "https://github.com/croberts/obot"
-  url "https://github.com/croberts/obot/archive/refs/tags/v1.0.0.tar.gz"
+  homepage "https://github.com/cadenroberts/OllamaBot"
+  url "https://github.com/cadenroberts/OllamaBot/archive/refs/tags/v1.0.0.tar.gz"
   sha256 "REPLACE_WITH_ACTUAL_SHA256"
   license "MIT"
-  head "https://github.com/croberts/obot.git", branch: "main"
+  head "https://github.com/cadenroberts/OllamaBot.git", branch: "main"
 
   depends_on "go" => :build
 

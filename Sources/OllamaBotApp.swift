@@ -117,6 +117,14 @@ struct OllamaBotApp: App {
                 }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
                 
+                Button("Cost Dashboard") {
+                    appState.showCostDashboard = true
+                }
+                
+                Button("Sessions") {
+                    appState.showSessions = true
+                }
+                
                 Divider()
                 
                 // Editor layout
@@ -184,6 +192,11 @@ struct OllamaBotApp: App {
                     appState.showInfiniteMode.toggle()
                 }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
+                
+                Button("Orchestration Mode") {
+                    appState.showOrchestration = true
+                }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
                 
                 Button("Show Cycle Agents") {
                     PanelState.shared.setSecondarySidebarTab(.agents)
@@ -309,6 +322,10 @@ class AppState {
     var showGitStatus: Bool = false
     var showGitCommit: Bool = false
     var showPerformanceDashboard: Bool = false
+    var showOrchestration: Bool = false
+    var showCostDashboard: Bool = false
+    var showSessions: Bool = false
+    var showPreview: Bool = false
     
     // MARK: - UI State - Focus
     var focusChat: Bool = false
@@ -350,6 +367,13 @@ class AppState {
     let apiKeyStore: APIKeyStore
     let pricingService: PricingService
     
+    // MARK: - Harmonization Services (Shared Config, Orchestration, USF, Tools, Preview)
+    let sharedConfigService: SharedConfigService
+    let orchestrationService: OrchestrationService
+    let toolRegistryService: ToolRegistryService
+    let previewService: PreviewService
+    let unifiedSessionService: UnifiedSessionService
+    
     // Performance caches
     private let fileContentCache = LRUCache<URL, String>(capacity: 50_000_000) // ~50MB
     
@@ -362,6 +386,9 @@ class AppState {
         self.externalModelConfig = ExternalModelConfigurationService()
         self.apiKeyStore = APIKeyStore.shared
         self.pricingService = PricingService()
+        
+        // Shared config (reads ~/.config/ollamabot/config.yaml)
+        self.sharedConfigService = SharedConfigService()
         
         // Core services
         self.ollamaService = OllamaService()
@@ -412,6 +439,12 @@ class AppState {
         self.gitService = GitService()
         self.webSearchService = WebSearchService()
         
+        // Harmonization services
+        self.orchestrationService = OrchestrationService(sharedConfig: sharedConfigService)
+        self.toolRegistryService = ToolRegistryService()
+        self.previewService = PreviewService(fileSystemService: fileSystemService)
+        self.unifiedSessionService = UnifiedSessionService()
+        
         // Checkpoint Service: Save/restore code states (like Windsurf)
         self.checkpointService = CheckpointService(
             fileSystemService: fileSystemService,
@@ -447,6 +480,11 @@ class AppState {
         // Configure OllamaService with tier-appropriate model tags
         ollamaService.configureTier(modelTierManager)
         
+        // Apply shared config context settings to ContextManager
+        if sharedConfigService.isLoaded {
+            contextManager.config.maxTotalTokens = sharedConfigService.config.context.maxTokens
+        }
+        
         // Start system monitoring
         systemMonitor.startMonitoring()
         networkMonitor.startMonitoring()
@@ -464,6 +502,8 @@ class AppState {
         print("   Tier: \(modelTierManager.selectedTier.rawValue)")
         print("   Parallel: \(modelTierManager.canRunParallel ? "Yes" : "No")")
         print("   Network: \(networkMonitor.status.isConnected ? "Connected" : "Offline")")
+        print("   Config: \(sharedConfigService.isLoaded ? "v\(sharedConfigService.config.version)" : "defaults")")
+        print("   Tools: \(toolRegistryService.tools.count) registered")
         
         // Restore session state (open files, project folder) if available
         if let session = SessionStateService.shared.loadSession() {

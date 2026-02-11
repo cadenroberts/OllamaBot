@@ -564,6 +564,86 @@ struct MainView: View {
                     )
             }
         }
+        
+        if appState.showOrchestration {
+            DialogOverlay {
+                OrchestrationView()
+                    .environment(appState)
+                    .frame(width: 800, height: 600)
+                    .background(DS.Colors.background)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+                    .overlay(
+                        Button(action: { appState.showOrchestration = false }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(DS.Colors.secondaryText)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(DS.Spacing.md),
+                        alignment: .topTrailing
+                    )
+            }
+        }
+        
+        if appState.showCostDashboard {
+            DialogOverlay {
+                CostDashboardView()
+                    .environment(appState)
+                    .frame(width: 800, height: 600)
+                    .background(DS.Colors.background)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+                    .overlay(
+                        Button(action: { appState.showCostDashboard = false }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(DS.Colors.secondaryText)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(DS.Spacing.md),
+                        alignment: .topTrailing
+                    )
+            }
+        }
+        
+        if appState.showSessions {
+            DialogOverlay {
+                SessionHandoffView()
+                    .environment(appState)
+                    .frame(width: 800, height: 600)
+                    .background(DS.Colors.background)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+                    .overlay(
+                        Button(action: { appState.showSessions = false }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(DS.Colors.secondaryText)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(DS.Spacing.md),
+                        alignment: .topTrailing
+                    )
+            }
+        }
+        
+        if appState.showPreview {
+            DialogOverlay {
+                PreviewView()
+                    .environment(appState)
+                    .frame(width: 800, height: 600)
+                    .background(DS.Colors.background)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+                    .overlay(
+                        Button(action: { appState.showPreview = false }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(DS.Colors.secondaryText)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(DS.Spacing.md),
+                        alignment: .topTrailing
+                    )
+            }
+        }
     }
     
     private var colorScheme: ColorScheme? {

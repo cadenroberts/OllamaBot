@@ -37,10 +37,10 @@ OllamaBot coordinates four specialized 32B parameter models, each excelling at d
 
 | Model | Role | Color | Specialization |
 |-------|------|-------|----------------|
-| **Qwen3 32B** | 🧠 Orchestrator | ![#bb9af7](https://via.placeholder.com/12/bb9af7/bb9af7.png) Purple | Thinking, planning, delegating tasks |
-| **Command-R 35B** | 🔍 Researcher | ![#7aa2f7](https://via.placeholder.com/12/7aa2f7/7aa2f7.png) Blue | Research, RAG, documentation |
-| **Qwen2.5-Coder 32B** | 💻 Coder | ![#ff9e64](https://via.placeholder.com/12/ff9e64/ff9e64.png) Orange | Code generation, debugging, refactoring |
-| **Qwen3-VL 32B** | 👁️ Vision | ![#9ece6a](https://via.placeholder.com/12/9ece6a/9ece6a.png) Green | Image analysis, UI inspection |
+| **Qwen3 32B** | 🧠 Orchestrator | ![#7aa2f7](https://via.placeholder.com/12/7aa2f7/7aa2f7.png) Royal Blue | Thinking, planning, delegating tasks |
+| **Command-R 35B** | 🔍 Researcher | ![#2ac3de](https://via.placeholder.com/12/2ac3de/2ac3de.png) Teal Blue | Research, RAG, documentation |
+| **Qwen2.5-Coder 32B** | 💻 Coder | ![#7dcfff](https://via.placeholder.com/12/7dcfff/7dcfff.png) Cyan Blue | Code generation, debugging, refactoring |
+| **Qwen3-VL 32B** | 👁️ Vision | ![#5a8fd4](https://via.placeholder.com/12/5a8fd4/5a8fd4.png) Steel Blue | Image analysis, UI inspection |
 
 ---
 
@@ -295,6 +295,60 @@ swift run OllamaBot   # Run from source
 open Package.swift    # Open in Xcode
 ```
 
+### obot CLI (Go)
+
+The repository also includes `obot`, a standalone Go CLI for local AI code fixes.
+
+```bash
+# Build
+make build
+
+# Install to ~/.local/bin
+make install
+
+# Usage
+obot main.go                     # Fix entire file
+obot main.go -10 +25             # Fix lines 10-25
+obot main.go "fix null check"    # Fix with instruction
+obot main.go -i                  # Interactive mode
+obot plan src/                   # Generate a fix plan
+obot review main.go              # Local code review
+obot stats --saved               # View cost savings
+obot orchestrate "Build an API"  # Full 5-schedule orchestration
+obot checkpoint save             # Save a session checkpoint
+obot checkpoint list             # List all checkpoints
+obot session list                # List USF sessions
+obot session show <id>           # Inspect session details
+obot config migrate              # Migrate JSON config to unified YAML
+obot config unified              # Show unified configuration
+```
+
+Build requires Go 1.21+ and a running Ollama instance. The CLI auto-detects system RAM to select the optimal model.
+
+#### Unified Configuration
+
+Both CLI and IDE read shared settings from `~/.config/ollamabot/config.yaml`:
+
+```yaml
+version: "2.0"
+models:
+  orchestrator: { default: "qwen3:32b" }
+  coder:        { default: "qwen2.5-coder:32b" }
+  researcher:   { default: "command-r:35b" }
+  vision:       { default: "qwen3-vl:32b" }
+quality:
+  fast:     { iterations: 1, verification: "none" }
+  balanced: { iterations: 2, verification: "llm_review" }
+  thorough: { iterations: 3, verification: "expert_judge" }
+context:
+  max_tokens: 32768
+  compression: { enabled: true, strategy: "semantic_truncate" }
+orchestration:
+  schedules: [knowledge, plan, implement, scale, production]
+```
+
+Migrate from the old JSON config with `obot config migrate`. A backward-compatible symlink from `~/.config/obot/` is created automatically.
+
 ---
 
 ## 🎯 Usage
@@ -347,52 +401,115 @@ Type in the chat panel on the right. The model auto-selects based on your questi
 
 ```
 OllamaBot/
-├── Sources/
-│   ├── OllamaBotApp.swift           # App entry, state management
-│   ├── Agent/
-│   │   ├── AgentExecutor.swift      # Infinite Mode engine
-│   │   └── AgentTools.swift         # 18 tool definitions
-│   ├── Models/
-│   │   ├── ChatMessage.swift        # Chat data model (Codable)
-│   │   ├── FileItem.swift           # File tree model
-│   │   └── OllamaModel.swift        # Model enum + metadata
-│   ├── Services/
-│   │   ├── OllamaService.swift      # Ollama API client + streaming
-│   │   ├── ContextManager.swift     # Comprehensive context management
-│   │   ├── IntentRouter.swift       # Model routing logic
-│   │   ├── FileIndexer.swift        # Background search index
-│   │   ├── FileSystemService.swift  # File operations
-│   │   ├── ConfigurationService.swift # Persistent settings
-│   │   ├── InlineCompletionService.swift  # Tab completions
-│   │   ├── GitService.swift         # Git integration
-│   │   ├── WebSearchService.swift   # DuckDuckGo search
-│   │   └── ChatHistoryService.swift # Persistent chat history
-│   ├── Utilities/
-│   │   ├── DesignSystem.swift       # UI components & tokens
-│   │   ├── PerformanceCore.swift    # LRU cache, async I/O, throttle/debounce
-│   │   ├── SyntaxHighlighter.swift  # Code highlighting
-│   │   └── Benchmarks.swift         # Performance testing
-│   └── Views/
-│       ├── MainView.swift           # Main layout
-│       ├── AgentView.swift          # Infinite Mode UI
-│       ├── ChatView.swift           # Chat panel (optimized MessageRow)
-│       ├── EditorView.swift         # Code editor
-│       ├── TerminalView.swift       # Terminal emulator
-│       ├── OutlineView.swift        # Symbol navigation
-│       ├── ProblemsPanel.swift      # Errors/warnings
-│       └── ...
+├── Sources/                             # Swift macOS IDE (73 files)
+│   ├── OllamaBotApp.swift               # App entry, state management
+│   ├── Agent/                           # 6 files
+│   │   ├── AgentExecutor.swift          # Infinite Mode engine
+│   │   ├── AgentTools.swift             # 18 tool definitions
+│   │   ├── AdvancedTools.swift          # Extended tool set (grep, glob, lint, etc.)
+│   │   ├── AdvancedToolExecutor.swift   # Executor for advanced tools
+│   │   ├── CycleAgentManager.swift      # Explore Mode cycle manager
+│   │   └── ExploreAgentExecutor.swift   # Explore Mode engine
+│   ├── Models/                          # 3 files
+│   │   ├── ChatMessage.swift            # Chat data model (Codable)
+│   │   ├── FileItem.swift               # File tree model
+│   │   └── OllamaModel.swift           # Model enum + metadata
+│   ├── Services/                        # 29 files
+│   │   ├── OllamaService.swift          # Ollama API client + streaming
+│   │   ├── ContextManager.swift         # Context budget + compression
+│   │   ├── IntentRouter.swift           # Model routing logic
+│   │   ├── FileIndexer.swift            # Background search index
+│   │   ├── FileSystemService.swift      # File operations
+│   │   ├── ConfigurationService.swift   # Persistent settings
+│   │   ├── InlineCompletionService.swift # Tab completions
+│   │   ├── GitService.swift             # Git integration
+│   │   ├── WebSearchService.swift       # DuckDuckGo search
+│   │   ├── ChatHistoryService.swift     # Persistent chat history
+│   │   ├── CheckpointService.swift      # Save/restore code states
+│   │   ├── ExternalLLMService.swift     # External LLM providers
+│   │   ├── ExternalModelConfigurationService.swift # Provider config
+│   │   ├── APIKeyStore.swift            # Secure API key storage
+│   │   ├── MentionService.swift         # @mention resolution
+│   │   ├── ModelTierManager.swift       # Model tier selection
+│   │   ├── NetworkMonitorService.swift  # Connectivity detection
+│   │   ├── OBotService.swift            # .obotrules + .obot/ system
+│   │   ├── ResilienceService.swift      # Power loss recovery
+│   │   ├── SessionStateService.swift    # Session persistence
+│   │   ├── SystemMonitorService.swift   # RAM/CPU monitoring
+│   │   ├── PricingService.swift         # Cost tracking
+│   │   ├── PerformanceTrackingService.swift # Perf metrics
+│   │   ├── PanelConfiguration.swift     # Panel layout config
+│   │   ├── SharedConfigService.swift    # CLI/IDE unified config
+│   │   ├── OrchestrationService.swift   # 5-schedule orchestration state
+│   │   ├── ToolRegistryService.swift    # Tool registry
+│   │   ├── PreviewService.swift         # Dry-run diff preview
+│   │   └── UnifiedSessionService.swift  # Cross-platform session format
+│   ├── Utilities/                       # 5 files
+│   │   ├── DesignSystem.swift           # UI components & tokens
+│   │   ├── PerformanceCore.swift        # LRU cache, async I/O
+│   │   ├── SyntaxHighlighter.swift      # Code highlighting
+│   │   ├── DSScrollView.swift           # Custom scroll view
+│   │   └── Benchmarks.swift             # Performance testing
+│   └── Views/                           # 29 files
+│       ├── MainView.swift               # Main layout + overlay dialogs
+│       ├── AgentView.swift              # Infinite Mode UI
+│       ├── ChatView.swift               # Chat panel
+│       ├── EditorView.swift             # Code editor
+│       ├── TerminalView.swift           # Terminal emulator
+│       ├── ExploreView.swift            # Explore Mode UI
+│       ├── ComposerView.swift           # Multi-file composer
+│       ├── CommandPaletteView.swift     # Command palette
+│       ├── OutlineView.swift            # Symbol navigation
+│       ├── ProblemsPanel.swift          # Errors/warnings
+│       ├── OrchestrationView.swift      # 5-schedule orchestration UI
+│       ├── CostDashboardView.swift      # Token usage & savings
+│       ├── SessionHandoffView.swift     # Cross-platform session export/import
+│       ├── PreviewView.swift            # Dry-run diff review
+│       ├── ConsultationView.swift       # Human consultation modal
+│       └── ...                          # +14 more views
+│
+├── cmd/obot/                            # Go CLI entry point
+│   └── main.go
+├── internal/                            # Go CLI packages (79 files, 28 packages)
+│   ├── cli/                             # Commands (fix, plan, review, orchestrate, stats, checkpoint, session, config)
+│   ├── ollama/                          # Ollama HTTP client + streaming
+│   ├── fixer/                           # Code fix engine + quality presets
+│   ├── orchestrate/                     # 5-schedule orchestration framework
+│   ├── agent/                           # Agent executor + delegation + action recording
+│   ├── analyzer/                        # File analysis + language detection
+│   ├── config/                          # Configuration loading/defaults + unified YAML migration
+│   ├── context/                         # Context budget, compression, memory, token management
+│   ├── router/                          # Intent-based model routing
+│   ├── session/                         # Session persistence + unified session format
+│   ├── tools/                           # Git, web, tool registry
+│   ├── tier/                            # System detection + model selection
+│   ├── ui/                              # Terminal UI + memory graph
+│   ├── stats/                           # Usage tracking + cost savings
+│   └── ...                              # +14 more packages
+│
+├── Installer/                           # macOS installer app
+│   ├── Package.swift
+│   └── Sources/
+│
+├── website/                             # Marketing site
+│   ├── index.html
+│   └── css/js/assets
 │
 ├── Resources/
-│   ├── Info.plist                   # App bundle metadata
-│   ├── AppIcon.icns                 # App icon
-│   └── icon.svg                     # Source icon
+│   ├── Info.plist                       # App bundle metadata
+│   ├── AppIcon.icns                     # App icon
+│   └── icon.svg                         # Source icon
 │
 ├── scripts/
-│   ├── build-app.sh                 # Build .app bundle
-│   └── generate-icon.sh             # Generate .icns from SVG
+│   ├── setup.sh                         # Full interactive setup
+│   ├── build-app.sh                     # Build .app bundle
+│   ├── generate-icon.sh                 # Generate .icns from SVG
+│   ├── rebuild.sh                       # Fast rebuild
+│   └── update.sh                        # Pull + rebuild + relaunch
 │
-├── Package.swift                    # Swift Package Manager
-├── push.sh                          # Git push script
+├── Package.swift                        # Swift Package Manager
+├── go.mod                               # Go module definition
+├── Makefile                             # Go CLI build system
 └── README.md
 ```
 

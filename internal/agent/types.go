@@ -28,6 +28,14 @@ const (
 	// Command operations
 	ActionRunCommand ActionType = "run_command"
 
+	// Read/search operations (Tier 2)
+	ActionReadFile    ActionType = "read_file"
+	ActionSearchFiles ActionType = "search_files"
+	ActionListDir     ActionType = "list_dir"
+
+	// Delegation operations (Tier 2)
+	ActionDelegate ActionType = "delegate"
+
 	// Process completion
 	ActionProcessCompleted ActionType = "process_completed"
 )
@@ -114,6 +122,14 @@ func (a *Action) ActionOutput() string {
 		return "Agent • Copied " + a.Path + " to " + a.NewPath
 	case ActionRunCommand:
 		return "Agent • Ran " + a.Command + " (exit " + formatExitCode(a.ExitCode) + ")"
+	case ActionReadFile:
+		return "Agent • Read " + a.Path
+	case ActionSearchFiles:
+		return "Agent • Searched: " + a.Content
+	case ActionListDir:
+		return "Agent • Listed " + a.Path
+	case ActionDelegate:
+		return "Agent • Delegated: " + a.Content
 	case ActionProcessCompleted:
 		return "Agent • " + a.ProcessName + " Completed"
 	default:
@@ -183,6 +199,10 @@ type ActionStats struct {
 	DirsMoved        int
 	DirsCopied       int
 	CommandsRan      int
+	FilesRead        int
+	FilesSearched    int
+	DirsListed       int
+	Delegations      int
 	TotalActions     int
 }
 
@@ -214,5 +234,13 @@ func (s *ActionStats) IncrementByType(actionType ActionType) {
 		s.DirsCopied++
 	case ActionRunCommand:
 		s.CommandsRan++
+	case ActionReadFile:
+		s.FilesRead++
+	case ActionSearchFiles:
+		s.FilesSearched++
+	case ActionListDir:
+		s.DirsListed++
+	case ActionDelegate:
+		s.Delegations++
 	}
 }

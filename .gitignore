@@ -43,6 +43,9 @@ ehthumbs.db
 
 # Build artifacts
 build/
+bin/
+dist/
+.build-bench/
 *.app
 *.o
 *.a
@@ -53,6 +56,12 @@ build/
 
 # Benchmark results
 benchmark_results/
+
+# Planning drafts
+master/
+
+# Compiled CLI binary
+obot
 
 # Credentials (never commit!)
 *.pem

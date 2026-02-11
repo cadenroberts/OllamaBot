@@ -181,6 +181,14 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(fsCmd)
 
+	// Unified platform commands
+	rootCmd.AddCommand(checkpointCmd)
+	rootCmd.AddCommand(usfSessionCmd)
+
+	// Config subcommands for unified config
+	configCmd.AddCommand(configMigrateCmd)
+	configCmd.AddCommand(configShowUnifiedCmd)
+
 	// Custom version template
 	rootCmd.SetVersionTemplate(fmt.Sprintf(`%s version {{.Version}}
 `, cyan("obot")))
@@ -189,7 +197,7 @@ func init() {
 func shouldSkipSetup(cmd *cobra.Command) bool {
 	for current := cmd; current != nil; current = current.Parent() {
 		switch current.Name() {
-		case "plan", "review", "version", "fs":
+		case "plan", "review", "version", "fs", "checkpoint", "session", "migrate", "unified":
 			return true
 		}
 	}
