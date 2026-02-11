@@ -674,6 +674,8 @@ struct AISettingsContent: View {
                 SettingsToggle(label: "Include Selected Text", isOn: $config.includeSelectedText)
             }
 
+            RAMTierSettingsContent()
+            
             ExternalModelsSettingsContent()
             
             SettingsSection("Available Models") {
@@ -705,6 +707,331 @@ struct AISettingsContent: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - RAM Tier Settings Content
+
+struct RAMTierSettingsContent: View {
+    @Environment(AppState.self) private var appState
+    @State private var selectedTier: ModelTierManager.ModelTier = .performance
+    @State private var isInstalling = false
+    @State private var installProgress: Double = 0
+    @State private var installStatus: String = ""
+    @State private var cronEnabled = false
+    @State private var installComplete = false
+    
+    var body: some View {
+        SettingsSection("RAM Optimization") {
+            Text("Select a tier based on your available RAM. Lower tiers use smaller models that require less memory.")
+                .font(DS.Typography.caption)
+                .foregroundStyle(DS.Colors.secondaryText)
+                .padding(.bottom, DS.Spacing.xs)
+            
+            // Tier cards
+            VStack(spacing: DS.Spacing.sm) {
+                ForEach(ModelTierManager.ModelTier.allCases, id: \.self) { tier in
+                    RAMTierCard(
+                        tier: tier,
+                        isSelected: selectedTier == tier,
+                        isRecommended: tier == appState.modelTierManager.recommendedTier,
+                        systemRAM: appState.modelTierManager.systemRAM
+                    ) {
+                        withAnimation(DS.Animation.fast) {
+                            selectedTier = tier
+                            installComplete = false
+                        }
+                    }
+                }
+            }
+            
+            DSDivider()
+            
+            // Current vs selected comparison
+            if selectedTier != appState.modelTierManager.selectedTier {
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .foregroundStyle(DS.Colors.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Switch from \(appState.modelTierManager.selectedTier.rawValue) to \(selectedTier.rawValue)")
+                            .font(DS.Typography.callout.weight(.medium))
+                            .foregroundStyle(DS.Colors.text)
+                        Text(selectedTier.description)
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.Colors.secondaryText)
+                    }
+                    Spacer()
+                }
+                .padding(DS.Spacing.sm)
+                .background(DS.Colors.accent.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                
+                DSDivider()
+                
+                // Install controls
+                if isInstalling {
+                    VStack(spacing: DS.Spacing.sm) {
+                        HStack {
+                            DSLoadingSpinner(size: 14)
+                            Text(installStatus)
+                                .font(DS.Typography.caption)
+                                .foregroundStyle(DS.Colors.secondaryText)
+                            Spacer()
+                        }
+                        
+                        DSProgressBar(
+                            progress: installProgress,
+                            showPercentage: true,
+                            color: DS.Colors.accent,
+                            height: 6
+                        )
+                    }
+                    .padding(DS.Spacing.sm)
+                    .background(DS.Colors.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                } else if installComplete {
+                    HStack(spacing: DS.Spacing.sm) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(DS.Colors.success)
+                        Text("Tier switched to \(selectedTier.rawValue)")
+                            .font(DS.Typography.callout)
+                            .foregroundStyle(DS.Colors.text)
+                        Spacer()
+                    }
+                    .padding(DS.Spacing.sm)
+                    .background(DS.Colors.success.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                } else {
+                    HStack(spacing: DS.Spacing.md) {
+                        DSButton("Apply & Pull Models", icon: "arrow.down.circle", style: .primary, size: .sm) {
+                            startInstall()
+                        }
+                        
+                        DSButton("Apply Only", icon: "checkmark", style: .secondary, size: .sm) {
+                            applyTierOnly()
+                        }
+                    }
+                }
+            }
+            
+            DSDivider()
+            
+            // Cron auto-install toggle
+            SettingsToggle(
+                label: "Background Auto-Install",
+                isOn: $cronEnabled,
+                help: "Schedule model downloads to run in the background when idle. Models are pulled via launchd so you don't have to wait."
+            )
+            .onChange(of: cronEnabled) { _, enabled in
+                if enabled {
+                    scheduleCronInstall()
+                } else {
+                    removeCronInstall()
+                }
+            }
+        }
+        .onAppear {
+            selectedTier = appState.modelTierManager.selectedTier
+            cronEnabled = checkCronExists()
+        }
+    }
+    
+    private func applyTierOnly() {
+        appState.modelTierManager.selectedTier = selectedTier
+        appState.modelTierManager.saveConfiguration()
+        installComplete = true
+        appState.showSuccess("Switched to \(selectedTier.rawValue) tier")
+    }
+    
+    private func startInstall() {
+        isInstalling = true
+        installProgress = 0
+        installStatus = "Preparing..."
+        
+        Task {
+            appState.modelTierManager.selectedTier = selectedTier
+            let models = appState.modelTierManager.getModelsToDownload()
+            let totalModels = Double(models.count)
+            
+            for (index, model) in models.enumerated() {
+                await MainActor.run {
+                    installStatus = "Pulling \(model.role): \(model.variant.name)..."
+                    installProgress = Double(index) / totalModels
+                }
+                
+                // Run ollama pull in background
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/local/bin/ollama")
+                process.arguments = ["pull", model.variant.ollamaTag]
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = FileHandle.nullDevice
+                
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                } catch {
+                    // Try alternative path
+                    let altProcess = Process()
+                    altProcess.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/ollama")
+                    altProcess.arguments = ["pull", model.variant.ollamaTag]
+                    altProcess.standardOutput = FileHandle.nullDevice
+                    altProcess.standardError = FileHandle.nullDevice
+                    try? altProcess.run()
+                    altProcess.waitUntilExit()
+                }
+                
+                await MainActor.run {
+                    installProgress = Double(index + 1) / totalModels
+                }
+            }
+            
+            appState.modelTierManager.saveConfiguration()
+            
+            await MainActor.run {
+                isInstalling = false
+                installComplete = true
+                installProgress = 1.0
+                installStatus = ""
+                appState.showSuccess("All models for \(selectedTier.rawValue) tier installed")
+            }
+        }
+    }
+    
+    private func scheduleCronInstall() {
+        let models = appState.modelTierManager.getOllamaTags()
+        let pullCommands = models.map { "ollama pull \($0)" }.joined(separator: " && ")
+        
+        let plistContent = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Label</key>
+            <string>com.ollamabot.model-pull</string>
+            <key>ProgramArguments</key>
+            <array>
+                <string>/bin/sh</string>
+                <string>-c</string>
+                <string>\(pullCommands)</string>
+            </array>
+            <key>StartInterval</key>
+            <integer>86400</integer>
+            <key>RunAtLoad</key>
+            <false/>
+        </dict>
+        </plist>
+        """
+        
+        let launchAgentsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents")
+        try? FileManager.default.createDirectory(at: launchAgentsDir, withIntermediateDirectories: true)
+        
+        let plistPath = launchAgentsDir.appendingPathComponent("com.ollamabot.model-pull.plist")
+        try? plistContent.write(to: plistPath, atomically: true, encoding: .utf8)
+        
+        // Load the agent
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        process.arguments = ["load", plistPath.path]
+        try? process.run()
+        process.waitUntilExit()
+    }
+    
+    private func removeCronInstall() {
+        let plistPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents/com.ollamabot.model-pull.plist")
+        
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        process.arguments = ["unload", plistPath.path]
+        try? process.run()
+        process.waitUntilExit()
+        
+        try? FileManager.default.removeItem(at: plistPath)
+    }
+    
+    private func checkCronExists() -> Bool {
+        let plistPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents/com.ollamabot.model-pull.plist")
+        return FileManager.default.fileExists(atPath: plistPath.path)
+    }
+}
+
+struct RAMTierCard: View {
+    let tier: ModelTierManager.ModelTier
+    let isSelected: Bool
+    let isRecommended: Bool
+    let systemRAM: Int
+    let action: () -> Void
+    
+    private var isAvailable: Bool { systemRAM >= tier.minRAM }
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DS.Spacing.md) {
+                // Indicator
+                Circle()
+                    .fill(isSelected ? DS.Colors.accent : DS.Colors.tertiaryBackground)
+                    .frame(width: 16, height: 16)
+                    .overlay(
+                        Circle()
+                            .fill(isSelected ? .white : Color.clear)
+                            .frame(width: 6, height: 6)
+                    )
+                
+                // Info
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Text(tier.rawValue)
+                            .font(DS.Typography.callout.weight(.medium))
+                            .foregroundStyle(isAvailable ? DS.Colors.text : DS.Colors.tertiaryText)
+                        
+                        if isRecommended {
+                            DSBadge(text: "Recommended", color: DS.Colors.accent, size: .sm)
+                        }
+                        
+                        if !isAvailable {
+                            DSBadge(text: "Needs \(tier.minRAM)GB", color: DS.Colors.tertiaryText, size: .sm)
+                        }
+                    }
+                    
+                    Text("\(tier.minRAM)GB+ RAM")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.Colors.secondaryText)
+                }
+                
+                Spacer()
+                
+                // Warning indicator
+                switch tier.warningLevel {
+                case .critical:
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(DS.Colors.error)
+                case .warning:
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(DS.Colors.warning)
+                case .caution:
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(DS.Colors.secondaryText)
+                case .none:
+                    EmptyView()
+                }
+            }
+            .padding(DS.Spacing.sm)
+            .background(
+                isSelected
+                    ? DS.Colors.accent.opacity(0.15)
+                    : DS.Colors.tertiaryBackground
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .strokeBorder(isSelected ? DS.Colors.accent : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isAvailable)
+        .opacity(isAvailable ? 1 : 0.5)
     }
 }
 

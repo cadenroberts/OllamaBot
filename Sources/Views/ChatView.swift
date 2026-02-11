@@ -15,6 +15,7 @@ struct ChatView: View {
     @State private var showContextBreakdown = false
     @FocusState private var isInputFocused: Bool
     @State private var scrollTrigger: Int = 0
+    @State private var mentionDebounceTask: Task<Void, Never>?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -55,9 +56,15 @@ struct ChatView: View {
             FileMentionPicker(isPresented: $showFilePicker)
         }
         .onChange(of: inputText) { _, newValue in
-            updateMentionSuggestions(newValue)
             updateParsedMentions(newValue)
-            updateContextBreakdown()
+            // Debounce mention suggestions + context breakdown to avoid getAllFiles() on every keystroke
+            mentionDebounceTask?.cancel()
+            mentionDebounceTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(150))
+                guard !Task.isCancelled else { return }
+                updateMentionSuggestions(newValue)
+                updateContextBreakdown()
+            }
         }
     }
     

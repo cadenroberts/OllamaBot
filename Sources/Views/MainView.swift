@@ -57,6 +57,25 @@ struct MainView: View {
             }
         }
         .preferredColorScheme(colorScheme)
+        .onKeyPress(.escape) {
+            // Dismiss overlays in priority order
+            if appState.showCommandPalette { appState.showCommandPalette = false; return .handled }
+            if appState.showQuickOpen { appState.showQuickOpen = false; return .handled }
+            if appState.showGlobalSearch { appState.showGlobalSearch = false; return .handled }
+            if appState.showGoToLine { appState.showGoToLine = false; return .handled }
+            if appState.showGitStatus { appState.showGitStatus = false; return .handled }
+            if appState.showSettings { appState.showSettings = false; return .handled }
+            if appState.showPerformanceDashboard { appState.showPerformanceDashboard = false; return .handled }
+            if appState.showOrchestration { appState.showOrchestration = false; return .handled }
+            if appState.showCostDashboard { appState.showCostDashboard = false; return .handled }
+            if appState.showSessions { appState.showSessions = false; return .handled }
+            if appState.showPreview { appState.showPreview = false; return .handled }
+            if appState.showFindInFile { appState.showFindInFile = false; return .handled }
+            if appState.showFindReplace { appState.showFindReplace = false; return .handled }
+            // Dismiss bottom panel last
+            if panels.showBottomPanel { panels.toggleBottomPanel(); return .handled }
+            return .ignored
+        }
         .onDisappear {
             panels.saveState()
         }
@@ -186,7 +205,7 @@ struct MainView: View {
                         : min(panels.bottomPanelHeight, geometry.size.height))
                     .frame(width: currentEditorWidth)
                     .offset(x: leftPanelWidth)
-                    .background(DS.Colors.secondaryBackground)
+                    .background(DS.Colors.background)
                     .transition(.move(edge: .bottom))
                     .zIndex(100) // Ensure it's on top
                 }
@@ -250,6 +269,7 @@ struct MainView: View {
                     ExtensionsSidebarView()
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .top)
         }
         .frame(width: panels.primarySidebarWidth)
         .background(DS.Colors.secondaryBackground)
@@ -339,7 +359,7 @@ struct MainView: View {
                     TimelineView()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         // Width is set externally where secondarySidebar is used
         .background(DS.Colors.secondaryBackground)
@@ -369,6 +389,7 @@ struct MainView: View {
             editorContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background(DS.Colors.background)
     }
     
     @ViewBuilder
@@ -482,9 +503,9 @@ struct MainView: View {
                     DebugConsoleView()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .background(DS.Colors.secondaryBackground)
+        .background(DS.Colors.background)
     }
     
     // MARK: - Overlay Dialogs
@@ -724,7 +745,7 @@ struct MainToolbarContent: ToolbarContent {
         
         // Right side - actions
         ToolbarItem(placement: .primaryAction) {
-            Button(action: { appState.showCommandPalette = true }) {
+            Button(action: { appState.showCommandPalette.toggle() }) {
                 Image(systemName: "magnifyingglass")
             }
             .help("Command Palette (⌘⇧P)")
@@ -1013,28 +1034,36 @@ struct FileTreeNode: View {
     
     private func loadChildren() {
         guard isDirectory else { return }
+        let target = url
         
-        let excludePatterns = Set([
-            "node_modules", ".git", "__pycache__", ".build",
-            ".DS_Store", ".swiftpm", "DerivedData", ".next"
-        ])
-        
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(
-                at: url,
-                includingPropertiesForKeys: [.isDirectoryKey]
-            )
-            children = contents.filter { !excludePatterns.contains($0.lastPathComponent) }
-                .sorted { url1, url2 in
-                    let isDir1 = (try? url1.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-                    let isDir2 = (try? url2.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-                    if isDir1 == isDir2 {
-                        return url1.lastPathComponent.localizedCaseInsensitiveCompare(url2.lastPathComponent) == .orderedAscending
+        Task.detached {
+            let excludePatterns = Set([
+                "node_modules", ".git", "__pycache__", ".build",
+                ".DS_Store", ".swiftpm", "DerivedData", ".next"
+            ])
+            
+            let result: [URL]
+            do {
+                let contents = try FileManager.default.contentsOfDirectory(
+                    at: target,
+                    includingPropertiesForKeys: [.isDirectoryKey]
+                )
+                result = contents.filter { !excludePatterns.contains($0.lastPathComponent) }
+                    .sorted { url1, url2 in
+                        let isDir1 = (try? url1.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+                        let isDir2 = (try? url2.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+                        if isDir1 == isDir2 {
+                            return url1.lastPathComponent.localizedCaseInsensitiveCompare(url2.lastPathComponent) == .orderedAscending
+                        }
+                        return isDir1 && !isDir2
                     }
-                    return isDir1 && !isDir2
-                }
-        } catch {
-            children = []
+            } catch {
+                result = []
+            }
+            
+            await MainActor.run {
+                children = result
+            }
         }
     }
     
@@ -1189,6 +1218,8 @@ struct SearchSidebarView: View {
     @State private var isSearching = false
     @State private var useRegex = false
     @State private var matchCase = false
+    @State private var selectedResultIndex: Int = -1
+    @FocusState private var isSearchFieldFocused: Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -1211,7 +1242,14 @@ struct SearchSidebarView: View {
                         .textFieldStyle(.plain)
                         .font(DS.Typography.callout)
                         .foregroundStyle(DS.Colors.text)
-                        .onSubmit { performSearch() }
+                        .focused($isSearchFieldFocused)
+                        .onSubmit {
+                            if !searchResults.isEmpty && selectedResultIndex >= 0 && selectedResultIndex < searchResults.count {
+                                openResult(searchResults[selectedResultIndex])
+                            } else {
+                                performSearch()
+                            }
+                        }
                 }
                 
                 if isSearching {
@@ -1276,14 +1314,52 @@ struct SearchSidebarView: View {
             } else {
                 DSScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(searchResults) { result in
-                            SearchResultRow(result: result)
+                        ForEach(Array(searchResults.enumerated()), id: \.element.id) { index, result in
+                            SearchResultRow(result: result, isSelected: index == selectedResultIndex)
+                                .onTapGesture {
+                                    selectedResultIndex = index
+                                    openResult(result)
+                                }
                         }
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onKeyPress(.upArrow) {
+            if !searchResults.isEmpty {
+                selectedResultIndex = max(0, selectedResultIndex - 1)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.downArrow) {
+            if !searchResults.isEmpty {
+                selectedResultIndex = min(searchResults.count - 1, selectedResultIndex + 1)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.escape) {
+            if !searchResults.isEmpty {
+                searchResults = []
+                searchText = ""
+                selectedResultIndex = -1
+                return .handled
+            }
+            return .ignored
+        }
+        .onChange(of: searchResults) { _, newResults in
+            selectedResultIndex = newResults.isEmpty ? -1 : 0
+        }
+    }
+    
+    private func openResult(_ result: SearchResult) {
+        let file = FileItem(url: result.file, isDirectory: false)
+        appState.openFile(file)
+        if let line = result.lineNumber {
+            appState.goToLine = line
+        }
     }
     
     private func performSearch() {
@@ -1348,17 +1424,22 @@ struct SearchSidebarView: View {
     }
 }
 
-struct SearchResult: Identifiable {
+struct SearchResult: Identifiable, Equatable {
     let id = UUID()
     let file: URL
     let match: String
     var lineNumber: Int?
     var lineContent: String?
+    
+    static func == (lhs: SearchResult, rhs: SearchResult) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 struct SearchResultRow: View {
     @Environment(AppState.self) private var appState
     let result: SearchResult
+    var isSelected: Bool = false
     @State private var isHovered = false
     
     var body: some View {
@@ -1396,16 +1477,8 @@ struct SearchResultRow: View {
         }
         .padding(.horizontal, DS.Spacing.sm)
         .padding(.vertical, DS.Spacing.xs)
-        .background(isHovered ? DS.Colors.surface : Color.clear)
+        .background(isSelected ? DS.Colors.accent.opacity(0.2) : (isHovered ? DS.Colors.surface : Color.clear))
         .contentShape(Rectangle())
-        .onTapGesture {
-            let file = FileItem(url: result.file, isDirectory: false)
-            appState.openFile(file)
-            // Jump to line if available
-            if let line = result.lineNumber {
-                appState.goToLine = line
-            }
-        }
         .onHover { isHovered = $0 }
     }
 }
@@ -1679,6 +1752,8 @@ struct TimelineView: View {
 
 struct GitTimelineView: View {
     @Environment(AppState.self) private var appState
+    @State private var commits: [GitCommit] = []
+    @State private var isLoading = false
     
     var body: some View {
         if appState.selectedFile == nil {
@@ -1698,10 +1773,17 @@ struct GitTimelineView: View {
                         .foregroundStyle(DS.Colors.secondaryText)
                         .padding(DS.Spacing.sm)
                     
-                    // Get git log
-                    let commits = appState.gitService.getLog(count: 20)
-                    
-                    if commits.isEmpty {
+                    if isLoading {
+                        HStack {
+                            Spacer()
+                            DSLoadingSpinner(size: 16)
+                            Text("Loading history...")
+                                .font(DS.Typography.caption)
+                                .foregroundStyle(DS.Colors.tertiaryText)
+                            Spacer()
+                        }
+                        .padding(DS.Spacing.md)
+                    } else if commits.isEmpty {
                         DSEmptyState(
                             icon: "clock",
                             title: "No History",
@@ -1740,6 +1822,20 @@ struct GitTimelineView: View {
                         }
                     }
                 }
+            }
+            .onAppear { loadCommits() }
+            .onChange(of: appState.selectedFile?.url) { _, _ in loadCommits() }
+        }
+    }
+    
+    private func loadCommits() {
+        isLoading = true
+        let gitService = appState.gitService
+        Task.detached {
+            let result = gitService.getLog(count: 20)
+            await MainActor.run {
+                commits = result
+                isLoading = false
             }
         }
     }

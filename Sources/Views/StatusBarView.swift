@@ -74,7 +74,7 @@ struct StatusBarView: View {
                         .foregroundStyle(DS.Colors.secondaryText)
                 }
                 .onTapGesture {
-                    appState.showGoToLine = true
+                    appState.showGoToLine.toggle()
                 }
                 
                 statusDivider
@@ -117,7 +117,7 @@ struct StatusBarView: View {
     }
     
     private var modelIndicator: some View {
-        Button(action: { appState.showCommandPalette = true }) {
+        Button(action: { appState.showCommandPalette.toggle() }) {
             HStack(spacing: DS.Spacing.xs) {
                 if let model = appState.selectedModel {
                     Image(systemName: model.icon)
@@ -136,7 +136,7 @@ struct StatusBarView: View {
     }
     
     private var savingsIndicator: some View {
-        Button(action: { appState.showPerformanceDashboard = true }) {
+        Button(action: { appState.showPerformanceDashboard.toggle() }) {
             let savings = appState.performanceTracker.getCostSavingsSummary()
             HStack(spacing: DS.Spacing.xs) {
                 Image(systemName: "chart.bar.fill")
@@ -172,7 +172,7 @@ struct StatusBarView: View {
         let usagePercent = memory.usedGB / memory.totalGB
         let color: Color = usagePercent > 0.9 ? DS.Colors.error : (usagePercent > 0.7 ? DS.Colors.warning : DS.Colors.secondaryText)
         
-        return Button(action: { appState.showPerformanceDashboard = true }) {
+        return Button(action: { appState.showPerformanceDashboard.toggle() }) {
             HStack(spacing: DS.Spacing.xs) {
                 Image(systemName: "memorychip")
                     .font(.caption2)

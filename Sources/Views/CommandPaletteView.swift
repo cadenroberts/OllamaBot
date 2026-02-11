@@ -416,6 +416,7 @@ struct GlobalSearchView: View {
     @State private var search = ""
     @State private var results: [(FileItem, [String])] = []
     @State private var isSearching = false
+    @State private var selectedResultIndex: Int = -1
     
     var body: some View {
         VStack(spacing: 0) {
@@ -433,7 +434,13 @@ struct GlobalSearchView: View {
                         .textFieldStyle(.plain)
                         .font(DS.Typography.title)
                         .foregroundStyle(DS.Colors.text)
-                        .onSubmit { performSearch() }
+                        .onSubmit {
+                            if !results.isEmpty && selectedResultIndex >= 0 && selectedResultIndex < results.count {
+                                openSelectedResult()
+                            } else {
+                                performSearch()
+                            }
+                        }
                 }
                 
                 if isSearching { DSLoadingSpinner(size: 16) }
@@ -466,10 +473,14 @@ struct GlobalSearchView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: DS.Spacing.md) {
-                        ForEach(Array(results.enumerated()), id: \.offset) { _, result in
-                            SearchResultCard(file: result.0, matches: result.1) { line in
+                        ForEach(Array(results.enumerated()), id: \.offset) { index, result in
+                            SearchResultCard(file: result.0, matches: result.1, isSelected: index == selectedResultIndex) { line in
                                 isPresented = false
                                 appState.openFile(result.0)
+                            }
+                            .onTapGesture {
+                                selectedResultIndex = index
+                                openSelectedResult()
                             }
                         }
                     }
@@ -490,7 +501,31 @@ struct GlobalSearchView: View {
         .frame(width: 640, height: 480)
         .background(DS.Colors.background)
         .dsOverlay()
+        .onKeyPress(.upArrow) {
+            if !results.isEmpty {
+                selectedResultIndex = max(0, selectedResultIndex - 1)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.downArrow) {
+            if !results.isEmpty {
+                selectedResultIndex = min(results.count - 1, selectedResultIndex + 1)
+                return .handled
+            }
+            return .ignored
+        }
         .onKeyPress(.escape) { isPresented = false; return .handled }
+        .onChange(of: results.count) { _, newCount in
+            selectedResultIndex = newCount == 0 ? -1 : 0
+        }
+    }
+    
+    private func openSelectedResult() {
+        guard selectedResultIndex >= 0 && selectedResultIndex < results.count else { return }
+        let result = results[selectedResultIndex]
+        isPresented = false
+        appState.openFile(result.0)
     }
     
     private func performSearch() {
@@ -511,6 +546,7 @@ struct GlobalSearchView: View {
 struct SearchResultCard: View {
     let file: FileItem
     let matches: [String]
+    var isSelected: Bool = false
     let onSelect: (String) -> Void
     
     var body: some View {
@@ -541,5 +577,9 @@ struct SearchResultCard: View {
             }
         }
         .dsCard()
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.sm)
+                .strokeBorder(isSelected ? DS.Colors.accent : Color.clear, lineWidth: 1)
+        )
     }
 }

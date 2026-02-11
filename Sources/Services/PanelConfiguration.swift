@@ -487,7 +487,12 @@ struct PanelResizer: View {
                     } else {
                         NSCursor.resizeUpDown.push()
                     }
-                } else {
+                } else if !isDragging {
+                    NSCursor.pop()
+                }
+            }
+            .onChange(of: isDragging) { _, dragging in
+                if !dragging && !isHovering {
                     NSCursor.pop()
                 }
             }
@@ -559,7 +564,7 @@ struct ActivityBarView: View {
             icon: "gearshape",
             isSelected: false
         ) {
-            appState.showSettings = true
+            appState.showSettings.toggle()
         }
     }
     
@@ -628,13 +633,17 @@ struct BottomPanelTabBar: View {
     
     var body: some View {
         HStack(spacing: 0) {
-            // Tab buttons
+            // Tab buttons - pressing same tab again closes the panel (toggle behavior)
             ForEach(BottomPanelTab.allCases) { tab in
                 BottomPanelTabButton(
                     tab: tab,
                     isSelected: selectedTab == tab
                 ) {
-                    selectedTab = tab
+                    if selectedTab == tab {
+                        onClose()
+                    } else {
+                        selectedTab = tab
+                    }
                 }
             }
             

@@ -27,8 +27,8 @@ struct SwiftTermWrapper: NSViewRepresentable {
         let fontSize = CGFloat(ConfigurationManager.shared.terminalFontSize)
         terminalView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         
-        // Colors - match OllamaBot secondary background
-        let backgroundColor = NSColor(calibratedRed: 0.141, green: 0.157, blue: 0.231, alpha: 1.0) // #24283B
+        // Colors - match OllamaBot primary background (#1a1b26)
+        let backgroundColor = NSColor(calibratedRed: 0.102, green: 0.106, blue: 0.149, alpha: 1.0) // #1a1b26
         terminalView.nativeBackgroundColor = backgroundColor
         terminalView.nativeForegroundColor = NSColor.white
         

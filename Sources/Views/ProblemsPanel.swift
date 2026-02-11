@@ -78,7 +78,7 @@ struct ProblemsPanel: View {
                 }
             }
             .padding(DS.Spacing.sm)
-            .background(DS.Colors.secondaryBackground)
+            .background(DS.Colors.surface)
             
             DSDivider()
             
