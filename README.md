@@ -292,8 +292,9 @@ open build/OllamaBot.app
 ### Development Mode
 
 ```bash
-xcodebuild -scheme OllamaBot build   # Build from source
-open OllamaBot.xcodeproj             # Open in Xcode (if using Xcode project)
+swift build               # Build from source
+swift run OllamaBot       # Run from source
+open Package.swift        # Open in Xcode
 ```
 
 ### obot CLI (Go)
@@ -532,6 +533,7 @@ OllamaBot/
 │   ├── rebuild.sh                       # Fast rebuild
 │   └── update.sh                        # Pull + rebuild + relaunch
 │
+├── Package.swift                        # Swift Package Manager
 ├── go.mod                               # Go module definition
 ├── Makefile                             # Go CLI build system
 └── README.md
