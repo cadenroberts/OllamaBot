@@ -1120,42 +1120,6 @@
 **Total Estimated Code:** ~36,350 LOC (+3,000) + ~20,000 words documentation  
 **Total Timeline:** 25 weeks (+2 weeks) immediate + 18 weeks (v2.0 optional)
 
-| Category | Items | Estimated LOC | Weeks | Developers |
-|----------|-------|---------------|-------|------------|
-| Architecture & Core | 33 items (#1-33) | ~1,550 | 4 | 2 |
-| Agent & Tools | 25 items (#34-58) | ~2,400 | 5 | 2 |
-| Model Coordination | 6 items (#59-64) | ~600 | 2 | 1 |
-| Display & UI | 20 items (#65-85, #86-95) | ~1,650 | 3 | 2 |
-| Human Consultation | 8 items (#96-104) | ~500 | 1 | 1 |
-| Error & Suspension | 18 items (#105-122) | ~950 | 2 | 1 |
-| Session Persistence | 19 items (#123-146) | ~1,650 | 3 | 1 |
-| Git Integration | 18 items (#147-163) | ~900 | 2 | 1 |
-| Resource Management | 12 items (#164-175) | ~600 | 2 | 1 |
-| Summary & Judge | 20 items (#176-196) | ~1,200 | 3 | 1 |
-| Testing | 12 items (#197-208) | ~8,000 | 6 | 2 |
-| Context Management | 7 items (#209-217) | ~1,700 | 3 | 2 |
-| Config & Migration | 7 items (#218-225) | ~550 | 2 | 1 |
-| IDE Orchestration | 12 items (#226-237) | ~1,900 | 6 | 2 |
-| IDE Feature Parity | 8 items (#238-245) | ~1,400 | 4 | 1 |
-| OBotRules & Mentions | 7 items (#246-252) | ~500 | 2 | 1 |
-| Migration Path | 5 items (#253-257) | N/A (planning) | - | - |
-| Open Questions | 8 items (#258-265) | N/A (decisions) | - | - |
-| Deferred Features | 2 items (#266-267) | ~6,400 | 18 | 2 |
-| Implementation Priority | 5 items (#268-272) | N/A (roadmap) | - | - |
-| Documentation | 5 items (#273-277) | ~20,000 words | 5 | 2 |
-
-### Grand Totals
-
-- **Immediate Implementation:** 225 items (#1-225), ~18,950 LOC, 23 weeks, 4-6 developers
-- **Testing:** 12 items (#197-208), ~8,000 LOC, 6 weeks, 2 developers
-- **Documentation:** 5 items (#273-277), ~20,000 words, 5 weeks, 2 developers
-- **Deferred to v2.0:** 2 items (#266-267), ~6,400 LOC, 18 weeks, 2 developers
-- **Planning/Decisions:** 18 items (#253-265, #268-272), N/A
-
-**Total Unique Items:** 277 (after deduplication from ~600+ original items)  
-**Total Estimated Code:** ~33,350 LOC + ~20,000 words documentation  
-**Total Timeline:** 23 weeks (immediate) + 18 weeks (v2.0 optional)
-
 ---
 
 ## NEXT STEPS

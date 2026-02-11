@@ -2,7 +2,7 @@
 
 `obot` is a professional-grade Go CLI for local AI code fixes, autonomous orchestration, and session management. It shares configuration and session data with the OllamaBot macOS IDE.
 
-## 🚀 Installation
+## Installation
 
 ```bash
 # From the repository root
@@ -11,7 +11,7 @@ make build && make install
 
 This installs the `obot` binary to `~/.local/bin` (ensure this is in your PATH).
 
-## 🛠️ Usage
+## Usage
 
 ### Basic Code Fixes
 Fix entire files or specific line ranges using the default quality preset (balanced).
@@ -22,7 +22,7 @@ obot main.go -10 +25             # Fix lines 10-25
 obot main.go "add error handling" # Fix with specific instruction
 ```
 
-### 💬 Interactive Mode
+### Interactive Mode
 Enter a multi-turn chat session with the AI directly in your terminal. This mode is perfect for brainstorming, exploring a file, or applying a series of changes.
 
 ```bash
@@ -46,7 +46,7 @@ obot orchestrate "Build a REST API"
 
 The orchestrator follows the Unified Orchestration Protocol (UOP), progressing through Knowledge, Plan, Implement, Scale, and Production schedules.
 
-## ✨ Quality Presets
+## Quality Presets
 
 Control the depth of AI reasoning and verification via the `--quality` flag.
 
@@ -58,7 +58,7 @@ Control the depth of AI reasoning and verification via the `--quality` flag.
 obot main.go "refactor" --quality thorough
 ```
 
-## 💾 Session & Checkpoint Management
+## Session and Checkpoint Management
 
 Sessions are saved in the Unified Session Format (USF), allowing you to move between the CLI and IDE.
 
@@ -69,7 +69,7 @@ obot session export <id>         # Export session to JSON
 obot session import <path>       # Import session from JSON
 ```
 
-### 🔄 Session Resumption
+### Session Resumption
 Resume any previous orchestration session from where it left off.
 
 ```bash
@@ -87,7 +87,7 @@ obot checkpoint list             # List available checkpoints
 obot checkpoint restore <id>     # Restore workspace to a previous state
 ```
 
-## 🩺 Health Scan
+## Health Scan
 
 Run a diagnostic health check of the OllamaBot environment (configuration, model availability, Ollama connectivity, system resources).
 
@@ -95,7 +95,7 @@ Run a diagnostic health check of the OllamaBot environment (configuration, model
 obot scan
 ```
 
-## 🏗️ Project Initialization
+## Project Initialization
 
 Scaffold a new OllamaBot project in the current directory with configuration and rules templates.
 
@@ -105,7 +105,7 @@ obot init
 
 This creates a `.obot/` directory with a `rules.obotrules` template and a `cache/` directory.
 
-## 📇 Code Index
+## Code Index
 
 Build and manage a local code index for fast search and symbol lookup.
 
@@ -113,7 +113,7 @@ Build and manage a local code index for fast search and symbol lookup.
 obot index build [path]           # Build or update the code index
 ```
 
-## 🔍 Search & Symbols
+## Search and Symbols
 
 Search indexed files, symbols, and content across the project.
 
@@ -126,7 +126,7 @@ obot search <query> --uses        # Search for usages in file contents
 obot symbols <query>              # Search indexed symbols specifically
 ```
 
-## 📂 Filesystem Helpers
+## Filesystem Helpers
 
 Filesystem utilities for scripted workflows and automation pipelines.
 
@@ -138,7 +138,7 @@ obot fs delete <path>                                # Delete a file
 obot fs delete <path> --force                        # Delete a directory recursively
 ```
 
-## 📦 Models
+## Models
 
 List all available Ollama models and show the currently active model.
 
@@ -146,7 +146,7 @@ List all available Ollama models and show the currently active model.
 obot models
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 `obot` uses a unified YAML configuration located at `~/.config/ollamabot/config.yaml`.
 
@@ -156,7 +156,7 @@ obot config unified              # View active configuration
 obot stats --saved               # View cost savings vs commercial APIs
 ```
 
-## 🔍 Diagnostics & Telemetry
+## Diagnostics and Telemetry
 
 ```bash
 obot stats                       # Show system info, model assignments, and performance metrics
@@ -171,9 +171,9 @@ The `obot stats` command provides a comprehensive summary of your local AI perfo
 - **Median Time to Fix**: Typical duration for a successful code fix.
 - **Resource Usage**: Real-time memory and token consumption.
 
-### 💰 Cost Savings & Efficiency
+### Cost Savings
 
-The `obot stats --saved` command calculates how much you've saved by using local AI instead of commercial APIs (like GPT-4o or Claude 3.5 Sonnet).
+The `obot stats --saved` command calculates estimated savings from using local AI instead of commercial APIs (GPT-4o, Claude 3.5 Sonnet).
 
 - **Total Tokens Processed**: Lifetime count of input and output tokens.
 - **Estimated Savings**: Dollar amount saved based on current market rates for comparable models.

@@ -1,53 +1,30 @@
-# 🤖 OllamaBot
+# OllamaBot
 
-<div align="center">
+A native macOS IDE and Go CLI for local AI code fixes and orchestration, powered by Ollama.
 
-![OllamaBot Banner](https://img.shields.io/badge/OllamaBot-Local_AI_IDE-7dcfff?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM3ZGNmZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTggOGE2IDYgMCAwIDAtMTIgMGMwIDcgMTIgNyAxMiAwWiIvPjxjaXJjbGUgY3g9IjEyIiBjeT0iOCIgcj0iNiIvPjwvc3ZnPg==)
-
-**A native macOS IDE with Infinite Mode — autonomous AI agents powered by local Ollama models**
-
-[![macOS](https://img.shields.io/badge/macOS-14.0+-000000?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
-[![Swift](https://img.shields.io/badge/Swift-5.9+-F05138?style=flat-square&logo=swift&logoColor=white)](https://swift.org)
-[![Ollama](https://img.shields.io/badge/Ollama-Local_AI-white?style=flat-square)](https://ollama.ai)
-[![License](https://img.shields.io/badge/License-MIT-9ece6a?style=flat-square)](LICENSE)
-
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Architecture](#-architecture) • [Configuration](#-configuration)
-
-</div>
+- **Infinite Mode** — Autonomous agent that works until task completion
+- **Explore Mode** — Continuous autonomous project improvement
+- **Multi-Model Orchestration** — 4 specialized AI models (Orchestrator, Coder, Researcher, Vision)
+- **100% Local** — No API costs, no usage limits, complete privacy
+- **Offline-capable** — All models run locally via Ollama
+- **Telemetry** — All session and usage data stored locally; no external reporting
 
 ---
 
-## ✨ What Makes OllamaBot Different
+## Model Roles
 
-Traditional AI coding tools wait for your commands. **OllamaBot's AI Modes** flip this paradigm:
-
-- 🔄 **Infinite Mode** — Give it a task, watch it work until completion
-- ✨ **Explore Mode** — Continuous autonomous improvement of your project
-- 🧠 **Multi-Model Orchestration** — 4 specialized AI models working in coordination  
-- 💻 **100% Local** — No API costs, no usage limits, complete privacy
-- ⚡ **Apple Silicon Optimized** — Built for M1/M2/M3 performance
-- 🛡️ **Safely Infinite** — Power loss recovery, checkpoints, resilient operation
-- 🌐 **Works Offline** — All models run locally, no internet required
-- 🔒 **Privacy First** — All telemetry and session data stored locally; no external reporting
+| Model | Role | Specialization |
+|-------|------|----------------|
+| Qwen3 32B | Orchestrator | Planning, task delegation |
+| Command-R 35B | Researcher | Research, RAG, documentation |
+| Qwen2.5-Coder 32B | Coder | Code generation, debugging, refactoring |
+| Qwen3-VL 32B | Vision | Image analysis, UI inspection |
 
 ---
 
-## 🎭 The Model Orchestra
+## Features
 
-OllamaBot coordinates four specialized 32B parameter models, each excelling at different tasks:
-
-| Model | Role | Color | Specialization |
-|-------|------|-------|----------------|
-| **Qwen3 32B** | 🧠 Orchestrator | ![#7aa2f7](https://via.placeholder.com/12/7aa2f7/7aa2f7.png) Royal Blue | Thinking, planning, delegating tasks |
-| **Command-R 35B** | 🔍 Researcher | ![#2ac3de](https://via.placeholder.com/12/2ac3de/2ac3de.png) Teal Blue | Research, RAG, documentation |
-| **Qwen2.5-Coder 32B** | 💻 Coder | ![#7dcfff](https://via.placeholder.com/12/7dcfff/7dcfff.png) Cyan Blue | Code generation, debugging, refactoring |
-| **Qwen3-VL 32B** | 👁️ Vision | ![#5a8fd4](https://via.placeholder.com/12/5a8fd4/5a8fd4.png) Steel Blue | Image analysis, UI inspection |
-
----
-
-## 🚀 Features
-
-### 🔮 Infinite Mode (The Star Feature)
+### Infinite Mode
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -72,7 +49,7 @@ OllamaBot coordinates four specialized 32B parameter models, each excelling at d
                 [Loop continues until complete]
 ```
 
-**18 Built-in Agent Tools:**
+**18 Agent Tools:**
 
 | Category | Tool | Description |
 |----------|------|-------------|
@@ -95,9 +72,9 @@ OllamaBot coordinates four specialized 32B parameter models, each excelling at d
 | | `git_diff` | View file or repo diffs |
 | | `git_commit` | Stage and commit changes |
 
-### ✨ Explore Mode (New!)
+### Explore Mode
 
-Where Infinite Mode completes a single task, **Explore Mode** continuously improves your project:
+Explore Mode continuously improves a project beyond a single task:
 
 ```
 Original Goal: "Build a sandwich app"
@@ -116,13 +93,6 @@ Original Goal: "Build a sandwich app"
 Basic deli app → Ordering system → Route optimization → ...
 ```
 
-**Key Features:**
-- **Autonomous expansion** — keeps adding features aligned with your goal
-- **Auto-documentation** — generates docs every N changes
-- **Configurable style** — Conservative, Balanced, or Aggressive exploration
-- **Pausable** — pause and redirect focus anytime
-- **Ground truth** — always stays true to your original goal
-
 Configure via `.obotrules`:
 ```markdown
 ## Explore Mode Rules
@@ -132,7 +102,7 @@ Configure via `.obotrules`:
 - Expansion style: balanced
 ```
 
-### 💬 Chat Mode
+### Chat Mode
 
 - Quick conversations with any model
 - **Auto-routing** based on question type
@@ -141,26 +111,7 @@ Configure via `.obotrules`:
 - `@filename` mentions for additional context
 - **Persistent chat history** — conversations saved across sessions
 
-### 📊 Competitive Benchmark
-
-| Feature | Cursor | Windsurf | VS Code | **OllamaBot** |
-|---------|:------:|:--------:|:-------:|:-------------:|
-| Inline Tab Completions | ✅ | ✅ | ✅ (Copilot) | ✅ |
-| Chat with AI | ✅ | ✅ | ✅ | ✅ |
-| Agentic Mode | ✅ | ✅ (Cascade) | ❌ | ✅ (Infinite) |
-| **Multi-Model Orchestration** | ❌ | ❌ | ❌ | **✅** |
-| @ Mentions | ✅ | ✅ | ✅ | ✅ |
-| Diff View | ✅ | ✅ | ✅ | ✅ |
-| Git Integration | ✅ | ✅ | ✅ | ✅ |
-| Web Search | ✅ | ✅ | ❌ | ✅ |
-| Chat History | ✅ | ✅ | ✅ | ✅ |
-| Symbol Outline | ✅ | ✅ | ✅ | ✅ |
-| Problems Panel | ✅ | ✅ | ✅ | ✅ |
-| **100% Local/Private** | ❌ | ❌ | ❌ | **✅** |
-| **No API Costs** | ❌ | ❌ | ❌ | **✅** |
-| Native macOS | ❌ | ❌ | ❌ | **✅** |
-
-### 🖥️ Full IDE
+### IDE
 
 - **File Explorer** with syntax-colored icons
 - **Code Editor** with line numbers, syntax highlighting
@@ -174,7 +125,7 @@ Configure via `.obotrules`:
 - **Find & Replace** (`⌘F` / `⌘⌥F`)
 - **Go to Line** (`⌃G`)
 
-### 🖥️ System Integration
+### System Integration
 
 - **RAM Monitoring** — Real-time memory tracking with Activity Monitor-like interface
 - **Process Manager** — Force quit memory-hungry apps directly from OllamaBot
@@ -182,15 +133,15 @@ Configure via `.obotrules`:
 - **Power Loss Recovery** — Auto-save state, recover interrupted sessions
 - **Model Configuration** — Custom 1-4 model setups with performance analysis
 
-### 🛡️ Resilience Features
+### Resilience
 
-- **Checkpoints** — Save/restore code states (like Windsurf)
+- **Checkpoints** — Save/restore code states
 - **Autosave** — State saved every 30 seconds while agents run
 - **Graceful Degradation** — Works offline (all models are local)
 - **Recovery Alert** — Offers to restore interrupted work on launch
 - **Safe Operations** — Confirmation before destructive actions
 
-### ⚡ Performance Optimized
+### Performance
 
 | Layer | Optimization |
 |-------|-------------|
@@ -203,22 +154,22 @@ Configure via `.obotrules`:
 
 ---
 
-## 📦 Installation
+## Installation
 
-### 🚀 One-Line Setup (Recommended)
+### One-Line Setup
 
 ```bash
 git clone https://github.com/cadenroberts/OllamaBot.git && cd OllamaBot && ./scripts/setup.sh
 ```
 
 The setup script will:
-- ✅ Check system requirements (RAM, disk, macOS version)
-- ✅ Test network speed and optimize download parallelism  
-- ✅ Calculate disk space for your model selection
-- ✅ Install Ollama if needed
-- ✅ Download models in parallel (up to 4x faster)
-- ✅ Build the native macOS app
-- ✅ Install to /Applications
+- Check system requirements (RAM, disk, macOS version)
+- Test network speed and optimize download parallelism
+- Calculate disk space for your model selection
+- Install Ollama if needed
+- Download models in parallel
+- Build the macOS app
+- Install to /Applications
 
 ### Prerequisites
 
@@ -377,7 +328,7 @@ Migrate from the old JSON config with `obot config migrate`. A backward-compatib
 
 ---
 
-## 🎯 Usage
+## Usage
 
 ### Infinite Mode
 
@@ -421,7 +372,7 @@ Type in the chat panel on the right. The model auto-selects based on your questi
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Project Structure
 
@@ -539,19 +490,15 @@ OllamaBot/
 └── README.md
 ```
 
-### 🧠 Context Management System
+### Context Management
 
-OllamaBot's context management is the core differentiator from other AI IDEs. Here's how it works:
-
-#### The Problem It Solves
-
-AI models have limited context windows (8K-32K tokens). OllamaBot must intelligently:
+AI models have limited context windows (8K-32K tokens). The context manager:
 1. **Prioritize** what context to include (selected code > open files > project structure)
 2. **Compress** large contexts without losing critical information
 3. **Pass context** between the orchestrator and specialist models
 4. **Remember** past interactions and learn from errors
 
-#### ContextManager Architecture
+### ContextManager Architecture
 
 ```
                     ┌─────────────────────────────────────┐
@@ -575,7 +522,7 @@ AI models have limited context windows (8K-32K tokens). OllamaBot must intellige
         └──────────────────────────┘ └────────────────────────────┘
 ```
 
-#### Token Budget Allocation
+### Token Budget Allocation
 
 Each context section has a priority-based budget:
 
@@ -588,7 +535,7 @@ Each context section has a priority-based budget:
 | **Memory** | Medium | 12% |
 | **Errors** | High | 6% |
 
-#### Inter-Agent Context Flow
+### Inter-Agent Context Flow
 
 ```
 User Task: "Fix the authentication bug"
@@ -627,7 +574,7 @@ User Task: "Fix the authentication bug"
     └───────────────────────────────┘
 ```
 
-#### Memory & Learning
+### Memory and Learning
 
 The ContextManager maintains:
 
@@ -640,9 +587,7 @@ The ContextManager maintains:
 "⚠️ WATCH OUT: Previously encountered issues with 'permissions'. Be careful."
 ```
 
-### ⚡ Streaming Performance
-
-#### The Problem
+### Streaming Performance
 
 Naive implementation updates `@Observable` state on every token (~60/sec):
 ```swift
@@ -652,7 +597,7 @@ for try await chunk in stream {
 }
 ```
 
-#### The Solution: Frame-Coalesced Updates
+Frame-coalesced updates solve this:
 
 ```swift
 // ✅ GOOD: Batch updates to 30fps (every 33ms)
@@ -669,7 +614,7 @@ for try await chunk in stream {
 }
 ```
 
-#### Additional Optimizations
+Additional optimizations:
 
 | Component | Optimization |
 |-----------|-------------|
@@ -679,7 +624,7 @@ for try await chunk in stream {
 | **Throttler** | Rate-limits scroll, resize, search events |
 | **Debouncer** | Delays expensive operations (search, highlight) |
 
-### 🔄 Model Routing (IntentRouter)
+### Model Routing (IntentRouter)
 
 The IntentRouter automatically selects the best model based on the user's question:
 
@@ -697,7 +642,7 @@ Priority order:
 3. **Researcher** - Question words, "explain", "compare"
 4. **Writing** - Default for general tasks
 
-### 🛠️ Tool Execution Pipeline
+### Tool Execution Pipeline
 
 Agent tools execute in parallel when possible:
 
@@ -717,7 +662,7 @@ Non-parallelizable tools (write_file, run_command) execute sequentially.
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Access settings via `⌘,` or the menu bar.
 
@@ -752,7 +697,7 @@ Access settings via `⌘,` or the menu bar.
 
 ---
 
-## 🎨 Design System
+## Design System
 
 OllamaBot uses a **Tokyo Night**-inspired color palette with a **blue-only** unified theme:
 
@@ -776,7 +721,7 @@ info:           #7aa2f7  // Info blue
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### "Ollama Disconnected"
 ```bash
@@ -794,7 +739,7 @@ Check the step list — it may be thinking or waiting. Stop and retry with a mor
 
 ---
 
-## 📊 Performance
+## Performance
 
 Run benchmarks: **Debug → Run Performance Benchmarks**
 
@@ -810,36 +755,6 @@ Typical results on M1 Max 32GB:
 
 ---
 
-## 🤝 Contributing
-
-Contributions welcome! This is an experiment in local AI autonomy.
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run `swift build` to verify
-5. Submit a pull request
-
----
-
-## 📄 License
+## License
 
 MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-## 🙏 Acknowledgments
-
-- [Ollama](https://ollama.ai) for making local LLMs accessible
-- [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) for terminal emulation
-- [Tokyo Night](https://github.com/enkia/tokyo-night-vscode-theme) for color inspiration
-
----
-
-<div align="center">
-
-**Built with ❤️ for local AI enthusiasts**
-
-*Your AI should work FOR you, not wait ON you.*
-
-</div>
