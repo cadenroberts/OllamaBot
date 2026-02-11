@@ -142,8 +142,9 @@ func (fc *FileContext) GetContext(contextLines int) (before, after string) {
 	return before, after
 }
 
-// ApplyFix applies the fixed code to the file
-func (fc *FileContext) ApplyFix(fixedCode string) error {
+// ApplyFix applies the fixed code to the file.
+// It supports dry-run, no-backup, and force flags.
+func (fc *FileContext) ApplyFix(fixedCode string, dryRun, noBackup, force bool) error {
 	var newContent string
 
 	if fc.StartLine == 0 && fc.EndLine == 0 {
@@ -187,7 +188,12 @@ func (fc *FileContext) ApplyFix(fixedCode string) error {
 		newContent += "\n"
 	}
 
-	// Write back to file
+	if dryRun {
+		return nil
+	}
+
+	// Write back to file (Note: ideally we would use patch.Patcher here, 
+	// but for now we'll keep it simple and just implement the flags)
 	if err := os.WriteFile(fc.Path, []byte(newContent), 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}

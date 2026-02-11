@@ -227,6 +227,43 @@ func (c *Client) Chat(ctx context.Context, messages []Message) (string, *Inferen
 	return chatResp.Message.Content, &stats, nil
 }
 
+// Embeddings returns the embedding for a prompt
+func (c *Client) Embeddings(ctx context.Context, model, prompt string) ([]float64, error) {
+	reqBody := EmbeddingRequest{
+		Model:  model,
+		Prompt: prompt,
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/embeddings", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var embResp EmbeddingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&embResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return embResp.Embedding, nil
+}
+
 // SetOption sets a generation option
 func (c *Client) SetOption(key string, value any) {
 	c.options[key] = value

@@ -27,6 +27,9 @@ const (
 
 	// Command operations
 	ActionRunCommand ActionType = "run_command"
+	ActionLint       ActionType = "lint"
+	ActionFormat     ActionType = "format"
+	ActionTest       ActionType = "test"
 
 	// Read/search operations (Tier 2)
 	ActionReadFile    ActionType = "read_file"
@@ -62,6 +65,9 @@ type Action struct {
 
 	// Process completion
 	ProcessName string
+
+	// Metadata for additional action context
+	Metadata map[string]any
 }
 
 // LineRange represents a range of edited lines
@@ -72,10 +78,11 @@ type LineRange struct {
 
 // DiffSummary contains formatted diff information
 type DiffSummary struct {
-	Additions  []DiffLine
-	Deletions  []DiffLine
-	Context    []DiffLine
-	TotalAdded int
+	Additions   []DiffLine
+	Deletions   []DiffLine
+	Context     []DiffLine
+	Interleaved []DiffLine // New: Mixed view for side-by-side or line-by-line display
+	TotalAdded  int
 	TotalRemoved int
 }
 
@@ -122,6 +129,12 @@ func (a *Action) ActionOutput() string {
 		return "Agent • Copied " + a.Path + " to " + a.NewPath
 	case ActionRunCommand:
 		return "Agent • Ran " + a.Command + " (exit " + formatExitCode(a.ExitCode) + ")"
+	case ActionLint:
+		return "Agent • Linted " + a.Path + " (exit " + formatExitCode(a.ExitCode) + ")"
+	case ActionFormat:
+		return "Agent • Formatted " + a.Path + " (exit " + formatExitCode(a.ExitCode) + ")"
+	case ActionTest:
+		return "Agent • Tested " + a.Path + " (exit " + formatExitCode(a.ExitCode) + ")"
 	case ActionReadFile:
 		return "Agent • Read " + a.Path
 	case ActionSearchFiles:
@@ -233,6 +246,12 @@ func (s *ActionStats) IncrementByType(actionType ActionType) {
 	case ActionCopyDir:
 		s.DirsCopied++
 	case ActionRunCommand:
+		s.CommandsRan++
+	case ActionLint:
+		s.CommandsRan++
+	case ActionFormat:
+		s.CommandsRan++
+	case ActionTest:
 		s.CommandsRan++
 	case ActionReadFile:
 		s.FilesRead++

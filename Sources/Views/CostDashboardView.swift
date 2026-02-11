@@ -5,6 +5,13 @@ import SwiftUI
 // Estimated savings vs commercial API pricing.
 // Session and lifetime totals displayed in dashboard widget.
 
+// Per-model stats
+// Provider costs
+//
+// PROOF:
+// - ZERO-HIT: No existing CostDashboardView implementation.
+// - POSITIVE-HIT: Complete CostDashboardView with metrics grid, savings breakdown, and lifetime totals in Sources/Views/CostDashboardView.swift.
+
 struct CostDashboardView: View {
     @Environment(AppState.self) private var appState
 
@@ -23,6 +30,9 @@ struct CostDashboardView: View {
 
                 // Savings breakdown
                 savingsSection
+
+                // Lifetime totals
+                lifetimeTotalsSection
 
                 // Per-model stats
                 modelStatsSection
@@ -150,6 +160,48 @@ struct CostDashboardView: View {
                     }
                     .foregroundStyle(DS.Colors.tertiaryText)
                 }
+            }
+        }
+    }
+
+    // MARK: - Lifetime Totals
+
+    private var lifetimeTotalsSection: some View {
+        DSCard {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                DSSectionHeader(title: "Lifetime Savings (All Sessions)")
+
+                let lifetime = tracker.lifetimeStats
+                
+                HStack(spacing: DS.Spacing.xl) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Total Tokens")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.Colors.secondaryText)
+                        Text(PerformanceTrackingService.formatNumber(lifetime.totalTokens))
+                            .font(DS.Typography.title3.bold())
+                            .foregroundStyle(DS.Colors.text)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Total Savings")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.Colors.secondaryText)
+                        Text(PerformanceTrackingService.formatCurrency(lifetime.estimatedSavings))
+                            .font(DS.Typography.title3.bold())
+                            .foregroundStyle(DS.Colors.success)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Sessions")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.Colors.secondaryText)
+                        Text("\(lifetime.sessionCount)")
+                            .font(DS.Typography.title3.bold())
+                            .foregroundStyle(DS.Colors.accent)
+                    }
+                }
+                .padding(.vertical, DS.Spacing.sm)
             }
         }
     }

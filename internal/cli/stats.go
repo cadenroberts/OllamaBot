@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/croberts/obot/internal/stats"
+	"github.com/croberts/obot/internal/telemetry"
 )
 
 // statsCmd shows cost savings statistics
@@ -25,7 +26,42 @@ Shows tokens used, files fixed, and money saved vs:
 	RunE: runStats,
 }
 
+var statsResetFlag bool
+
+var statsResetCmd = &cobra.Command{
+	Use:   "reset",
+	Short: "Reset all statistics and telemetry data",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return performStatsReset()
+	},
+}
+
+func performStatsReset() error {
+	tracker := stats.GetTracker()
+	tracker.Reset()
+	if err := tracker.Save(); err != nil {
+		return fmt.Errorf("failed to reset stats: %w", err)
+	}
+
+	// Also reset telemetry
+	telService := telemetry.NewService()
+	if err := telService.Reset(); err != nil {
+		return fmt.Errorf("failed to reset telemetry: %w", err)
+	}
+
+	fmt.Printf("%s All statistics and telemetry data have been reset.\n", green("✔"))
+	return nil
+}
+
+func init() {
+	statsCmd.AddCommand(statsResetCmd)
+	statsCmd.Flags().BoolVar(&statsResetFlag, "reset", false, "Reset all statistics and telemetry data")
+}
+
 func runStats(cmd *cobra.Command, args []string) error {
+	if statsResetFlag {
+		return performStatsReset()
+	}
 	tracker := stats.GetTracker()
 	summary := tracker.GetSummary()
 
@@ -177,6 +213,10 @@ func formatNumber(n int) string {
 
 func formatCurrency(amount float64) string {
 	return fmt.Sprintf("$%.2f", amount)
+}
+
+func init() {
+	statsCmd.AddCommand(statsResetCmd)
 }
 
 // configCmd shows current configuration

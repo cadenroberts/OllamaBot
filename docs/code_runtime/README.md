@@ -152,7 +152,7 @@ Each pane runs one of the printed join commands:
 |--------|-------------|-------------|
 | GET    | /health     | Health check |
 | GET    | /stats      | Job counts by status |
-| GET    | /ready      | Claim ready jobs (`?holder=X&lane=N&batch=B`) |
+| POST   | /ready      | Claim ready jobs (`{"holder":"X","lane":N,"batch":B}`) |
 | GET    | /jobs       | List jobs (`?status=X&limit=N`) |
 | POST   | /enqueue    | Enqueue a job |
 | POST   | /done       | Mark job done |

@@ -23,11 +23,15 @@ var (
 	interactive bool
 	qualityPreset string
 	dryRun          bool
+	noBackup        bool
+	forceFlag       bool
 	printFixed      bool
 	showDiff        bool
 	diffContext     int
 	noSummary       bool
 	memGraphEnabled bool
+	fromScan        bool
+	scopeFlag       string
 	temperatureFlag float64
 	maxTokensFlag   int
 	contextWindowFlag int
@@ -134,6 +138,19 @@ Examples:
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// If a subcommand was specified, let it run (Cobra handles this, 
+		// but since we have ArbitraryArgs on root, we might get here 
+		// if the subcommand wasn't matched properly or if we're calling 
+		// root directly with args).
+		if cmd.HasSubCommands() && len(args) > 0 {
+			for _, sub := range cmd.Commands() {
+				if sub.Name() == args[0] {
+					// This should have been handled by Cobra, but just in case
+					return sub.RunE(sub, args[1:])
+				}
+			}
+		}
+
 		// If no args, show help
 		if len(args) == 0 {
 			return cmd.Help()
@@ -165,9 +182,13 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&noSummary, "no-summary", false, "Disable actions summary")
 
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Do not write changes to disk")
+	rootCmd.Flags().BoolVar(&noBackup, "no-backup", false, "Skip creation of pre-apply backups")
+	rootCmd.Flags().BoolVar(&forceFlag, "force", false, "Apply changes even if validation warnings are present")
 	rootCmd.Flags().BoolVar(&printFixed, "print", false, "Print fixed code to stdout")
 	rootCmd.Flags().BoolVar(&showDiff, "diff", false, "Show unified diff before applying changes")
 	rootCmd.Flags().IntVar(&diffContext, "diff-context", 3, "Context lines for unified diff")
+	rootCmd.Flags().BoolVar(&fromScan, "from-scan", false, "Fix issues detected by a health scan in priority order")
+	rootCmd.Flags().StringVar(&scopeFlag, "scope", "file", "Scope of the fix: file|dir|repo")
 	rootCmd.Flags().Float64Var(&temperatureFlag, "temperature", -1, "Override model temperature")
 	rootCmd.Flags().IntVar(&maxTokensFlag, "max-tokens", 0, "Override max tokens to generate")
 	rootCmd.Flags().IntVar(&contextWindowFlag, "context-window", 0, "Override context window size")
@@ -180,6 +201,8 @@ func init() {
 	rootCmd.AddCommand(reviewCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(fsCmd)
+	rootCmd.AddCommand(searchCmd)
+	rootCmd.AddCommand(symbolsCmd)
 
 	// Unified platform commands
 	rootCmd.AddCommand(checkpointCmd)
@@ -197,7 +220,7 @@ func init() {
 func shouldSkipSetup(cmd *cobra.Command) bool {
 	for current := cmd; current != nil; current = current.Parent() {
 		switch current.Name() {
-		case "plan", "review", "version", "fs", "checkpoint", "session", "migrate", "unified":
+		case "plan", "review", "version", "fs", "checkpoint", "session", "migrate", "unified", "init":
 			return true
 		}
 	}

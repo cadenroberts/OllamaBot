@@ -2,6 +2,7 @@ package planner
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,13 +15,15 @@ import (
 )
 
 type Task struct {
-	ID       string         `json:"id"`
-	Kind     string         `json:"kind"`
-	File     string         `json:"file"`
-	Line     int            `json:"line,omitempty"`
-	Message  string         `json:"message"`
-	FixType  fixer.FixType  `json:"fix_type"`
-	Severity string         `json:"severity,omitempty"`
+	ID        string        `json:"id"`
+	Kind      string        `json:"kind"`
+	File      string        `json:"file"`
+	Line      int           `json:"line,omitempty"`
+	Message   string        `json:"message"`
+	FixType   fixer.FixType `json:"fix_type"`
+	Severity  string        `json:"severity,omitempty"`
+	Risk      RiskLevel     `json:"risk,omitempty"`
+	Rationale string        `json:"rationale,omitempty"`
 }
 
 type Plan struct {
@@ -49,7 +52,7 @@ func DefaultOptions() Options {
 	}
 }
 
-func BuildPlan(path string, instruction string, opts Options) (*Plan, error) {
+func BuildPlan(ctx context.Context, path string, instruction string, opts Options) (*Plan, error) {
 	if path == "" {
 		path = "."
 	}
@@ -80,7 +83,7 @@ func BuildPlan(path string, instruction string, opts Options) (*Plan, error) {
 		root = filepath.Dir(absPath)
 	}
 
-	idx, err := index.Build(root, index.Options{
+	idx, err := index.Build(ctx, root, index.Options{
 		MaxFileSize:   opts.MaxFileSize,
 		IncludeHidden: opts.IncludeHidden,
 	})
@@ -102,6 +105,7 @@ func BuildPlan(path string, instruction string, opts Options) (*Plan, error) {
 
 	fixType := fixer.DetectFixType(instruction)
 	tasks := make([]Task, 0)
+	riskLabeler := NewRiskLabeler()
 
 	for _, f := range files {
 		if f.TodoCount+f.FixmeCount == 0 {
@@ -113,14 +117,17 @@ func BuildPlan(path string, instruction string, opts Options) (*Plan, error) {
 		}
 		for _, t := range todos {
 			kind := strings.ToLower(t.Kind)
-			tasks = append(tasks, Task{
+			task := Task{
 				ID:      nextTaskID(len(tasks) + 1),
 				Kind:    kind,
 				File:    f.Path,
 				Line:    t.Line,
 				Message: t.Message,
 				FixType: fixer.FixComplete,
-			})
+			}
+			task.Risk, task.Rationale = riskLabeler.Label(task)
+			tasks = append(tasks, task)
+
 			if len(tasks) >= opts.MaxTasks {
 				break
 			}
@@ -147,13 +154,16 @@ func BuildPlan(path string, instruction string, opts Options) (*Plan, error) {
 				taskFixType = fixer.FixGeneral
 			}
 
-			tasks = append(tasks, Task{
+			task := Task{
 				ID:      nextTaskID(len(tasks) + 1),
 				Kind:    taskKind,
 				File:    f.Path,
 				Message: taskMessage,
 				FixType: taskFixType,
-			})
+			}
+			task.Risk, task.Rationale = riskLabeler.Label(task)
+			tasks = append(tasks, task)
+
 			if len(tasks) >= opts.MaxTasks {
 				break
 			}
@@ -275,10 +285,14 @@ func RenderText(plan *Plan) string {
 	sb.WriteString("Tasks:\n")
 	for _, task := range plan.Tasks {
 		rel := fsutil.RelPath(plan.Root, task.File)
+		riskStr := ""
+		if task.Risk != "" {
+			riskStr = fmt.Sprintf(" [%s]", task.Risk)
+		}
 		if task.Line > 0 {
-			sb.WriteString(fmt.Sprintf("  - [%s] %s:%d (%s) %s\n", task.ID, rel, task.Line, task.Kind, task.Message))
+			sb.WriteString(fmt.Sprintf("  - [%s]%s %s:%d (%s) %s\n", task.ID, riskStr, rel, task.Line, task.Kind, task.Message))
 		} else {
-			sb.WriteString(fmt.Sprintf("  - [%s] %s (%s) %s\n", task.ID, rel, task.Kind, task.Message))
+			sb.WriteString(fmt.Sprintf("  - [%s]%s %s (%s) %s\n", task.ID, riskStr, rel, task.Kind, task.Message))
 		}
 	}
 

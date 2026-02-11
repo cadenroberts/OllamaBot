@@ -101,6 +101,12 @@ final class PerformanceTrackingService {
         }
     }
     
+    struct LifetimeStats: Codable {
+        var totalTokens: Int = 0
+        var estimatedSavings: Double = 0
+        var sessionCount: Int = 0
+    }
+    
     // MARK: - Stored State
     
     private(set) var sessionStats: SessionStats
@@ -108,6 +114,7 @@ final class PerformanceTrackingService {
     private(set) var providerStats: [String: ProviderStats] = [:]
     private(set) var recentInferences: [InferenceMetrics] = []
     private(set) var recentSwitches: [ModelSwitchMetrics] = []
+    private(set) var lifetimeStats: LifetimeStats = LifetimeStats()
 
     var pricingService: PricingService?
     
@@ -524,17 +531,21 @@ final class PerformanceTrackingService {
     private struct SavedStats: Codable {
         var sessionStats: SessionStats
         var modelStats: [String: PerModelStats]
-        var lifetimeTokens: Int
-        var lifetimeSavings: Double
+        var lifetimeStats: LifetimeStats
     }
     
     private func saveStats() {
         let summary = getCostSavingsSummary()
+        
+        // Update lifetime stats before saving
+        lifetimeStats.totalTokens += sessionStats.totalTokens
+        lifetimeStats.estimatedSavings += summary.gpt4Savings ?? 0
+        lifetimeStats.sessionCount += 1
+        
         let saved = SavedStats(
             sessionStats: sessionStats,
             modelStats: modelStats,
-            lifetimeTokens: sessionStats.totalTokens,
-            lifetimeSavings: summary.gpt4Savings ?? 0
+            lifetimeStats: lifetimeStats
         )
         
         if let data = try? JSONEncoder().encode(saved) {
@@ -548,9 +559,10 @@ final class PerformanceTrackingService {
             return
         }
         
-        // We start a new session but can load historical model stats
-        // modelStats = saved.modelStats
-        print("📊 Loaded historical stats: \(saved.lifetimeTokens) lifetime tokens")
+        // Load historical stats
+        self.modelStats = saved.modelStats
+        self.lifetimeStats = saved.lifetimeStats
+        print("📊 Loaded historical stats: \(lifetimeStats.totalTokens) lifetime tokens, \(lifetimeStats.sessionCount) sessions")
     }
     
     /// Reset session (but keep historical)

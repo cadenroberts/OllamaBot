@@ -17,9 +17,7 @@ import signal
 import sqlite3
 import subprocess
 import sys
-import threading
 import time
-import traceback
 import urllib.parse
 import urllib.request
 from contextlib import contextmanager
@@ -187,53 +185,57 @@ def claim_ready(conn, holder, lane=None, batch=1, lease_ms=LEASE_MS):
         lane_clause = "AND j.lane = ?"
         params.append(lane)
 
-    query = f"""
-        SELECT j.id, j.lane, j.payload, j.dedupe_key
-        FROM jobs j
-        WHERE j.status = 'queued'
-          {lane_clause}
-          AND NOT EXISTS (
-              SELECT 1 FROM job_deps d
-              JOIN jobs dj ON dj.id = d.dep_id
-              WHERE d.job_id = j.id AND dj.status != 'done'
-          )
-        ORDER BY j.created_at
-        LIMIT ?
-    """
-    params.append(batch)
-    rows = conn.execute(query, params).fetchall()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        query = f"""
+            SELECT j.id, j.lane, j.payload, j.dedupe_key
+            FROM jobs j
+            WHERE j.status = 'queued'
+              {lane_clause}
+              AND NOT EXISTS (
+                  SELECT 1 FROM job_deps d
+                  JOIN jobs dj ON dj.id = d.dep_id
+                  WHERE d.job_id = j.id AND dj.status != 'done'
+              )
+            ORDER BY j.created_at
+            LIMIT ?
+        """
+        params.append(batch)
+        rows = conn.execute(query, params).fetchall()
 
-    claimed = []
-    for row in rows:
-        jid = row["id"]
-        dk = row["dedupe_key"]
+        claimed = []
+        for row in rows:
+            jid = row["id"]
+            dk = row["dedupe_key"]
 
-        # Dedupe: skip if artifact already exists
-        if check_dedupe(dk):
-            conn.execute(
-                "UPDATE jobs SET status='done', holder=?, updated_at=? WHERE id=? AND status='queued'",
-                (holder, now, jid),
+            # Dedupe: skip if artifact already exists
+            if check_dedupe(dk):
+                conn.execute(
+                    "UPDATE jobs SET status='done', holder=?, updated_at=? WHERE id=? AND status='queued'",
+                    (holder, now, jid),
+                )
+                log_event(conn, jid, "dedupe_skip", f"artifact exists for {dk}")
+                continue
+
+            res = conn.execute(
+                """UPDATE jobs SET status='running', holder=?, lease_until=?, attempts=attempts+1, updated_at=?
+                   WHERE id=? AND status='queued'""",
+                (holder, lease_until, now, jid),
             )
-            log_event(conn, jid, "dedupe_skip", f"artifact exists for {dk}")
-            conn.commit()
-            continue
-
-        res = conn.execute(
-            """UPDATE jobs SET status='running', holder=?, lease_until=?, attempts=attempts+1, updated_at=?
-               WHERE id=? AND status='queued'""",
-            (holder, lease_until, now, jid),
-        )
-        if res.rowcount:
-            log_event(conn, jid, "claimed", f"holder={holder}")
-            claimed.append(
-                {
-                    "id": jid,
-                    "lane": row["lane"],
-                    "payload": row["payload"],
-                    "dedupe_key": dk,
-                }
-            )
-    conn.commit()
+            if res.rowcount:
+                log_event(conn, jid, "claimed", f"holder={holder}")
+                claimed.append(
+                    {
+                        "id": jid,
+                        "lane": row["lane"],
+                        "payload": row["payload"],
+                        "dedupe_key": dk,
+                    }
+                )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
     return claimed
 
 
@@ -495,16 +497,6 @@ class CodeHandler(http.server.BaseHTTPRequestHandler):
             with db_conn(self.db_path) as conn:
                 self._json_response(get_stats(conn))
 
-        elif parsed.path == "/ready":
-            holder = qs.get("holder", ["anon"])[0]
-            lane = qs.get("lane", [None])[0]
-            batch = int(qs.get("batch", [1])[0])
-            if lane is not None:
-                lane = int(lane)
-            with db_conn(self.db_path) as conn:
-                jobs = claim_ready(conn, holder, lane=lane, batch=batch)
-                self._json_response({"jobs": jobs})
-
         elif parsed.path == "/jobs":
             status = qs.get("status", [None])[0]
             limit = int(qs.get("limit", [100])[0])
@@ -520,7 +512,18 @@ class CodeHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
 
-        if parsed.path == "/enqueue":
+        if parsed.path == "/ready":
+            body = self._read_body()
+            holder = body.get("holder", "anon")
+            lane = body.get("lane")
+            batch = int(body.get("batch", 1))
+            if lane is not None:
+                lane = int(lane)
+            with db_conn(self.db_path) as conn:
+                jobs = claim_ready(conn, holder, lane=lane, batch=batch)
+                self._json_response({"jobs": jobs})
+
+        elif parsed.path == "/enqueue":
             body = self._read_body()
             try:
                 with db_conn(self.db_path) as conn:
@@ -581,12 +584,24 @@ def run_server(db_path, host, port):
     init_db(db_path)
     CodeHandler.db_path = db_path
     server = ThreadedHTTPServer((host, port), CodeHandler)
+
+    def _shutdown(signum, _frame):
+        signame = signal.Signals(signum).name
+        # Set the internal shutdown flag directly to avoid deadlock.
+        # server.shutdown() calls __is_shut_down.wait() which deadlocks
+        # when called from a signal handler in the same thread as serve_forever().
+        server._BaseServer__shutdown_request = True
+        sys.stderr.write(f"\n[code] received {signame}, shutting down...\n")
+
+    signal.signal(signal.SIGTERM, _shutdown)
+
     print(f"[code] server listening on http://{host}:{port}  db={db_path}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n[code] server stopped")
-        server.shutdown()
+        pass
+    server.server_close()
+    print("[code] server stopped")
 
 
 def is_server_running(host, port):
@@ -681,9 +696,18 @@ CMD_BLOCKLIST = [
 
 def is_cmd_safe(cmd):
     cmd_stripped = cmd.strip()
+    # Extract the executable (first token before space) for blocklist check
+    exe = cmd_stripped.split()[0] if cmd_stripped.split() else ""
+    # Blocklist: check the executable itself and specific dangerous full patterns
     for blocked in CMD_BLOCKLIST:
-        if blocked in cmd_stripped:
+        blocked_exe = blocked.strip().split()[0]
+        if exe == blocked_exe and blocked in cmd_stripped:
             return False
+        # Also block patterns that are dangerous regardless of position
+        if blocked in (":(){ ", "> /dev/", "mkfs", "dd if="):
+            if blocked in cmd_stripped:
+                return False
+    # Allowlist: command must start with an allowed prefix
     for prefix in CMD_ALLOWLIST:
         if cmd_stripped.startswith(prefix) or cmd_stripped == prefix.strip():
             return True
@@ -724,10 +748,10 @@ def worker_loop(host, port, holder, lane=None, batch=1, poll_interval=2.0, mode=
 
     while True:
         try:
-            qs = f"?holder={holder}&batch={batch}"
+            ready_body = {"holder": holder, "batch": batch}
             if lane is not None:
-                qs += f"&lane={lane}"
-            result = api_get(host, port, f"/ready{qs}")
+                ready_body["lane"] = lane
+            result = api_post(host, port, "/ready", ready_body)
             jobs = result.get("jobs", [])
 
             for job in jobs:
@@ -846,7 +870,8 @@ def worker_contract(host, port, holder="pane-N"):
 ║                                                              ║
 ║  You are a code worker. Your loop:                           ║
 ║                                                              ║
-║  1. GET http://{host}:{port}/ready?holder={holder}           ║
+║  1. POST http://{host}:{port}/ready                          ║
+║     body: {{"holder":"{holder}","batch":1}}                  ║
 ║     → receive jobs array                                     ║
 ║  2. For each job:                                            ║
 ║     a. Read payload pointer (e.g. @file:path/to/spec)        ║
@@ -1139,7 +1164,7 @@ def main():
     # run
     p_run = sub.add_parser("run", help="Ensure server, expand plan, print join commands")
     p_run.add_argument("plan")
-    p_run.add_argument("--agents", default="0")
+    p_run.add_argument("-n", "--agents", default="0")
     p_run.add_argument("--spawn-local", action="store_true", dest="spawn_local")
     p_run.add_argument("--db", default=DEFAULT_DB)
     p_run.add_argument("--host", default=DEFAULT_HOST)

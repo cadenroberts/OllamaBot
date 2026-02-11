@@ -4,11 +4,25 @@
 package orchestrate
 
 import (
+	"fmt"
 	"time"
 )
 
 // ScheduleID identifies one of the 5 schedules
 type ScheduleID int
+
+// String returns the display name of the schedule
+func (id ScheduleID) String() string {
+	if name, ok := ScheduleNames[id]; ok {
+		return name
+	}
+	return "Unknown"
+}
+
+// IsProduction returns true if the schedule is the Production schedule
+func (id ScheduleID) IsProduction() bool {
+	return id == ScheduleProduction
+}
 
 const (
 	// ScheduleKnowledge is the Knowledge schedule (Research, Crawl, Retrieve)
@@ -34,6 +48,20 @@ var ScheduleNames = map[ScheduleID]string{
 
 // ProcessID identifies a process within a schedule (1, 2, or 3)
 type ProcessID int
+
+// String returns the string representation of the process ID (1, 2, or 3)
+func (id ProcessID) String() string {
+	switch id {
+	case Process1:
+		return "1"
+	case Process2:
+		return "2"
+	case Process3:
+		return "3"
+	default:
+		return "0"
+	}
+}
 
 const (
 	// Process1 is the first process in a schedule
@@ -89,6 +117,16 @@ const (
 	StatePromptTerminated OrchestratorState = "Prompt Terminated"
 )
 
+// String returns the string representation of the state
+func (s OrchestratorState) String() string {
+	return string(s)
+}
+
+// IsTerminal returns true if the state is terminal
+func (s OrchestratorState) IsTerminal() bool {
+	return s == StatePromptTerminated
+}
+
 // ModelType identifies model roles
 type ModelType string
 
@@ -103,6 +141,11 @@ const (
 	ModelVision ModelType = "vision"
 )
 
+// String returns the string representation of the model type
+func (m ModelType) String() string {
+	return string(m)
+}
+
 // ConsultationType for human consultation
 type ConsultationType string
 
@@ -115,6 +158,11 @@ const (
 	ConsultationMandatory ConsultationType = "mandatory"
 )
 
+// String returns the string representation of the consultation type
+func (c ConsultationType) String() string {
+	return string(c)
+}
+
 // Schedule represents a schedule instance
 type Schedule struct {
 	ID         ScheduleID
@@ -124,6 +172,17 @@ type Schedule struct {
 	StartTime  time.Time
 	EndTime    time.Time
 	Terminated bool
+}
+
+// Duration returns the total time spent on this schedule
+func (s Schedule) Duration() time.Duration {
+	if s.EndTime.IsZero() {
+		if s.StartTime.IsZero() {
+			return 0
+		}
+		return time.Since(s.StartTime)
+	}
+	return s.EndTime.Sub(s.StartTime)
 }
 
 // Process represents a process instance
@@ -137,6 +196,93 @@ type Process struct {
 	EndTime                   time.Time
 	Completed                 bool
 	Terminated                bool
+}
+
+// Duration returns the total time spent on this process
+func (p Process) Duration() time.Duration {
+	if p.EndTime.IsZero() {
+		if p.StartTime.IsZero() {
+			return 0
+		}
+		return time.Since(p.StartTime)
+	}
+	return p.EndTime.Sub(p.StartTime)
+}
+
+// ProcessExecution tracks a single process execution
+type ProcessExecution struct {
+	Schedule  ScheduleID
+	Process   ProcessID
+	StartTime time.Time
+	EndTime   time.Time
+	Tokens    int64
+	Actions   int
+}
+
+// Note represents a session note
+type Note struct {
+	ID        string
+	Timestamp time.Time
+	Content   string
+	Source    string // "user", "ai-substitute", "system"
+	Reviewed  bool
+}
+
+// OrchestratorStats tracks orchestration statistics
+type OrchestratorStats struct {
+	TotalSchedulings    int
+	TotalProcesses      int
+	SchedulingsByID     map[ScheduleID]int
+	ProcessesBySchedule map[ScheduleID]map[ProcessID]int
+	TotalTokens         int64
+	TotalActions        int
+	StartTime           time.Time
+	EndTime             time.Time
+}
+
+// NavigationError is a structured error for invalid process transitions
+type NavigationError struct {
+	From      ProcessID
+	To        ProcessID
+	Schedule  ScheduleID
+	Reason    string
+	Timestamp time.Time
+}
+
+// Error implements the error interface
+func (e *NavigationError) Error() string {
+	if e.Reason != "" {
+		return e.Reason
+	}
+	return fmt.Sprintf("invalid navigation from P%d to P%d in schedule %s (only 1↔2↔3 allowed)",
+		e.From, e.To, ScheduleNames[e.Schedule])
+}
+
+// NavigationValidationError provides detailed information about an invalid navigation
+type NavigationValidationError struct {
+	From     ProcessID
+	To       ProcessID
+	Schedule ScheduleID
+	Rule     string
+}
+
+func (e *NavigationValidationError) Error() string {
+	fromName := "initial"
+	if e.From > 0 {
+		fromName = ProcessNames[e.Schedule][e.From]
+	}
+	toName := "terminate"
+	if e.To > 0 {
+		toName = ProcessNames[e.Schedule][e.To]
+	}
+
+	return fmt.Sprintf(
+		"invalid navigation in %s schedule: cannot go from %s (P%d) to %s (P%d). %s",
+		ScheduleNames[e.Schedule],
+		fromName, e.From,
+		toName, e.To,
+		e.Rule,
+	)
 }
 
 // NavigationRule defines valid process transitions

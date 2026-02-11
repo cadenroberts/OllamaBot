@@ -19,7 +19,7 @@ type Generator struct {
 	flowCode string
 	actions  *agent.ActionStats
 	edits    []agent.EditDetail
-	resources *resource.Summary
+	resources *resource.ResourceSummary
 	tldr     string
 
 	// Token tracking by process
@@ -59,7 +59,7 @@ func (g *Generator) SetActions(actions *agent.ActionStats, edits []agent.EditDet
 }
 
 // SetResources sets the resource summary
-func (g *Generator) SetResources(resources *resource.Summary) {
+func (g *Generator) SetResources(resources *resource.ResourceSummary) {
 	g.resources = resources
 }
 
@@ -81,10 +81,7 @@ func (g *Generator) AddProcessTokens(scheduleID orchestrate.ScheduleID, processI
 		totalTokens = g.stats.TotalTokens
 	}
 
-	percentage := 0.0
-	if totalTokens > 0 {
-		percentage = float64(cumulative) / float64(totalTokens) * 100
-	}
+	percentage := g.pct(cumulative, totalTokens)
 
 	g.processTokens = append(g.processTokens, ProcessTokenEntry{
 		Schedule:   scheduleID,
@@ -118,7 +115,7 @@ func (g *Generator) Generate() string {
 
 	// Process statistics
 	sb.WriteString("├─────────────────────────────────────────────────────────────────────┤\n")
-	sb.WriteString(g.generateProcessStats())
+	sb.WriteString(g.generateProcessSummary())
 
 	// Agent action breakdown
 	sb.WriteString("├─────────────────────────────────────────────────────────────────────┤\n")
@@ -134,7 +131,7 @@ func (g *Generator) Generate() string {
 
 	// Generation flow
 	sb.WriteString("├─────────────────────────────────────────────────────────────────────┤\n")
-	sb.WriteString(g.generateFlowBreakdown())
+	sb.WriteString(g.generateGenerationFlow())
 
 	// TLDR
 	sb.WriteString("├─────────────────────────────────────────────────────────────────────┤\n")
@@ -164,7 +161,11 @@ func (g *Generator) generateScheduleStats() string {
 		for sid := orchestrate.ScheduleKnowledge; sid <= orchestrate.ScheduleProduction; sid++ {
 			count := g.stats.SchedulingsByID[sid]
 			name := orchestrate.ScheduleNames[sid]
-			sb.WriteString(fmt.Sprintf("│   %s: %d scheduling%s\n", name, count, pluralize(count, "", "s")))
+			percent := 0.0
+			if total > 0 {
+				percent = float64(count) / float64(total) * 100
+			}
+			sb.WriteString(fmt.Sprintf("│   %s: %d scheduling%s (%.1f%%)\n", name, count, pluralize(count, "", "s"), percent))
 		}
 	}
 	sb.WriteString("│                                                                     │\n")
@@ -172,8 +173,8 @@ func (g *Generator) generateScheduleStats() string {
 	return sb.String()
 }
 
-// generateProcessStats generates process statistics
-func (g *Generator) generateProcessStats() string {
+// generateProcessSummary generates process statistics
+func (g *Generator) generateProcessSummary() string {
 	var sb strings.Builder
 
 	total := 0
@@ -198,7 +199,7 @@ func (g *Generator) generateProcessStats() string {
 				continue
 			}
 
-			schedulePercent := float64(scheduleTotal) / float64(total) * 100
+			schedulePercent := g.pct(int64(scheduleTotal), int64(total))
 			scheduleCount := g.stats.SchedulingsByID[sid]
 			avgProcesses := 0.0
 			if scheduleCount > 0 {
@@ -215,10 +216,7 @@ func (g *Generator) generateProcessStats() string {
 					continue
 				}
 				count := processMap[pid]
-				processPercent := 0.0
-				if scheduleTotal > 0 {
-					processPercent = float64(count) / float64(scheduleTotal) * 100
-				}
+				processPercent := g.pct(int64(count), int64(scheduleTotal))
 				processName := orchestrate.ProcessNames[sid][pid]
 				sb.WriteString(fmt.Sprintf("│   %s: %d (%.1f%% of %s)\n", processName, count, processPercent, scheduleName))
 			}
@@ -261,13 +259,13 @@ func (g *Generator) generateActionBreakdown() string {
 					if i >= 2 {
 						break
 					}
-					sb.WriteString(fmt.Sprintf("│   %s-  %4d │ %s\n", ui.Red, line.LineNumber, truncate(line.Content, 50)))
+					sb.WriteString(fmt.Sprintf("│   %s-  %4d │ %s\n", ui.ANSIRed, line.LineNumber, truncate(line.Content, 50)))
 				}
 				for i, line := range edit.Diff.Additions {
 					if i >= 2 {
 						break
 					}
-					sb.WriteString(fmt.Sprintf("│   %s+  %4d │ %s\n", ui.Green, line.LineNumber, truncate(line.Content, 50)))
+					sb.WriteString(fmt.Sprintf("│   %s+  %4d │ %s\n", ui.ANSIGreen, line.LineNumber, truncate(line.Content, 50)))
 				}
 				sb.WriteString("│   ...\n")
 			}
@@ -313,9 +311,9 @@ func (g *Generator) generateResourceSummary() string {
 		
 		totalMs := g.resources.Time.TotalDuration.Milliseconds()
 		if totalMs > 0 {
-			agentPercent := float64(g.resources.Time.AgentActive.Milliseconds()) / float64(totalMs) * 100
-			humanPercent := float64(g.resources.Time.HumanWait.Milliseconds()) / float64(totalMs) * 100
-			orchPercent := float64(g.resources.Time.Orchestrator.Milliseconds()) / float64(totalMs) * 100
+			agentPercent := g.pct(g.resources.Time.AgentActive.Milliseconds(), totalMs)
+			humanPercent := g.pct(g.resources.Time.HumanWait.Milliseconds(), totalMs)
+			orchPercent := g.pct(g.resources.Time.Orchestrator.Milliseconds(), totalMs)
 			
 			sb.WriteString(fmt.Sprintf("│   Agent Active: %s (%.1f%%)\n", formatDuration(g.resources.Time.AgentActive), agentPercent))
 			sb.WriteString(fmt.Sprintf("│   Human Wait: %s (%.1f%%)\n", formatDuration(g.resources.Time.HumanWait), humanPercent))
@@ -352,10 +350,7 @@ func (g *Generator) generateTokenSummary() string {
 		sb.WriteString("│   By Schedule:\n")
 		for sid := orchestrate.ScheduleKnowledge; sid <= orchestrate.ScheduleProduction; sid++ {
 			tokens := g.resources.Tokens.BySchedule[sid]
-			percent := 0.0
-			if totalTokens > 0 {
-				percent = float64(tokens) / float64(totalTokens) * 100
-			}
+			percent := g.pct(tokens, totalTokens)
 			name := orchestrate.ScheduleNames[sid]
 			sb.WriteString(fmt.Sprintf("│     %s: %s (%.1f%%)\n", name, formatNumber(tokens), percent))
 		}
@@ -365,8 +360,8 @@ func (g *Generator) generateTokenSummary() string {
 	return sb.String()
 }
 
-// generateFlowBreakdown generates the generation flow breakdown
-func (g *Generator) generateFlowBreakdown() string {
+// generateGenerationFlow generates the generation flow breakdown
+func (g *Generator) generateGenerationFlow() string {
 	var sb strings.Builder
 
 	sb.WriteString("│ Generation Flow • Process-by-Process Token Recount                  │\n")
@@ -374,26 +369,34 @@ func (g *Generator) generateFlowBreakdown() string {
 	sb.WriteString(fmt.Sprintf("│ %s\n", ui.FormatFlowCode(g.flowCode)))
 	sb.WriteString("│                                                                     │\n")
 
-	// Show token breakdown by process
+	// Show token breakdown by process with recalculation if necessary
 	currentSchedule := orchestrate.ScheduleID(0)
+	cumulative := int64(0)
+	totalTokens := int64(0)
+	if g.stats != nil {
+		totalTokens = g.stats.TotalTokens
+	}
+
 	for _, entry := range g.processTokens {
 		if entry.Schedule != currentSchedule {
 			currentSchedule = entry.Schedule
 			sb.WriteString(fmt.Sprintf("│ S%d (%s):\n", currentSchedule, orchestrate.ScheduleNames[currentSchedule]))
 		}
 
-		processName := orchestrate.ProcessNames[entry.Schedule][entry.Process]
-		totalTokens := int64(0)
-		if g.stats != nil {
-			totalTokens = g.stats.TotalTokens
+		cumulative += entry.Tokens
+		percentage := 0.0
+		if totalTokens > 0 {
+			percentage = float64(cumulative) / float64(totalTokens) * 100
 		}
+
+		processName := orchestrate.ProcessNames[entry.Schedule][entry.Process]
 		sb.WriteString(fmt.Sprintf("│   P%d %-10s +%s tokens    %s / %s (%.1f%%)\n",
 			entry.Process,
 			processName,
 			formatNumber(entry.Tokens),
-			formatNumber(entry.Cumulative),
+			formatNumber(cumulative),
 			formatNumber(totalTokens),
-			entry.Percentage))
+			percentage))
 	}
 
 	sb.WriteString("│                                                                     │\n")
@@ -416,6 +419,25 @@ func (g *Generator) formatTLDR() string {
 }
 
 // Helper functions
+
+// pct calculates the percentage of value relative to total.
+//
+// PROOF:
+// - ZERO-HIT: No pct helper for percentage calculation.
+// - POSITIVE-HIT: pct method in internal/summary/generator.go.
+func (g *Generator) pct(value, total int64) float64 {
+	if total == 0 {
+		return 0.0
+	}
+	return float64(value) / float64(total) * 100
+}
+
+func padRight(s string, length int) string {
+	if len(s) >= length {
+		return s
+	}
+	return s + strings.Repeat(" ", length-len(s))
+}
 
 func pluralize(count int, singular, plural string) string {
 	if count == 1 {

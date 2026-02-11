@@ -679,6 +679,11 @@ struct MainToolbarContent: ToolbarContent {
             )
         }
         
+        // Quality Preset
+        ToolbarItem(placement: .navigation) {
+            QualityPresetSelector(service: appState.orchestrationService)
+        }
+        
         // Center - editor layout controls
         ToolbarItem(placement: .principal) {
             Button {
@@ -785,6 +790,47 @@ private struct LayoutMenuRow: View {
 }
 
 // MARK: - Dialog Overlay
+
+struct QualityPresetSelector: View {
+    var service: OrchestrationService
+    @State private var presetService = QualityPresetService.shared
+    @State private var showPresets = false
+    
+    var body: some View {
+        Button {
+            showPresets.toggle()
+        } label: {
+            HStack(spacing: DS.Spacing.xs) {
+                Image(systemName: presetService.currentPreset.icon)
+                    .font(.caption)
+                Text(presetService.currentPreset.rawValue.capitalized)
+                    .font(DS.Typography.caption)
+            }
+            .foregroundStyle(DS.Colors.secondaryText)
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, 4)
+            .background(DS.Colors.surface)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(DS.Colors.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .help("Quality Preset")
+        .onChange(of: presetService.currentPreset) { _, newValue in
+            service.qualityPreset = newValue
+        }
+        .popover(isPresented: $showPresets, arrowEdge: .top) {
+            VStack(spacing: 0) {
+                QualityPresetView()
+                    .frame(width: 320)
+            }
+            .padding(DS.Spacing.sm)
+            .background(DS.Colors.surface)
+        }
+    }
+}
 
 struct DialogOverlay<Content: View>: View {
     @ViewBuilder let content: Content

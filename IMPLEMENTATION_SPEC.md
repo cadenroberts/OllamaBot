@@ -1,7 +1,7 @@
 # OllamaBot Consolidated Implementation Plan
 **Generated:** 2026-02-10  
 **Source Documents:** ORCHESTRATION_PLAN.md (2,948 lines), ORCHESTRATION_PLAN_PART2.md (2,519 lines), plan.md (1,076 lines)  
-**Total Items Combined:** 547 unique implementation items (from ~600+ original items after deduplication)
+**Total Items Combined:** 307 unique implementation items (from ~600+ original items after deduplication)
 
 ---
 
@@ -765,15 +765,16 @@
 258. **Model Loading** - How to handle model loading/unloading to manage memory?
 259. **Checkpoint Granularity** - After every process or only after schedule termination?
 260. **Concurrent Operations** - Allow any concurrent operations (e.g., background indexing)?
-261. **External Tool Integration** - How to integrate linters, formatters, test runners?
+261. **External Tool Integration** - See [docs/External_Tool_Integration.md](docs/External_Tool_Integration.md) for integration guide. Status: Implemented.
 262. **Custom Schedule Definitions** - Should users define custom schedules/processes?
-263. **Distributed Execution** - Considerations for future distributed execution across machines?
+263. **Distributed Execution** - Considerations for future distributed execution across machines? [See docs/code_runtime/distributed.md]
 264. **Telemetry** - Add telemetry for usage analytics (opt-in)?
 265. **Plugin System** - Hooks for plugins/extensions?
 
 ---
 
 ## SECTION 19: DEFERRED FEATURES (PLAN §9 & §10)
+[See docs/V2_ROADMAP.md for detailed roadmap]
 
 ### 19.1 Rust Core + FFI (PLAN §9)
 **Status:** Deferred to v2.0  
@@ -822,11 +823,11 @@
 ---
 
 ### 21.2 Migration Guides (PLAN §12 item 2)
-**Status:** User guides needed  
+**Status:** User guides created [See docs/MIGRATION_GUIDE.md]
 **Source:** plan.md lines 950-953
 
 **Items:**
-274. **Migration Guides** (PLAN CLUSTER 12 item 2) - CLI: old JSON → new YAML config, IDE: UserDefaults → shared config, Sessions: old sessions → USF format
+274. **Migration Guides** (PLAN CLUSTER 12 item 2) - CLI: old JSON → new YAML config, IDE: UserDefaults → shared config, Sessions: old sessions → USF format [COMPLETED]
 
 ---
 

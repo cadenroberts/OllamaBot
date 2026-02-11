@@ -16,7 +16,7 @@ final class DSScroller: NSScroller {
     }
     
     override func drawKnob() {
-        let knobRect = self.knobRect(flipped: false).insetBy(dx: 1, dy: 1)
+        let knobRect = self.rect(for: .knob).insetBy(dx: 1, dy: 1)
         let path = NSBezierPath(roundedRect: knobRect, xRadius: 3, yRadius: 3)
         knobColor.setFill()
         path.fill()

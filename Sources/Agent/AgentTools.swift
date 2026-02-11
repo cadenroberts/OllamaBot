@@ -77,7 +77,7 @@ struct AgentTools {
         "type": "function",
         "function": [
             "name": "edit_file",
-            "description": "Edit a file by replacing old_string with new_string",
+            "description": "Edit a file by replacing old_string with new_string OR by providing a line range (range) and new content. Line ranges are 1-indexed.",
             "parameters": [
                 "type": "object",
                 "properties": [
@@ -87,14 +87,22 @@ struct AgentTools {
                     ],
                     "old_string": [
                         "type": "string",
-                        "description": "The exact string to find and replace"
+                        "description": "The exact string to find and replace (optional if using line ranges)"
                     ],
                     "new_string": [
                         "type": "string",
-                        "description": "The string to replace it with"
+                        "description": "The string to replace it with (optional if using line ranges)"
+                    ],
+                    "range": [
+                        "type": "string",
+                        "description": "The line range to edit in format '-start +end' (e.g., '-10 +20'). 1-indexed. (optional)"
+                    ],
+                    "new_content": [
+                        "type": "string",
+                        "description": "The new content for the specified line range (optional)"
                     ]
                 ],
-                "required": ["path", "old_string", "new_string"]
+                "required": ["path"]
             ]
         ]
     ]
@@ -464,6 +472,20 @@ struct ToolCall: Identifiable {
     
     func getString(_ key: String) -> String? {
         arguments[key] as? String
+    }
+    
+    func getInt(_ key: String) -> Int? {
+        if let val = arguments[key] as? Int { return val }
+        if let str = arguments[key] as? String, let intVal = Int(str) { return intVal }
+        return nil
+    }
+    
+    func getBool(_ key: String) -> Bool? {
+        if let val = arguments[key] as? Bool { return val }
+        if let str = arguments[key] as? String {
+            return str.lowercased() == "true"
+        }
+        return nil
     }
 }
 

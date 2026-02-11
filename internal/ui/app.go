@@ -17,20 +17,23 @@ type App struct {
 	mu sync.Mutex
 
 	// I/O
-	reader io.Reader
-	writer io.Writer
+	stdin  io.Reader
+	stdout io.Writer
+	stderr io.Writer
 
 	// Components
-	display *StatusDisplay
-	memory  *MemoryVisualization
-	output  *OutputArea
+	display      *StatusDisplay
+	memoryViz    *MemoryVisualization
+	output       *OutputArea
+	inputHandler *InputHandler
+	chatHandler  *ChatHandler
 
 	// State
-	version       string
-	prompt        string
-	isRunning     bool
-	noteTarget    NoteTarget
-	stopCh        chan struct{}
+	version         string
+	prompt          string
+	isRunning       bool
+	noteDestination NoteTarget
+	stopCh          chan struct{}
 
 	// Callbacks
 	onPromptSubmit func(string)
@@ -69,23 +72,26 @@ func DefaultConfig() *Config {
 }
 
 // NewApp creates a new terminal UI application
-func NewApp(reader io.Reader, writer io.Writer, config *Config, version string) *App {
+func NewApp(stdin io.Reader, stdout, stderr io.Writer, config *Config, version string) *App {
 	if config == nil {
 		config = DefaultConfig()
 	}
 
 	app := &App{
-		reader:     reader,
-		writer:     writer,
-		version:    version,
-		noteTarget: NoteTargetOrchestrator,
-		stopCh:     make(chan struct{}),
+		stdin:           stdin,
+		stdout:          stdout,
+		stderr:          stderr,
+		version:         version,
+		noteDestination: NoteTargetOrchestrator,
+		stopCh:          make(chan struct{}),
 	}
 
 	// Initialize components
-	app.display = NewStatusDisplay(writer, config.Width, time.Duration(config.DotIntervalMS)*time.Millisecond)
-	app.memory = NewMemoryVisualization(writer, config.Width)
-	app.output = NewOutputArea(writer, config.Width)
+	app.display = NewStatusDisplay(stdout, config.Width, time.Duration(config.DotIntervalMS)*time.Millisecond)
+	app.memoryViz = NewMemoryVisualization(stdout, config.Width)
+	app.output = NewOutputArea(stdout, config.Width)
+	app.inputHandler = NewInputHandler(stdin, stdout)
+	app.chatHandler = NewChatHandler(stdout, config.Width)
 
 	return app
 }
@@ -110,7 +116,7 @@ func (a *App) Run(ctx context.Context) error {
 	a.drawSeparator()
 	a.display.Draw()
 	a.drawSeparator()
-	a.memory.Draw()
+	a.memoryViz.Draw()
 	a.drawSeparator()
 	a.output.Draw()
 	a.drawSeparator()
@@ -119,7 +125,20 @@ func (a *App) Run(ctx context.Context) error {
 	// Start animation loop
 	go a.display.RunAnimationLoop()
 
-	// Main event loop would go here
+	// Start input listener (Merges item 314 TUI internal cmds)
+	go a.inputHandler.Listen(func(prompt string) {
+		a.mu.Lock()
+		callback := a.onPromptSubmit
+		a.mu.Unlock()
+		if callback != nil {
+			callback(prompt)
+		}
+	}, func(command string) {
+		if !a.HandleCommand(command) {
+			a.AppendOutput(fmt.Sprintf("Unknown command: %s", command))
+		}
+	})
+
 	// For now, just wait for context cancellation
 	select {
 	case <-ctx.Done():
@@ -138,12 +157,12 @@ func (a *App) drawHeader() {
   │ 🦙      │  obot orchestrate v` + a.version + `
   └─────────┘
 `
-	fmt.Fprint(a.writer, header)
+	fmt.Fprint(a.stdout, header)
 }
 
 // drawSeparator draws a horizontal separator
 func (a *App) drawSeparator() {
-	fmt.Fprintln(a.writer, Separator(78))
+	fmt.Fprintln(a.stdout, Separator(78))
 }
 
 // drawInputArea draws the input area
@@ -173,7 +192,7 @@ func (a *App) drawInputArea() {
 	sb.WriteString("\n\n")
 
 	// Note destination toggle
-	if a.noteTarget == NoteTargetOrchestrator {
+	if a.noteDestination == NoteTargetOrchestrator {
 		sb.WriteString(FormatLabelBold("[🧠 Orchestrator]"))
 		sb.WriteString(" ")
 		sb.WriteString(FormatLabel("[</> Coder]"))
@@ -183,14 +202,17 @@ func (a *App) drawInputArea() {
 		sb.WriteString(FormatLabelBold("[</> Coder]"))
 	}
 	sb.WriteString("  ← Toggle for note destination\n")
+	sb.WriteString("\n")
+	sb.WriteString(a.chatHandler.RenderShortcuts())
+	sb.WriteString("\n")
 
-	fmt.Fprint(a.writer, sb.String())
+	fmt.Fprint(a.stdout, sb.String())
 }
 
 // cleanup cleans up the UI
 func (a *App) cleanup() {
 	a.display.StopAnimations()
-	fmt.Fprint(a.writer, ShowCursor)
+	fmt.Fprint(a.stdout, ShowCursor)
 }
 
 // UpdateOrchestratorState updates the orchestrator state display
@@ -217,13 +239,13 @@ func (a *App) UpdateAgentAction(action string) {
 
 // UpdateMemory updates the memory display
 func (a *App) UpdateMemory(currentGB, peakGB float64) {
-	a.memory.Update(currentGB, peakGB)
-	a.memory.UpdateInPlace()
+	a.memoryViz.Update(currentGB, peakGB)
+	a.memoryViz.UpdateInPlace()
 }
 
 // SetMemoryPrediction sets the memory prediction
-func (a *App) SetMemoryPrediction(predictGB float64, label string) {
-	a.memory.SetPrediction(predictGB, label)
+func (a *App) SetMemoryPrediction(predictGB float64, label, basis string) {
+	a.memoryViz.SetPrediction(predictGB, label, basis)
 }
 
 // AppendOutput appends content to the output area
@@ -241,12 +263,27 @@ func (a *App) SetRunning(running bool) {
 // ToggleNoteTarget toggles the note destination
 func (a *App) ToggleNoteTarget() {
 	a.mu.Lock()
-	if a.noteTarget == NoteTargetOrchestrator {
-		a.noteTarget = NoteTargetAgent
+	if a.noteDestination == NoteTargetOrchestrator {
+		a.noteDestination = NoteTargetAgent
 	} else {
-		a.noteTarget = NoteTargetOrchestrator
+		a.noteDestination = NoteTargetOrchestrator
 	}
 	a.mu.Unlock()
+}
+
+// HandleShortcutKey attempts to handle a key as a chat shortcut.
+func (a *App) HandleShortcutKey(key string) bool {
+	return a.chatHandler.HandleKey(key)
+}
+
+// HandleCommand attempts to handle a slash command. (Merges item 314 TUI internal cmds)
+func (a *App) HandleCommand(command string) bool {
+	return a.chatHandler.HandleCommand(command)
+}
+
+// SetShortcutCallbacks sets the callbacks for chat shortcuts.
+func (a *App) SetShortcutCallbacks(apply, discard, undo func()) {
+	a.chatHandler.SetCallbacks(apply, discard, undo)
 }
 
 // Stop stops the application

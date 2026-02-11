@@ -28,6 +28,7 @@ Traditional AI coding tools wait for your commands. **OllamaBot's AI Modes** fli
 - ⚡ **Apple Silicon Optimized** — Built for M1/M2/M3 performance
 - 🛡️ **Safely Infinite** — Power loss recovery, checkpoints, resilient operation
 - 🌐 **Works Offline** — All models run locally, no internet required
+- 🔒 **Privacy First** — All telemetry and session data stored locally; no external reporting
 
 ---
 
@@ -297,33 +298,43 @@ open Package.swift    # Open in Xcode
 
 ### obot CLI (Go)
 
-The repository also includes `obot`, a standalone Go CLI for local AI code fixes.
+The repository also includes `obot`, a standalone Go CLI for local AI code fixes and orchestration. For full documentation, see [README_CLI.md](README_CLI.md).
 
 ```bash
-# Build
-make build
-
-# Install to ~/.local/bin
-make install
+# Build & Install
+make build && make install
 
 # Usage
-obot main.go                     # Fix entire file
+obot main.go                     # Fix entire file (default: balanced quality)
 obot main.go -10 +25             # Fix lines 10-25
-obot main.go "fix null check"    # Fix with instruction
-obot main.go -i                  # Interactive mode
-obot plan src/                   # Generate a fix plan
-obot review main.go              # Local code review
-obot stats --saved               # View cost savings
-obot orchestrate "Build an API"  # Full 5-schedule orchestration
-obot checkpoint save             # Save a session checkpoint
-obot checkpoint list             # List all checkpoints
-obot session list                # List USF sessions
-obot session show <id>           # Inspect session details
-obot config migrate              # Migrate JSON config to unified YAML
-obot config unified              # Show unified configuration
+obot main.go "add error handling" --quality fast  # Fast fix with instruction
+obot main.go -i                  # Interactive multi-turn mode
+
+# Advanced Orchestration
+obot orchestrate "Build an API"  # Full 5-schedule autonomous orchestration
+obot plan src/                   # Generate an implementation plan
+obot review main.go              # Expert code review (Expert Judge system)
+
+# Session & Checkpoint Management
+obot session list                # List USF (Unified Session Format) sessions
+obot session show <id>           # Inspect detailed session history
+obot session export <id>         # Export session for use in IDE
+obot checkpoint save             # Save a snapshot of the current code state
+obot checkpoint list             # List all available checkpoints
+
+# Configuration & Stats
+obot config migrate              # Migrate legacy JSON config to unified YAML
+obot config unified              # View active unified configuration
+obot stats --saved               # View accumulated cost savings vs GPT-4/Claude
 ```
 
 Build requires Go 1.21+ and a running Ollama instance. The CLI auto-detects system RAM to select the optimal model.
+
+#### Quality Presets
+The CLI supports the same quality presets as the IDE via the `--quality` flag:
+- `fast`: Single-pass execution, optimized for speed.
+- `balanced`: Plan → Execute → Review loop (default).
+- `thorough`: Plan → Execute → Review → Revise loop with Expert Judge.
 
 #### Unified Configuration
 

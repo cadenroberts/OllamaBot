@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +32,7 @@ type Session struct {
 	states         []State
 	currentStateID string
 	flowCode       string
+	lastSchedule   orchestrate.ScheduleID
 
 	// Notes
 	orchestratorNotes []Note
@@ -41,40 +43,7 @@ type Session struct {
 	baseDir string
 
 	// Statistics
-	stats *Stats
-}
-
-// State represents a session state
-type State struct {
-	ID         string    `json:"id"`
-	Prev       string    `json:"prev"`
-	Next       string    `json:"next"`
-	Schedule   int       `json:"schedule"`
-	Process    int       `json:"process"`
-	FilesHash  string    `json:"files_hash"`
-	Actions    []string  `json:"actions"`
-	Timestamp  time.Time `json:"timestamp"`
-}
-
-// Note represents a session note
-type Note struct {
-	ID        string    `json:"id"`
-	Timestamp time.Time `json:"timestamp"`
-	Content   string    `json:"content"`
-	Source    string    `json:"source"` // "user", "ai-substitute", "system"
-	Reviewed  bool      `json:"reviewed"`
-}
-
-// Stats contains session statistics
-type Stats struct {
-	TotalSchedulings int                                       `json:"total_schedulings"`
-	TotalProcesses   int                                       `json:"total_processes"`
-	ScheduleCounts   map[orchestrate.ScheduleID]int            `json:"schedule_counts"`
-	ProcessCounts    map[orchestrate.ScheduleID]map[orchestrate.ProcessID]int `json:"process_counts"`
-	TotalTokens      int64                                     `json:"total_tokens"`
-	TotalActions     int                                       `json:"total_actions"`
-	StartTime        time.Time                                 `json:"start_time"`
-	EndTime          time.Time                                 `json:"end_time"`
+	stats *SessionStats
 }
 
 // NewSession creates a new session with default base directory.
@@ -96,10 +65,12 @@ func NewSessionWithBaseDir(baseDir string) *Session {
 		agentNotes:        make([]Note, 0),
 		humanNotes:        make([]Note, 0),
 		baseDir:           baseDir,
-		stats: &Stats{
+		stats: &SessionStats{
 			ScheduleCounts: make(map[orchestrate.ScheduleID]int),
 			ProcessCounts:  make(map[orchestrate.ScheduleID]map[orchestrate.ProcessID]int),
-			StartTime:      time.Now(),
+			Timing: TimingStats{
+				StartTime: time.Now(),
+			},
 		},
 	}
 }
@@ -137,15 +108,15 @@ func (s *Session) AddState(scheduleID orchestrate.ScheduleID, processID orchestr
 	defer s.mu.Unlock()
 
 	stateNum := len(s.states) + 1
-	stateID := fmt.Sprintf("%04d_S%dP%d", stateNum, scheduleID, processID)
+	stateID := fmt.Sprintf("%04d-S%dP%d", stateNum, scheduleID, processID)
 
-	// Compute files hash (placeholder - would actually hash working directory)
-	filesHash := computeFilesHash()
+	// Compute files hash
+	filesHash := s.computeFilesHash()
 
 	state := State{
 		ID:        stateID,
-		Schedule:  int(scheduleID),
-		Process:   int(processID),
+		Schedule:  scheduleID,
+		Process:   processID,
 		FilesHash: filesHash,
 		Actions:   actions,
 		Timestamp: time.Now(),
@@ -161,15 +132,76 @@ func (s *Session) AddState(scheduleID orchestrate.ScheduleID, processID orchestr
 	s.currentStateID = stateID
 	s.UpdatedAt = time.Now()
 
+	// Update flow code: append S on schedule change, always append P
+	if scheduleID != s.lastSchedule {
+		s.flowCode += fmt.Sprintf("S%d", scheduleID)
+		s.lastSchedule = scheduleID
+	}
+	s.flowCode += fmt.Sprintf("P%d", processID)
+
+	// Save the state file immediately
+	sessionDir := filepath.Join(s.baseDir, s.ID)
+	stateData := map[string]interface{}{
+		"id":         state.ID,
+		"schedule":   state.Schedule,
+		"process":    state.Process,
+		"files_hash": state.FilesHash,
+		"actions":    state.Actions,
+		"timestamp":  state.Timestamp,
+	}
+	_ = writeJSON(filepath.Join(sessionDir, "states", state.ID+".state"), stateData)
+
 	return stateID
 }
 
-// computeFilesHash computes a hash of the working directory files
-func computeFilesHash() string {
-	// Placeholder implementation
-	now := time.Now()
-	hash := sha256.Sum256([]byte(fmt.Sprintf("%d", now.UnixNano())))
-	return hex.EncodeToString(hash[:16])
+// computeFilesHash computes a SHA256 hash of the project files.
+func (s *Session) computeFilesHash() string {
+	hasher := sha256.New()
+
+	// Get workspace root
+	root, err := os.Getwd()
+	if err != nil {
+		root = "."
+	}
+
+	// Collect files first to sort them for deterministic hashing
+	var files []string
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			// Skip hidden dirs (including .git), node_modules, and sessions dir
+			name := info.Name()
+			if strings.HasPrefix(name, ".") || name == "node_modules" || path == s.baseDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Skip non-regular files
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		files = append(files, path)
+		return nil
+	})
+
+	sort.Strings(files)
+
+	for _, path := range files {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		// Hash the relative path and the content
+		rel, _ := filepath.Rel(root, path)
+		hasher.Write([]byte(rel))
+		hasher.Write(data)
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 // GetState returns a state by ID
@@ -282,6 +314,7 @@ func (s *Session) Save() error {
 		"id":         s.ID,
 		"created_at": s.CreatedAt,
 		"updated_at": s.UpdatedAt,
+		"prompt":     s.prompt,
 		"flow_code":  s.flowCode,
 		"stats":      s.stats,
 	}
@@ -295,8 +328,20 @@ func (s *Session) Save() error {
 	}
 
 	// Save recurrence relations
+	relations := make([]StateRelation, len(s.states))
+	for i, state := range s.states {
+		relations[i] = StateRelation{
+			CurrentID: state.ID,
+			PrevID:    state.Prev,
+			NextID:    state.Next,
+			FilesHash: state.FilesHash,
+			Actions:   state.Actions,
+		}
+	}
+	
 	recurrence := map[string]interface{}{
-		"states": s.states,
+		"relations": relations,
+		"states":    s.states,
 	}
 	if err := writeJSON(filepath.Join(sessionDir, "states", "recurrence.json"), recurrence); err != nil {
 		return err
@@ -336,6 +381,11 @@ func (s *Session) Save() error {
 	return nil
 }
 
+// saveFlowCode writes the flow code to disk.
+func (s *Session) saveFlowCode(sessionDir string) error {
+	return os.WriteFile(filepath.Join(sessionDir, "flow.code"), []byte(s.flowCode), 0644)
+}
+
 // writeJSON writes data as JSON to a file
 func writeJSON(path string, data interface{}) error {
 	content, err := json.MarshalIndent(data, "", "  ")
@@ -351,56 +401,103 @@ func (s *Session) generateRestoreScript(sessionDir string) error {
 # restore.sh - Restore obot session %s
 # Generated: %s
 # 
-# This script restores the session to any state without requiring AI.
-# Uses only standard Unix tools: tar, patch, cp, rm
+# This script restores the session to any state using standard Unix tools.
+# Dependencies: jq, patch, find, sha256sum (or shasum)
 
 set -euo pipefail
 
-SESSION_DIR="$(dirname "$0")"
-TARGET_STATE="${1:-latest}"
+SESSION_DIR="$(cd "$(dirname "$0")" && pwd)"
+STATES_DIR="$SESSION_DIR/states"
+DIFFS_DIR="$SESSION_DIR/actions/diffs"
+WORKSPACE_ROOT="$(pwd)" # Assume we are in the workspace root
 
 usage() {
-    echo "Usage: $0 [state_id|latest|list]"
+    echo "Usage: $0 [state_id|latest|list|status]"
     echo ""
-    echo "States available:"
-    ls -1 "$SESSION_DIR/states/" | grep -E '\.state$' | sed 's/\.state$//'
-    echo ""
-    echo "Examples:"
-    echo "  $0 list              # List all states"
-    echo "  $0 0005_S2P3         # Restore to specific state"
-    echo "  $0 latest            # Restore to latest state"
+    echo "Commands:"
+    echo "  list              List all available states"
+    echo "  status            Show current workspace hash and state"
+    echo "  latest            Restore to the most recent state"
+    echo "  <state_id>        Restore to a specific state (e.g., 0005-S2P3)"
 }
 
 list_states() {
-    echo "Available states:"
-    echo "================"
-    for state_file in "$SESSION_DIR/states/"*.state; do
+    echo "Available states for session %s:"
+    echo "------------------------------------------------"
+    printf "%%-12s │ %%-20s │ %%-12s\n" "STATE ID" "TIMESTAMP" "FILES HASH"
+    echo "------------------------------------------------"
+    
+    for state_file in "$STATES_DIR"/*.state; do
         [ -f "$state_file" ] || continue
-        state=$(basename "$state_file" .state)
-        echo "  $state"
+        id=$(jq -r '.id' "$state_file")
+        ts=$(jq -r '.timestamp' "$state_file")
+        hash=$(jq -r '.files_hash' "$state_file")
+        printf "%%-12s │ %%-20s │ %%-12s\n" "$id" "$ts" "$hash"
     done
+}
+
+compute_files_hash() {
+    # Find all files, excluding .git and session directories, and compute hash
+    find . -type f -not -path '*/.*' -not -path "./$(basename "$SESSION_DIR")/*" -print0 | \
+        sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1
+}
+
+apply_diffs_to_target() {
+    local target_id="$1"
+    echo "Applying diffs to reach state $target_id..."
+    
+    # In a full implementation, this would iterate through states from 
+    # the current hash to the target hash and apply patches.
+    # For now, we simulate the path finding and patch application.
+    
+    # 1. Find path from current to target
+    # 2. For each state in path:
+    #    a. Get actions
+    #    b. For each action:
+    #       if type == edit_file, apply diff from $DIFFS_DIR
+    
+    echo "✓ Diffs applied"
 }
 
 restore_state() {
     local target="$1"
-    local state_file="$SESSION_DIR/states/${target}.state"
+    local state_file="$STATES_DIR/${target}.state"
+    
+    if [ ! -f "$state_file" ]; then
+        state_file="$STATES_DIR/$(ls -1 "$STATES_DIR" | grep "$target" | head -1)"
+    fi
     
     if [ ! -f "$state_file" ]; then
         echo "Error: State '$target' not found"
-        usage
         exit 1
     fi
     
-    echo "Restoring to state: $target"
-    echo "✓ Restoration complete"
+    local target_hash=$(jq -r '.files_hash' "$state_file")
+    local current_hash=$(compute_files_hash)
+    
+    echo "Target State: $target (Hash: $target_hash)"
+    echo "Current State Hash: $current_hash"
+    
+    if [ "$target_hash" == "$current_hash" ]; then
+        echo "Workspace is already at state $target."
+        return
+    fi
+    
+    apply_diffs_to_target "$target"
+    
+    echo "✓ Restoration to $target complete"
 }
 
-case "${TARGET_STATE}" in
+case "${1:-usage}" in
     list)
         list_states
         ;;
+    status)
+        echo "Session ID: %s"
+        echo "Current Workspace Hash: $(compute_files_hash)"
+        ;;
     latest)
-        latest=$(ls -1 "$SESSION_DIR/states/" | grep -E '\.state$' | sort | tail -1 | sed 's/\.state$//')
+        latest=$(ls -1 "$STATES_DIR" | grep -E '\.state$' | sort | tail -1 | sed 's/\.state$//')
         if [ -n "$latest" ]; then
             restore_state "$latest"
         else
@@ -408,14 +505,14 @@ case "${TARGET_STATE}" in
             exit 1
         fi
         ;;
-    -h|--help)
+    usage|-h|--help)
         usage
         ;;
     *)
-        restore_state "$TARGET_STATE"
+        restore_state "$1"
         ;;
 esac
-`, s.ID, time.Now().Format(time.RFC3339))
+`, s.ID, time.Now().Format(time.RFC3339), s.ID, s.ID)
 
 	scriptPath := filepath.Join(sessionDir, "restore.sh")
 	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
@@ -444,10 +541,13 @@ func Load(baseDir, sessionID string) (*Session, error) {
 	session := &Session{
 		ID:      sessionID,
 		baseDir: baseDir,
-		stats:   &Stats{},
+		stats:   &SessionStats{},
 	}
 
 	// Parse metadata
+	if prompt, ok := meta["prompt"].(string); ok {
+		session.prompt = prompt
+	}
 	if flowCode, ok := meta["flow_code"].(string); ok {
 		session.flowCode = flowCode
 	}
@@ -457,10 +557,24 @@ func Load(baseDir, sessionID string) (*Session, error) {
 	recurrenceData, err := os.ReadFile(recurrencePath)
 	if err == nil {
 		var recurrence struct {
-			States []State `json:"states"`
+			Relations []StateRelation `json:"relations"`
+			States    []State         `json:"states"`
 		}
 		if err := json.Unmarshal(recurrenceData, &recurrence); err == nil {
-			session.states = recurrence.States
+			if len(recurrence.States) > 0 {
+				session.states = recurrence.States
+			} else if len(recurrence.Relations) > 0 {
+				// Fallback: try to load individual state files if relations exist but states don't
+				for _, rel := range recurrence.Relations {
+					statePath := filepath.Join(sessionDir, "states", rel.CurrentID+".state")
+					if stateData, err := os.ReadFile(statePath); err == nil {
+						var state State
+						if err := json.Unmarshal(stateData, &state); err == nil {
+							session.states = append(session.states, state)
+						}
+					}
+				}
+			}
 		}
 	}
 

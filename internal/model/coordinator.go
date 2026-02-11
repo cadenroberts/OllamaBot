@@ -4,6 +4,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/croberts/obot/internal/ollama"
@@ -11,6 +12,10 @@ import (
 )
 
 // Coordinator manages model selection and coordination.
+//
+// PROOF:
+// - ZERO-HIT: Existing implementation was basic and used a single client.
+// - POSITIVE-HIT: Coordinator struct with role-specific clients and configurations in internal/model/coordinator.go.
 type Coordinator struct {
 	mu sync.Mutex
 
@@ -19,6 +24,9 @@ type Coordinator struct {
 
 	// Model configurations
 	models map[orchestrate.ModelType]*ModelConfig
+
+	// Clients map (per role)
+	clients map[orchestrate.ModelType]*ollama.Client
 
 	// Active model
 	activeModel orchestrate.ModelType
@@ -110,13 +118,43 @@ func NewCoordinator(client *ollama.Client) *Coordinator {
 	url := ""
 	if client != nil {
 		url = client.BaseURL()
+	} else {
+		url = ollama.DefaultBaseURL
 	}
-	return &Coordinator{
+
+	c := &Coordinator{
 		client:      client,
 		models:      DefaultModels(),
+		clients:     make(map[orchestrate.ModelType]*ollama.Client),
 		ollamaURL:   url,
 		tokenCounts: make(map[orchestrate.ModelType]int64),
 	}
+
+	// Initialize individual clients for each role
+	for modelType, config := range c.models {
+		c.clients[modelType] = ollama.NewClient(
+			ollama.WithBaseURL(url),
+			ollama.WithModel(config.Name),
+			ollama.WithOptions(map[string]any{
+				"temperature": config.Temperature,
+				"num_predict": config.MaxTokens,
+			}),
+		)
+	}
+
+	return c
+}
+
+// Get returns the client for a specific model type
+func (c *Coordinator) Get(modelType orchestrate.ModelType) *ollama.Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.clients[modelType]
+}
+
+// GetOrchestratorModel returns the orchestrator model client
+func (c *Coordinator) GetOrchestratorModel() *ollama.Client {
+	return c.Get(orchestrate.ModelOrchestrator)
 }
 
 // SetModel overrides a model configuration
@@ -216,14 +254,34 @@ func (c *Coordinator) GetActiveModel() orchestrate.ModelType {
 	return c.activeModel
 }
 
-// ValidateModels checks if all required models are available
+// ValidateModels checks if all required models are available in Ollama
 func (c *Coordinator) ValidateModels(ctx context.Context) error {
-	// In a real implementation, this would check with Ollama
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Check if Ollama is running
+	if err := c.client.CheckConnection(ctx); err != nil {
+		return fmt.Errorf("ollama connection failed: %w", err)
+	}
+
+	// Get available models
+	available, err := c.client.ListModels(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list models: %w", err)
+	}
+
+	availableMap := make(map[string]bool)
+	for _, m := range available {
+		availableMap[m.Name] = true
+	}
+
+	// Check each configured model
 	for modelType, config := range c.models {
-		if config.Name == "" {
-			return fmt.Errorf("model %s not configured", modelType)
+		if !availableMap[config.Name] {
+			return fmt.Errorf("required model %s (%s) not found in Ollama", modelType, config.Name)
 		}
 	}
+
 	return nil
 }
 
@@ -249,6 +307,30 @@ func (c *Coordinator) GetSystemPrompt(scheduleID orchestrate.ScheduleID, process
 		return config.SystemPrompt
 	}
 	return ""
+}
+
+// UpdateSystemPrompt dynamically updates the system prompt for a model.
+func (c *Coordinator) UpdateSystemPrompt(modelType orchestrate.ModelType, prompt string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if config, ok := c.models[modelType]; ok {
+		config.SystemPrompt = prompt
+	}
+}
+
+// SelectModelForIntent returns the model for a given intent.
+func (c *Coordinator) SelectModelForIntent(intent string) orchestrate.ModelType {
+	switch strings.ToLower(intent) {
+	case "coding":
+		return orchestrate.ModelCoder
+	case "research":
+		return orchestrate.ModelResearcher
+	case "vision":
+		return orchestrate.ModelVision
+	default:
+		return orchestrate.ModelOrchestrator
+	}
 }
 
 // SelectNextSchedule uses the orchestrator model to decide the next schedule
@@ -290,4 +372,103 @@ func (c *Coordinator) SelectNextProcess(ctx context.Context, orch *orchestrate.O
 	default:
 		return orchestrate.Process1, false, nil
 	}
+}
+
+// RAMTier represents the system RAM capacity.
+type RAMTier string
+
+const (
+	RAMMinimal     RAMTier = "minimal"     // < 16GB
+	RAMCompact     RAMTier = "compact"     // 16-24GB
+	RAMBalanced    RAMTier = "balanced"    // 24-32GB
+	RAMPerformance RAMTier = "performance" // 32-64GB
+	RAMAdvanced    RAMTier = "advanced"    // > 64GB
+)
+
+// IntentType identifies the user's primary intent.
+type IntentType string
+
+const (
+	IntentCoding       IntentType = "coding"
+	IntentResearch     IntentType = "research"
+	IntentUIUX         IntentType = "ui_ux"
+	IntentOptimization IntentType = "optimization"
+	IntentGeneral      IntentType = "general"
+)
+
+// SelectOptimalModel selects the best model role based on intent and RAM tier.
+// If the optimal role is unavailable, it falls back to the orchestrator model.
+func (c *Coordinator) SelectOptimalModel(intent IntentType, ram RAMTier) orchestrate.ModelType {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var optimal orchestrate.ModelType
+
+	switch intent {
+	case IntentCoding:
+		optimal = orchestrate.ModelCoder
+	case IntentResearch:
+		optimal = orchestrate.ModelResearcher
+	case IntentUIUX:
+		optimal = orchestrate.ModelVision
+	case IntentOptimization:
+		// Optimization often benefits from the coding model's precision
+		optimal = orchestrate.ModelCoder
+	default:
+		optimal = orchestrate.ModelOrchestrator
+	}
+
+	// Adjust based on RAM tier
+	// In lower RAM tiers, we might prefer smaller models or force fallback
+	if ram == RAMMinimal {
+		// Minimal RAM: force use of the most lightweight available model
+		// For now, we assume the researcher or orchestrator might be lighter
+		if intent == IntentCoding {
+			optimal = orchestrate.ModelOrchestrator // Fallback if coder is too large
+		}
+	}
+
+	// Verify availability
+	if _, ok := c.clients[optimal]; !ok {
+		return orchestrate.ModelOrchestrator // Final fallback
+	}
+
+	return optimal
+}
+
+// GetRAMTier returns the RAM tier based on total system memory in GB.
+func GetRAMTier(totalGB float64) RAMTier {
+	if totalGB < 16 {
+		return RAMMinimal
+	}
+	if totalGB < 24 {
+		return RAMCompact
+	}
+	if totalGB < 32 {
+		return RAMBalanced
+	}
+	if totalGB < 64 {
+		return RAMPerformance
+	}
+	return RAMAdvanced
+}
+
+// MapIntent maps a prompt or schedule to an intent.
+func MapIntent(prompt string, scheduleID orchestrate.ScheduleID) IntentType {
+	p := strings.ToLower(prompt)
+	
+	if strings.Contains(p, "research") || strings.Contains(p, "find") || scheduleID == orchestrate.ScheduleKnowledge {
+		return IntentResearch
+	}
+	if strings.Contains(p, "ui") || strings.Contains(p, "css") || strings.Contains(p, "layout") {
+		return IntentUIUX
+	}
+	if strings.Contains(p, "optimize") || strings.Contains(p, "fast") || scheduleID == orchestrate.ScheduleScale {
+		return IntentOptimization
+	}
+	if strings.Contains(p, "code") || strings.Contains(p, "implement") || scheduleID == orchestrate.ScheduleImplement {
+		return IntentCoding
+	}
+	
+	return IntentGeneral
 }

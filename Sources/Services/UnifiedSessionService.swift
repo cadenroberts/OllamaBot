@@ -38,10 +38,12 @@ final class UnifiedSessionService {
 
     struct OrchestrationInfo: Codable {
         var currentSchedule: Int = 1
+        var currentProcess: Int = 1
         var flowCode: String = ""
 
         enum CodingKeys: String, CodingKey {
             case currentSchedule = "current_schedule"
+            case currentProcess = "current_process"
             case flowCode = "flow_code"
         }
     }
@@ -157,9 +159,10 @@ final class UnifiedSessionService {
         currentSession?.checkpoints.append(entry)
     }
 
-    func updateOrchestration(schedule: Int, flowCode: String) {
+    func updateOrchestration(schedule: Int, process: Int, flowCode: String) {
         currentSession?.orchestration = OrchestrationInfo(
             currentSchedule: schedule,
+            currentProcess: process,
             flowCode: flowCode
         )
     }

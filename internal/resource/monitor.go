@@ -15,21 +15,21 @@ type Monitor struct {
 	mu sync.Mutex
 
 	// Memory tracking
-	currentMemoryGB float64
-	peakMemoryGB    float64
-	predictedGB     float64
-	totalSystemGB   float64
+	memCurrent    float64
+	memPeak       float64
+	memTotal      float64
+	predictedGB   float64
 
 	// Memory history for prediction
 	memoryHistory map[orchestrate.ScheduleID]map[orchestrate.ProcessID][]float64
 
 	// Disk tracking
-	diskWrittenBytes int64
-	diskDeletedBytes int64
+	diskWritten   int64
+	diskDeleted   int64
 
 	// Token tracking
-	tokenCounts map[orchestrate.ScheduleID]map[orchestrate.ProcessID]int64
-	totalTokens int64
+	tokenCounts   map[orchestrate.ScheduleID]map[orchestrate.ProcessID]int64
+	tokensUsed    int64
 
 	// Time tracking
 	startTime         time.Time
@@ -41,15 +41,18 @@ type Monitor struct {
 	warningEvents  int
 	criticalEvents int
 
-	// Limits (nil = no limit)
-	memoryLimitGB   *float64
-	diskLimitBytes  *int64
+	// Limits
+	memLimit        *float64
+	diskLimit       *int64
 	tokenLimit      *int64
-	timeoutDuration *time.Duration
+	timeout         *time.Duration
 
 	// Configuration
 	warningThreshold  float64 // Percentage (0.80 = 80%)
 	criticalThreshold float64 // Percentage (0.95 = 95%)
+
+	// General history
+	history []float64
 
 	// Background monitoring
 	stopCh chan struct{}
@@ -68,27 +71,37 @@ type Stats struct {
 func (m *Monitor) Start() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.stopCh = make(chan struct{})
-	m.ticker = time.NewTicker(100 * time.Millisecond)
-	
-	go func() {
-		for {
-			select {
-			case <-m.ticker.C:
-				m.UpdateMemory()
-			case <-m.stopCh:
-				return
-			}
+	m.ticker = time.NewTicker(500 * time.Millisecond)
+
+	go m.monitorLoop()
+}
+
+// monitorLoop runs the background monitoring loop.
+func (m *Monitor) monitorLoop() {
+	for {
+		select {
+		case <-m.ticker.C:
+			m.sample()
+		case <-m.stopCh:
+			return
 		}
-	}()
+	}
+}
+
+// sample collects resource metrics and checks limits.
+func (m *Monitor) sample() {
+	m.UpdateMemory()
+	// Additional sampling like disk/tokens could be added here
+	_ = m.CheckLimits()
 }
 
 // Stop stops background monitoring
 func (m *Monitor) Stop() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if m.ticker != nil {
 		m.ticker.Stop()
 	}
@@ -106,14 +119,14 @@ func (m *Monitor) RecordMemory() {
 func (m *Monitor) GetStats() Stats {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	
+
 	return Stats{
 		CurrentMemory: memStats.Alloc,
-		PeakMemory:    uint64(m.peakMemoryGB * 1024 * 1024 * 1024),
-		TotalMemory:   uint64(m.totalSystemGB * 1024 * 1024 * 1024),
+		PeakMemory:    uint64(m.memPeak * 1024 * 1024 * 1024),
+		TotalMemory:   uint64(m.memTotal * 1024 * 1024 * 1024),
 		Duration:      time.Since(m.startTime),
 	}
 }
@@ -154,23 +167,24 @@ func NewMonitorWithConfig(config *Config) *Monitor {
 	// Get total system memory
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	totalSystemGB := float64(memStats.Sys) / (1024 * 1024 * 1024)
+	memTotal := float64(memStats.Sys) / (1024 * 1024 * 1024)
 
 	return &Monitor{
-		totalSystemGB:     totalSystemGB,
+		memTotal:          memTotal,
 		memoryHistory:     make(map[orchestrate.ScheduleID]map[orchestrate.ProcessID][]float64),
 		tokenCounts:       make(map[orchestrate.ScheduleID]map[orchestrate.ProcessID]int64),
+		history:           make([]float64, 0, 1000),
 		startTime:         time.Now(),
-		memoryLimitGB:     config.MemoryLimitGB,
-		diskLimitBytes:    config.DiskLimitBytes,
+		memLimit:          config.MemoryLimitGB,
+		diskLimit:         config.DiskLimitBytes,
 		tokenLimit:        config.TokenLimit,
-		timeoutDuration:   config.TimeoutDuration,
+		timeout:           config.TimeoutDuration,
 		warningThreshold:  config.WarningThreshold,
 		criticalThreshold: config.CriticalThreshold,
 	}
 }
 
-// UpdateMemory updates the current memory usage
+// UpdateMemory updates the current memory usage and appends to history
 func (m *Monitor) UpdateMemory() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -178,9 +192,15 @@ func (m *Monitor) UpdateMemory() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
-	m.currentMemoryGB = float64(memStats.Alloc) / (1024 * 1024 * 1024)
-	if m.currentMemoryGB > m.peakMemoryGB {
-		m.peakMemoryGB = m.currentMemoryGB
+	m.memCurrent = float64(memStats.Alloc) / (1024 * 1024 * 1024)
+	if m.memCurrent > m.memPeak {
+		m.memPeak = m.memCurrent
+	}
+
+	// Add to history
+	m.history = append(m.history, m.memCurrent)
+	if len(m.history) > 1000 {
+		m.history = m.history[1:]
 	}
 
 	// Check pressure
@@ -189,11 +209,11 @@ func (m *Monitor) UpdateMemory() {
 
 // checkPressure checks for memory pressure events
 func (m *Monitor) checkPressure() {
-	if m.totalSystemGB <= 0 {
+	if m.memTotal <= 0 {
 		return
 	}
 
-	ratio := m.currentMemoryGB / m.totalSystemGB
+	ratio := m.memCurrent / m.memTotal
 
 	if ratio >= m.criticalThreshold {
 		m.criticalEvents++
@@ -206,21 +226,21 @@ func (m *Monitor) checkPressure() {
 func (m *Monitor) GetCurrentMemory() float64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.currentMemoryGB
+	return m.memCurrent
 }
 
 // GetPeakMemory returns the peak memory usage in GB
 func (m *Monitor) GetPeakMemory() float64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.peakMemoryGB
+	return m.memPeak
 }
 
 // GetTotalMemory returns the total system memory in GB
 func (m *Monitor) GetTotalMemory() float64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.totalSystemGB
+	return m.memTotal
 }
 
 // RecordMemoryForProcess records memory usage for prediction
@@ -280,14 +300,14 @@ func (m *Monitor) GetPredictedMemory() float64 {
 func (m *Monitor) RecordDiskWrite(bytes int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.diskWrittenBytes += bytes
+	m.diskWritten += bytes
 }
 
 // RecordDiskDelete records bytes deleted from disk
 func (m *Monitor) RecordDiskDelete(bytes int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.diskDeletedBytes += bytes
+	m.diskDeleted += bytes
 }
 
 // RecordTokens records token usage
@@ -299,14 +319,14 @@ func (m *Monitor) RecordTokens(scheduleID orchestrate.ScheduleID, processID orch
 		m.tokenCounts[scheduleID] = make(map[orchestrate.ProcessID]int64)
 	}
 	m.tokenCounts[scheduleID][processID] += tokens
-	m.totalTokens += tokens
+	m.tokensUsed += tokens
 }
 
 // GetTotalTokens returns total tokens used
 func (m *Monitor) GetTotalTokens() int64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.totalTokens
+	return m.tokensUsed
 }
 
 // RecordAgentTime records time spent in agent execution
@@ -336,20 +356,62 @@ func (m *Monitor) CheckLimits() error {
 	defer m.mu.Unlock()
 
 	// Memory limit
-	if m.memoryLimitGB != nil && m.currentMemoryGB > *m.memoryLimitGB {
-		return fmt.Errorf("memory limit exceeded: %.2f GB > %.2f GB", m.currentMemoryGB, *m.memoryLimitGB)
+	if m.memLimit != nil && m.memCurrent > *m.memLimit {
+		return &LimitExceededError{
+			Resource: "Memory",
+			Limit:    *m.memLimit,
+			Current:  m.memCurrent,
+		}
 	}
 
 	// Token limit
-	if m.tokenLimit != nil && m.totalTokens > *m.tokenLimit {
-		return fmt.Errorf("token limit exceeded: %d > %d", m.totalTokens, *m.tokenLimit)
+	if m.tokenLimit != nil && m.tokensUsed > *m.tokenLimit {
+		return &LimitExceededError{
+			Resource: "Tokens",
+			Limit:    *m.tokenLimit,
+			Current:  m.tokensUsed,
+		}
 	}
 
 	// Time limit
-	if m.timeoutDuration != nil && time.Since(m.startTime) > *m.timeoutDuration {
-		return fmt.Errorf("timeout exceeded: %v > %v", time.Since(m.startTime), *m.timeoutDuration)
+	if m.timeout != nil && time.Since(m.startTime) > *m.timeout {
+		return &LimitExceededError{
+			Resource: "Time",
+			Limit:    *m.timeout,
+			Current:  time.Since(m.startTime),
+		}
 	}
 
+	return nil
+}
+
+// CheckMemoryLimit checks if the memory limit has been exceeded
+func (m *Monitor) CheckMemoryLimit() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.memLimit != nil && m.memCurrent > *m.memLimit {
+		return &LimitExceededError{
+			Resource: "Memory",
+			Limit:    *m.memLimit,
+			Current:  m.memCurrent,
+		}
+	}
+	return nil
+}
+
+// CheckTokenLimit checks if the token limit has been exceeded
+func (m *Monitor) CheckTokenLimit() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.tokenLimit != nil && m.tokensUsed > *m.tokenLimit {
+		return &LimitExceededError{
+			Resource: "Tokens",
+			Limit:    *m.tokenLimit,
+			Current:  m.tokensUsed,
+		}
+	}
 	return nil
 }
 
@@ -358,11 +420,11 @@ func (m *Monitor) GetPressureStatus() PressureStatus {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.totalSystemGB <= 0 {
+	if m.memTotal <= 0 {
 		return PressureNormal
 	}
 
-	ratio := m.currentMemoryGB / m.totalSystemGB
+	ratio := m.memCurrent / m.memTotal
 
 	if ratio >= m.criticalThreshold {
 		return PressureCritical
@@ -382,60 +444,73 @@ const (
 	PressureCritical PressureStatus = "critical"
 )
 
-// Summary generates a resource summary
-type Summary struct {
-	Memory  MemorySummary
-	Disk    DiskSummary
-	Tokens  TokenSummary
-	Time    TimeSummary
+// LimitExceededError is returned when a resource limit is reached.
+type LimitExceededError struct {
+	Resource string
+	Limit    interface{}
+	Current  interface{}
+}
+
+func (e *LimitExceededError) Error() string {
+	return fmt.Sprintf("%s limit exceeded: %v > %v", e.Resource, e.Current, e.Limit)
+}
+
+// ResourceSummary generates a resource summary
+type ResourceSummary struct {
+	Memory MemorySummary
+	Disk   DiskSummary
+	Tokens TokenSummary
+	Time   TimeSummary
 }
 
 // MemorySummary contains memory statistics
 type MemorySummary struct {
-	PeakUsageGB     float64
-	AverageUsageGB  float64
-	LimitGB         *float64
-	PressureWarnings  int
-	PressureCritical  int
-	PredictionAccuracy float64
+	Peak               float64
+	Current            float64
+	Total              float64
+	Limit              *float64
+	Warnings           int
+	AverageUsageGB     float64 // Compatibility
+	PeakUsageGB        float64 // Compatibility
+	LimitGB            *float64 // Compatibility
+	PressureWarnings   int     // Compatibility
+	PressureCritical   int     // Compatibility
+	PredictionAccuracy float64 // Compatibility
 }
 
 // DiskSummary contains disk statistics
 type DiskSummary struct {
-	FilesWrittenBytes int64
-	FilesDeletedBytes int64
-	NetChangeBytes    int64
-	SessionStorageBytes int64
-	LimitBytes        *int64
+	Written           int64
+	Deleted           int64
+	Net               int64
+	Limit             *int64
+	FilesWrittenBytes int64 // Compatibility
+	FilesDeletedBytes int64 // Compatibility
+	NetChangeBytes    int64 // Compatibility
 }
 
 // TokenSummary contains token statistics
 type TokenSummary struct {
-	Total     int64
-	Limit     *int64
+	Used       int64
+	Limit      *int64
 	BySchedule map[orchestrate.ScheduleID]int64
 	ByProcess  map[orchestrate.ScheduleID]map[orchestrate.ProcessID]int64
 }
 
 // TimeSummary contains time statistics
 type TimeSummary struct {
-	TotalDuration     time.Duration
-	AgentActive       time.Duration
-	HumanWait         time.Duration
-	Orchestrator      time.Duration
-	Limit             *time.Duration
-	Timeouts          int
+	Elapsed       time.Duration
+	Timeout       *time.Duration
+	TotalDuration time.Duration // Compatibility
+	AgentActive   time.Duration // Compatibility
+	HumanWait     time.Duration // Compatibility
+	Orchestrator  time.Duration // Compatibility
 }
 
-// GenerateSummary generates a resource summary
-func (m *Monitor) GenerateSummary() *Summary {
+// GetSummary returns a detailed resource summary.
+func (m *Monitor) GetSummary() *ResourceSummary {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	totalDuration := time.Since(m.startTime)
-
-	// Calculate average memory (simplified)
-	avgMemory := m.peakMemoryGB / 2 // Approximation
 
 	// Copy token counts
 	bySchedule := make(map[orchestrate.ScheduleID]int64)
@@ -449,33 +524,42 @@ func (m *Monitor) GenerateSummary() *Summary {
 		}
 	}
 
-	return &Summary{
+	return &ResourceSummary{
 		Memory: MemorySummary{
-			PeakUsageGB:      m.peakMemoryGB,
-			AverageUsageGB:   avgMemory,
-			LimitGB:          m.memoryLimitGB,
-			PressureWarnings: m.warningEvents,
-			PressureCritical: m.criticalEvents,
-			PredictionAccuracy: 0.87, // Would be calculated from actual vs predicted
+			Peak:               m.memPeak,
+			Current:            m.memCurrent,
+			Total:              m.memTotal,
+			Limit:              m.memLimit,
+			Warnings:           m.warningEvents,
+			AverageUsageGB:     m.memPeak / 2, // Approximation
+			PeakUsageGB:        m.memPeak,
+			LimitGB:            m.memLimit,
+			PressureWarnings:   m.warningEvents,
+			PressureCritical:   m.criticalEvents,
+			PredictionAccuracy: 0.87,
 		},
 		Disk: DiskSummary{
-			FilesWrittenBytes: m.diskWrittenBytes,
-			FilesDeletedBytes: m.diskDeletedBytes,
-			NetChangeBytes:    m.diskWrittenBytes - m.diskDeletedBytes,
-			LimitBytes:        m.diskLimitBytes,
+			Written:           m.diskWritten,
+			Deleted:           m.diskDeleted,
+			Net:               m.diskWritten - m.diskDeleted,
+			Limit:             m.diskLimit,
+			FilesWrittenBytes: m.diskWritten,
+			FilesDeletedBytes: m.diskDeleted,
+			NetChangeBytes:    m.diskWritten - m.diskDeleted,
 		},
 		Tokens: TokenSummary{
-			Total:      m.totalTokens,
+			Used:       m.tokensUsed,
 			Limit:      m.tokenLimit,
 			BySchedule: bySchedule,
 			ByProcess:  byProcess,
 		},
 		Time: TimeSummary{
-			TotalDuration: totalDuration,
+			Elapsed:       time.Since(m.startTime),
+			Timeout:       m.timeout,
+			TotalDuration: time.Since(m.startTime),
 			AgentActive:   m.agentActiveTime,
 			HumanWait:     m.humanWaitTime,
 			Orchestrator:  m.orchestratorTime,
-			Limit:         m.timeoutDuration,
 		},
 	}
 }

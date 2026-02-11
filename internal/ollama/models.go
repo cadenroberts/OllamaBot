@@ -2,14 +2,16 @@ package ollama
 
 // Message represents a chat message
 type Message struct {
-	Role    string `json:"role"`    // "system", "user", "assistant"
-	Content string `json:"content"` // Message content
+	Role    string   `json:"role"`             // "system", "user", "assistant"
+	Content string   `json:"content"`          // Message content
+	Images  []string `json:"images,omitempty"` // Base64 encoded images
 }
 
 // GenerateRequest is the request body for /api/generate
 type GenerateRequest struct {
 	Model     string         `json:"model"`
 	Prompt    string         `json:"prompt"`
+	Images    []string       `json:"images,omitempty"` // Base64 encoded images
 	Stream    bool           `json:"stream"`
 	Options   map[string]any `json:"options,omitempty"`
 	KeepAlive string         `json:"keep_alive,omitempty"`
@@ -64,6 +66,18 @@ type ModelInfo struct {
 // TagsResponse is the response from /api/tags
 type TagsResponse struct {
 	Models []ModelInfo `json:"models"`
+}
+
+// EmbeddingRequest is the request body for /api/embeddings
+type EmbeddingRequest struct {
+	Model   string         `json:"model"`
+	Prompt  string         `json:"prompt"`
+	Options map[string]any `json:"options,omitempty"`
+}
+
+// EmbeddingResponse is the response from /api/embeddings
+type EmbeddingResponse struct {
+	Embedding []float64 `json:"embedding"`
 }
 
 // InferenceStats holds statistics from an inference

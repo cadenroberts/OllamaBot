@@ -6,17 +6,19 @@ import (
 	"path/filepath"
 )
 
-// Config holds obot configuration
+// Config holds obot configuration (wraps UnifiedConfig for backward compatibility)
 type Config struct {
-	// Model configuration
+	Unified *UnifiedConfig
+
+	// model legacy fields
 	Tier           string `json:"tier"`
 	Model          string `json:"model"`
 	AutoDetectTier bool   `json:"auto_detect_tier"`
 
-	// Ollama settings
+	// Ollama legacy fields
 	OllamaURL string `json:"ollama_url"`
 
-	// Behavior settings
+	// Behavior legacy fields
 	Verbose     bool    `json:"verbose"`
 	Temperature float64 `json:"temperature"`
 	MaxTokens   int     `json:"max_tokens"`
@@ -27,14 +29,16 @@ type Config struct {
 
 // Default returns the default configuration
 func Default() *Config {
+	uc := DefaultUnifiedConfig()
 	return &Config{
-		Tier:           "auto",
-		Model:          "",
-		AutoDetectTier: true,
-		OllamaURL:      "http://localhost:11434",
-		Verbose:        true,
+		Unified:        uc,
+		Tier:           "balanced",
+		Model:          uc.Models.Coder.Default,
+		AutoDetectTier: uc.Models.TierDetection.Auto,
+		OllamaURL:      uc.Ollama.URL,
+		Verbose:        uc.Platforms.CLI.Verbose,
 		Temperature:    0.3,
-		MaxTokens:      4096,
+		MaxTokens:      uc.Context.MaxTokens,
 	}
 }
 
@@ -62,15 +66,27 @@ func (c *Config) Path() string {
 
 // Load loads configuration from disk
 func Load() (*Config, error) {
-	configPath := getConfigPath()
+	// Try YAML first
+	uc, err := LoadUnifiedConfig()
+	if err == nil {
+		cfg := Default()
+		cfg.Unified = uc
+		// Sync legacy fields
+		cfg.Tier = "balanced"
+		cfg.Model = uc.Models.Coder.Default
+		cfg.AutoDetectTier = uc.Models.TierDetection.Auto
+		cfg.OllamaURL = uc.Ollama.URL
+		cfg.Verbose = uc.Platforms.CLI.Verbose
+		cfg.MaxTokens = uc.Context.MaxTokens
+		return cfg, nil
+	}
 
+	// Fallback to legacy JSON
+	configPath := getConfigPath()
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Return default config if file doesn't exist
-			cfg := Default()
-			cfg.path = configPath
-			return cfg, nil
+			return Default(), nil
 		}
 		return nil, err
 	}
@@ -79,25 +95,21 @@ func Load() (*Config, error) {
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
-
-	cfg.path = configPath
 	return cfg, nil
 }
 
 // Save saves configuration to disk
 func (c *Config) Save() error {
-	// Ensure directory exists
-	configDir := getConfigDir()
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return err
+	// Always save as unified YAML
+	if c.Unified != nil {
+		return SaveUnifiedConfig(c.Unified)
 	}
-
-	data, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(getConfigPath(), data, 0644)
+	
+	// Fallback if unified is missing (shouldn't happen with Default())
+	uc := DefaultUnifiedConfig()
+	uc.Ollama.URL = c.OllamaURL
+	uc.Context.MaxTokens = c.MaxTokens
+	return SaveUnifiedConfig(uc)
 }
 
 // EnsureConfigDir ensures the config directory exists

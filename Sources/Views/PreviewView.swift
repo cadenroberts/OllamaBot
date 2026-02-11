@@ -72,23 +72,31 @@ struct PreviewView: View {
 
     private var changeList: some View {
         ScrollView {
-            LazyVStack(spacing: DS.Spacing.sm) {
-                ForEach(previewService.proposedChanges) { change in
-                    ProposedChangeCard(
-                        change: change,
-                        isExpanded: expandedChange == change.id,
-                        onToggleExpand: {
-                            withAnimation(DS.Animation.fast) {
-                                expandedChange = expandedChange == change.id ? nil : change.id
-                            }
-                        },
-                        onApprove: { previewService.approveChange(change) },
-                        onReject: { previewService.rejectChange(change) }
-                    )
-                }
-            }
-            .padding(DS.Spacing.sm)
+            changesStack
+                .padding(DS.Spacing.sm)
         }
+    }
+
+    private var changesStack: some View {
+        LazyVStack(spacing: DS.Spacing.sm) {
+            ForEach(previewService.proposedChanges) { change in
+                changeRow(for: change)
+            }
+        }
+    }
+
+    private func changeRow(for change: PreviewService.ProposedChange) -> some View {
+        ProposedChangeCard(
+            change: change,
+            isExpanded: expandedChange == change.id,
+            onToggleExpand: {
+                withAnimation(DS.Animation.fast) {
+                    expandedChange = expandedChange == change.id ? nil : change.id
+                }
+            },
+            onApprove: { previewService.setApproval(for: change.id, approved: true) },
+            onReject: { previewService.setApproval(for: change.id, approved: false) }
+        )
     }
 
     // MARK: - Action Bar
@@ -110,8 +118,14 @@ struct PreviewView: View {
             }
 
             DSButton("Apply \(previewService.approvedCount) Changes", icon: "arrow.right.circle", style: .accent, size: .sm) {
-                let applied = previewService.applyApproved(rootFolder: appState.rootFolder)
-                appState.showSuccess("Applied \(applied) changes")
+                Task {
+                    do {
+                        let applied = try await previewService.applyApproved(rootFolder: appState.rootFolder)
+                        appState.showSuccess("Applied \(applied) changes")
+                    } catch {
+                        appState.showError("Failed to apply changes: \(error.localizedDescription)")
+                    }
+                }
             }
             .disabled(previewService.approvedCount == 0)
         }
@@ -210,14 +224,21 @@ struct ProposedChangeCard: View {
     private var diffView: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(change.diff.components(separatedBy: .newlines), id: \.self) { line in
-                    Text(line)
-                        .font(DS.Typography.mono(11))
-                        .foregroundStyle(diffLineColor(line))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, DS.Spacing.md)
-                        .padding(.vertical, 1)
-                        .background(diffLineBackground(line))
+                ForEach(change.diffLines) { line in
+                    HStack(spacing: 0) {
+                        Text(line.type.rawValue)
+                            .font(DS.Typography.mono(11))
+                            .foregroundStyle(diffLineColor(line))
+                            .frame(width: 20, alignment: .center)
+                        
+                        Text(line.content)
+                            .font(DS.Typography.mono(11))
+                            .foregroundStyle(diffLineColor(line))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, DS.Spacing.sm)
+                    .padding(.vertical, 1)
+                    .background(diffLineBackground(line))
                 }
             }
         }
@@ -225,15 +246,19 @@ struct ProposedChangeCard: View {
         .background(DS.Colors.codeBackground)
     }
 
-    private func diffLineColor(_ line: String) -> Color {
-        if line.hasPrefix("+ ") { return Color(hex: "73c0ff") }
-        if line.hasPrefix("- ") { return Color(hex: "5a8fd4") }
-        return DS.Colors.secondaryText
+    private func diffLineColor(_ line: PreviewService.DiffLine) -> Color {
+        switch line.type {
+        case .addition: return Color(hex: "73c0ff")
+        case .deletion: return Color(hex: "5a8fd4")
+        case .context: return DS.Colors.secondaryText
+        }
     }
 
-    private func diffLineBackground(_ line: String) -> Color {
-        if line.hasPrefix("+ ") { return Color(hex: "73c0ff").opacity(0.05) }
-        if line.hasPrefix("- ") { return Color(hex: "5a8fd4").opacity(0.05) }
-        return .clear
+    private func diffLineBackground(_ line: PreviewService.DiffLine) -> Color {
+        switch line.type {
+        case .addition: return Color(hex: "73c0ff").opacity(0.05)
+        case .deletion: return Color(hex: "5a8fd4").opacity(0.05)
+        case .context: return .clear
+        }
     }
 }

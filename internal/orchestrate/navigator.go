@@ -96,33 +96,6 @@ func (n *Navigator) getRuleDescription(from ProcessID) string {
 	}
 }
 
-// NavigationValidationError provides detailed information about an invalid navigation
-type NavigationValidationError struct {
-	From     ProcessID
-	To       ProcessID
-	Schedule ScheduleID
-	Rule     string
-}
-
-func (e *NavigationValidationError) Error() string {
-	fromName := "initial"
-	if e.From > 0 {
-		fromName = ProcessNames[e.Schedule][e.From]
-	}
-	toName := "terminate"
-	if e.To > 0 {
-		toName = ProcessNames[e.Schedule][e.To]
-	}
-	
-	return fmt.Sprintf(
-		"invalid navigation in %s schedule: cannot go from %s (P%d) to %s (P%d). %s",
-		ScheduleNames[e.Schedule],
-		fromName, e.From,
-		toName, e.To,
-		e.Rule,
-	)
-}
-
 // ValidateNavigationSequence validates an entire sequence of process transitions
 func ValidateNavigationSequence(sequence []ProcessID) error {
 	if len(sequence) == 0 {
@@ -194,27 +167,101 @@ func MinimumProcessesToTerminate() int {
 	return 3
 }
 
+// IsCompleteSequence checks if a sequence of processes reaches termination correctly.
+func IsCompleteSequence(sequence []ProcessID) bool {
+	if len(sequence) == 0 {
+		return false
+	}
+	
+	// Must end with a process that can terminate (P3)
+	last := sequence[len(sequence)-1]
+	rule, ok := NavigationRules[last]
+	if !ok || !rule.CanTerminate {
+		return false
+	}
+	
+	// Sequence itself must be valid
+	return ValidateNavigationSequence(sequence) == nil
+}
+
+// GetPathToTermination returns the shortest path of process IDs to reach termination from current.
+func (n *Navigator) GetPathToTermination() []ProcessID {
+	switch n.currentProcess {
+	case 0:
+		return []ProcessID{Process1, Process2, Process3}
+	case Process1:
+		return []ProcessID{Process2, Process3}
+	case Process2:
+		return []ProcessID{Process3}
+	case Process3:
+		return []ProcessID{}
+	default:
+		return nil
+	}
+}
+
+// ExplainNavigationError returns a detailed explanation of why a transition is invalid.
+func (n *Navigator) ExplainNavigationError(to ProcessID) string {
+	if n.CanNavigateTo(to) {
+		return "Transition is valid."
+	}
+	
+	rule, ok := NavigationRules[n.currentProcess]
+	if !ok {
+		return "Unknown current state."
+	}
+	
+	allowed := ""
+	for i, a := range rule.AllowedTo {
+		if i > 0 {
+			allowed += ", "
+		}
+		allowed += fmt.Sprintf("P%d", a)
+	}
+	
+	return fmt.Sprintf("Cannot go from P%d to P%d. Allowed next processes: %s.", 
+		n.currentProcess, to, allowed)
+}
+
+// ValidateCrossScheduleTransition validates navigation between schedules.
+// Rule: any P3 -> any P1.
+func ValidateCrossScheduleTransition(fromSchedule, toSchedule ScheduleID, fromProcess, toProcess ProcessID) error {
+	if fromProcess != Process3 {
+		return fmt.Errorf("cannot leave schedule %s: must complete P3 first (current: P%d)", 
+			ScheduleNames[fromSchedule], fromProcess)
+	}
+	
+	if toProcess != Process1 {
+		return fmt.Errorf("cannot enter schedule %s: must start at P1 (requested: P%d)", 
+			ScheduleNames[toSchedule], toProcess)
+	}
+	
+	return nil
+}
+
 // FormatNavigationDiagram returns an ASCII diagram showing allowed transitions
 func FormatNavigationDiagram() string {
 	return `
-Navigation Rules (1↔2↔3):
-
-  ┌─────────────────────────────────────────────────────────────┐
-  │                                                             │
-  │   ┌─────┐          ┌─────┐          ┌─────┐               │
-  │   │     │          │     │          │     │               │
-  │   │ P1  │ ←──────→ │ P2  │ ←──────→ │ P3  │ ──→ Terminate │
-  │   │     │          │     │          │     │               │
-  │   └──┬──┘          └──┬──┘          └──┬──┘               │
-  │      │                │                │                   │
-  │      └────────────────┼────────────────┘                   │
-  │           ↻           ↻           ↻                        │
-  │        (repeat)    (repeat)    (repeat)                    │
-  │                                                             │
-  └─────────────────────────────────────────────────────────────┘
-
-  From P1: Can go to P1 (repeat) or P2
-  From P2: Can go to P1, P2 (repeat), or P3
-  From P3: Can go to P2, P3 (repeat), or terminate schedule
+   1↔2↔3 Navigation Matrix:
+   
+   ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+   │  FROM   │   P1    │   P2    │   P3    │  TERM   │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┤
+   │  START  │    ✓    │    X    │    X    │    X    │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┤
+   │   P1    │    ↻    │    ✓    │    X    │    X    │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┤
+   │   P2    │    ✓    │    ↻    │    ✓    │    X    │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┤
+   │   P3    │    X    │    ✓    │    ↻    │    ✓    │
+   └─────────┴─────────┴─────────┴─────────┴─────────┘
+   
+   Rules:
+   1. Must start with P1.
+   2. P1 can repeat or move to P2.
+   3. P2 can return to P1, repeat, or move to P3.
+   4. P3 can return to P2, repeat, or terminate.
+   5. Termination only allowed from P3.
+   6. P1↔P3 jumps are strictly forbidden (E001/E003).
 `
 }

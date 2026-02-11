@@ -98,7 +98,11 @@ struct SessionHandoffView: View {
                     .foregroundStyle(DS.Colors.tertiaryText)
 
                     if let orch = session.orchestration {
-                        FlowCodeView(flowCode: orch.flowCode)
+                        FlowCodeView(
+                            flowCode: orch.flowCode,
+                            currentSchedule: OrchestrationService.Schedule(rawValue: orch.currentSchedule) ?? .knowledge,
+                            currentProcess: OrchestrationService.Process(rawValue: orch.currentProcess) ?? .first
+                        )
                     }
                 }
             }

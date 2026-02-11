@@ -8,24 +8,24 @@ import (
 	"github.com/croberts/obot/internal/monitor"
 )
 
-type session struct {
+type cliSession struct {
 	recorder *actions.Recorder
 	stopMem  func()
 	summaryEnabled bool
 }
 
-func startSession() *session {
-	return &session{
+func startSession() *cliSession {
+	return &cliSession{
 		recorder: actions.NewRecorder(),
 		summaryEnabled: !noSummary,
 	}
 }
 
-func (s *session) Add(summary string, facts map[string]string) string {
+func (s *cliSession) Add(summary string, facts map[string]string) string {
 	return s.recorder.Add(summary, facts)
 }
 
-func (s *session) StartMemoryGraph() {
+func (s *cliSession) StartMemoryGraph() {
 	if !memGraphEnabled {
 		return
 	}
@@ -38,7 +38,7 @@ func (s *session) StartMemoryGraph() {
 	})
 }
 
-func (s *session) StopMemoryGraph() {
+func (s *cliSession) StopMemoryGraph() {
 	if s.stopMem == nil {
 		return
 	}
@@ -46,7 +46,7 @@ func (s *session) StopMemoryGraph() {
 	s.stopMem = nil
 }
 
-func (s *session) Close() {
+func (s *cliSession) Close() {
 	s.StopMemoryGraph()
 	if s.summaryEnabled && s.recorder.HasActions() {
 		fmt.Println()

@@ -258,6 +258,7 @@ struct OllamaBotApp: App {
     }
 }
 
+@MainActor
 @Observable
 class AppState {
     // MARK: - File System State

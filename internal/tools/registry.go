@@ -46,6 +46,10 @@ const (
 	ToolGitStatus          ToolID = "git.status"
 	ToolGitDiff            ToolID = "git.diff"
 	ToolGitCommit          ToolID = "git.commit"
+	ToolScreenshot         ToolID = "system.screenshot"
+	ToolLint               ToolID = "system.lint"
+	ToolFormat             ToolID = "system.format"
+	ToolTest               ToolID = "system.test"
 	ToolCheckpointSave     ToolID = "checkpoint.save"
 	ToolCheckpointRestore  ToolID = "checkpoint.restore"
 	ToolCheckpointList     ToolID = "checkpoint.list"
@@ -100,6 +104,10 @@ func NewRegistry() *Registry {
 	r.register(ToolGitStatus, CategoryGit, "Get git status", 2, "", "git_status", true)
 	r.register(ToolGitDiff, CategoryGit, "Get git diff", 2, "", "git_diff", true)
 	r.register(ToolGitCommit, CategoryGit, "Create git commit", 2, "", "git_commit", true)
+	r.register(ToolScreenshot, CategorySystem, "Capture screen screenshot", 2, "TakeScreenshot", "screenshot", true)
+	r.register(ToolLint, CategorySystem, "Run linter on a file", 2, "LintFile", "lint", true)
+	r.register(ToolFormat, CategorySystem, "Format a file", 2, "FormatFile", "format", true)
+	r.register(ToolTest, CategorySystem, "Run tests on a file", 2, "TestFile", "test", true)
 	r.register(ToolCheckpointSave, CategorySession, "Save checkpoint", 2, "", "checkpoint_save", true)
 	r.register(ToolCheckpointRestore, CategorySession, "Restore checkpoint", 2, "", "checkpoint_restore", true)
 	r.register(ToolCheckpointList, CategorySession, "List checkpoints", 2, "", "checkpoint_list", true)

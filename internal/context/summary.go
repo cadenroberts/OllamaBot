@@ -1,6 +1,7 @@
 package context
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -49,7 +50,7 @@ func DefaultOptions() Options {
 	}
 }
 
-func BuildSummary(targetPath string, instruction string, opts Options) (*Summary, error) {
+func BuildSummary(ctx context.Context, targetPath string, instruction string, opts Options) (*Summary, error) {
 	if targetPath == "" {
 		targetPath = "."
 	}
@@ -89,7 +90,7 @@ func BuildSummary(targetPath string, instruction string, opts Options) (*Summary
 		root = filepath.Dir(absPath)
 	}
 
-	idx, err := index.Build(root, index.Options{
+	idx, err := index.Build(ctx, root, index.Options{
 		MaxFileSize:   opts.MaxFileSize,
 		IncludeHidden: false,
 	})
@@ -123,7 +124,7 @@ func BuildSummary(targetPath string, instruction string, opts Options) (*Summary
 		siblings = listSiblingFiles(targetFile, opts.MaxSiblingFiles)
 	}
 
-	plan, err := planner.BuildPlan(root, instruction, planner.Options{
+	plan, err := planner.BuildPlan(ctx, root, instruction, planner.Options{
 		MaxTasks:     opts.MaxPlanTasks,
 		MaxFiles:     opts.MaxTopFiles,
 		MaxFileSize:  opts.MaxFileSize,

@@ -30,7 +30,6 @@ struct SwiftTermWrapper: NSViewRepresentable {
         // Colors - match OllamaBot secondary background
         let backgroundColor = NSColor(calibratedRed: 0.141, green: 0.157, blue: 0.231, alpha: 1.0) // #24283B
         terminalView.nativeBackgroundColor = backgroundColor
-        terminalView.backgroundColor = backgroundColor
         terminalView.nativeForegroundColor = NSColor.white
         
         // Terminal options

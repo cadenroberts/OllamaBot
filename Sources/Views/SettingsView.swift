@@ -917,8 +917,8 @@ private struct RoleRoutingRow: View {
                 DSDropdown(
                     selection: $config.provider,
                     options: providerOptions,
-                    label: { providerLabel($0) },
-                    row: { providerLabel($0) }
+                    label: { Text(providerLabel($0)) },
+                    row: { Text(providerLabel($0)) }
                 )
                 .frame(width: 180)
                 
@@ -1402,8 +1402,8 @@ struct GitSettingsContent: View {
                         let intervals = [60, 300, 900, 1800]
                         DSDropdown(
                             selection: Binding(
-                                get: { Int(config.gitAutoFetchInterval) },
-                                set: { config.gitAutoFetchInterval = Double($0) }
+                                get: { config.gitAutoFetchInterval },
+                                set: { config.gitAutoFetchInterval = $0 }
                             ),
                             options: intervals,
                             label: { interval in Text("\(interval/60) min") },

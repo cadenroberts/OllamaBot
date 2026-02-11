@@ -146,6 +146,18 @@ final class SharedConfigService {
 
     struct PlatformConfig: Codable {
         var ide: IDEConfig = IDEConfig()
+        var cli: CLIConfig = CLIConfig()
+    }
+
+    struct CLIConfig: Codable {
+        var verbose: Bool = false
+        var color: Bool = true
+        var updateCheck: Bool = true
+
+        enum CodingKeys: String, CodingKey {
+            case verbose, color
+            case updateCheck = "update_check"
+        }
     }
 
     struct IDEConfig: Codable {
@@ -172,8 +184,11 @@ final class SharedConfigService {
 
     // MARK: - State
 
-    private(set) var config: UnifiedConfig = UnifiedConfig()
+    @MainActor
+    var config: UnifiedConfig = UnifiedConfig()
+    @MainActor
     private(set) var isLoaded: Bool = false
+    @MainActor
     private(set) var lastError: String?
     private(set) var configFilePath: String
 
@@ -193,7 +208,9 @@ final class SharedConfigService {
 
     init() {
         self.configFilePath = Self.configFileURL.path
-        loadConfig()
+        Task { @MainActor in
+            loadConfig()
+        }
         watchForChanges()
     }
 
@@ -203,6 +220,7 @@ final class SharedConfigService {
 
     // MARK: - Load
 
+    @MainActor
     func loadConfig() {
         let url = Self.configFileURL
 
@@ -218,18 +236,35 @@ final class SharedConfigService {
         do {
             let yamlString = try String(contentsOf: url, encoding: .utf8)
             let decoder = YAMLDecoder()
-            config = try decoder.decode(UnifiedConfig.self, from: yamlString)
-            isLoaded = true
-            lastError = nil
+            let decoded = try decoder.decode(UnifiedConfig.self, from: yamlString)
+            
+            // Merge logic: prefer YAML, but IDE can override UI specific things if desired
+            // For now, we overwrite everything to enforce equivalence with CLI
+            self.config = decoded
+            self.isLoaded = true
+            self.lastError = nil
             print("SharedConfigService: Loaded config v\(config.version) from \(url.path)")
+            
+            // Sync to UserDefaults for UI components that don't use SharedConfigService yet
+            syncToUserDefaults()
         } catch {
             lastError = error.localizedDescription
             print("SharedConfigService: Failed to load config.yaml: \(error)")
         }
     }
 
+    /// Syncs relevant platform settings back to UserDefaults for compatibility
+    @MainActor
+    private func syncToUserDefaults() {
+        let defaults = UserDefaults.standard
+        defaults.set(config.platforms.ide.theme, forKey: "appearance.theme")
+        defaults.set(config.platforms.ide.fontSize, forKey: "editor.fontSize")
+        defaults.set(config.ollama.url, forKey: "ai.ollamaURL")
+    }
+
     // MARK: - Write Default Config
 
+    @MainActor
     func writeDefaultConfig() throws {
         let dir = Self.configDirectory
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -335,31 +370,24 @@ final class SharedConfigService {
     func watchForChanges() {
         stopWatching()
 
-        let path = Self.configFileURL.path
+        let dir = Self.configDirectory
 
         // Ensure the directory exists for watching
-        let dir = Self.configDirectory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
-        // If file doesn't exist, watch the directory instead
-        let watchPath: String
-        if FileManager.default.fileExists(atPath: path) {
-            watchPath = path
-        } else {
-            watchPath = dir.path
-        }
-
-        fileDescriptor = open(watchPath, O_EVTONLY)
+        // We watch the directory to handle file creations/deletions/renames
+        fileDescriptor = open(dir.path, O_EVTONLY)
         guard fileDescriptor >= 0 else { return }
 
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fileDescriptor,
-            eventMask: [.write, .rename, .delete],
+            eventMask: [.write],
             queue: .main
         )
 
         source.setEventHandler { [weak self] in
-            self?.loadConfig()
+            // Use Task for debouncing
+            self?.triggerThrottledLoad()
         }
 
         source.setCancelHandler { [weak self] in
@@ -374,33 +402,107 @@ final class SharedConfigService {
         fileWatcherSource = source
     }
 
+    private var loadTask: Task<Void, Never>?
+
+    private func triggerThrottledLoad() {
+        loadTask?.cancel()
+        loadTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+            if !Task.isCancelled {
+                await MainActor.run {
+                    loadConfig()
+                }
+            }
+        }
+    }
+
     private func stopWatching() {
         fileWatcherSource?.cancel()
         fileWatcherSource = nil
+        loadTask?.cancel()
     }
 
     // MARK: - Migration
 
-    /// Migrate relevant AI/orchestration settings from UserDefaults to shared config
+    /// Migrate relevant AI/orchestration settings from UserDefaults to shared config.
+    @MainActor
     func migrateFromUserDefaults(_ configManager: ConfigurationManager) throws {
         var migrated = config
 
-        // Migrate AI settings
-        if configManager.contextWindow != 8192 {
-            migrated.context.maxTokens = configManager.contextWindow
+        // AI & Context
+        migrated.context.maxTokens = configManager.contextWindow
+        migrated.ollama.url = configManager.defaultModel == "auto" ? "http://localhost:11434" : configManager.defaultModel
+        
+        // Quality
+        if configManager.maxLoops > 150 {
+            migrated.quality.thorough.iterations = 4
         }
-
-        // Migrate theme preference
+        
+        // IDE UI (Keep but sync)
         migrated.platforms.ide.theme = configManager.theme
         migrated.platforms.ide.fontSize = Int(configManager.editorFontSize)
+        migrated.platforms.ide.showTokenUsage = configManager.showRoutingExplanation
 
-        config = migrated
+        self.config = migrated
 
         // Write to file
         let encoder = YAMLEncoder()
         let yamlString = try encoder.encode(migrated)
+        
+        // Create directory if missing
+        try FileManager.default.createDirectory(at: Self.configDirectory, withIntermediateDirectories: true)
         try yamlString.write(to: Self.configFileURL, atomically: true, encoding: .utf8)
 
-        print("SharedConfigService: Migrated settings from UserDefaults")
+        print("SharedConfigService: Successfully migrated and saved settings to config.yaml")
+    }
+
+    // MARK: - Helper Types
+    
+    struct ValidationResult {
+        let isValid: Bool
+        let errors: [String]
+    }
+    
+    @MainActor
+    func validateConfig() -> ValidationResult {
+        var errors: [String] = []
+        
+        if config.version != "2.0" {
+            errors.append("Unsupported config version: \(config.version)")
+        }
+        
+        if config.ollama.url.isEmpty {
+            errors.append("Ollama URL cannot be empty")
+        }
+        
+        return ValidationResult(isValid: errors.isEmpty, errors: errors)
+    }
+
+    // MARK: - Accessors
+
+    /// Returns the model tag for a given role based on current system tier
+    @MainActor
+    func getModelTag(for role: KeyPath<ModelsConfig, ModelEntry>, tier: String? = nil) -> String {
+        let entry = config.models[keyPath: role]
+        let targetTier = tier ?? getCurrentTier()
+        return entry.tierMapping[targetTier] ?? entry.defaultTag
+    }
+
+    /// Determines the current system tier based on RAM (simulated for now)
+    @MainActor
+    func getCurrentTier() -> String {
+        guard config.models.tierDetection.auto else { return "balanced" }
+        
+        // In a real app, we'd use process info to get physical memory
+        // let ramGB = Int(ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024))
+        let ramGB = 32 // Simulated for example
+        
+        for (tier, range) in config.models.tierDetection.thresholds {
+            if range.count == 2 && ramGB >= range[0] && ramGB <= range[1] {
+                return tier
+            }
+        }
+        
+        return "balanced"
     }
 }

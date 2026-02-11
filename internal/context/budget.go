@@ -23,9 +23,9 @@ type Budget struct {
 // NewBudget creates a token budget from allocation percentages and a total.
 func NewBudget(total int, alloc map[string]float64) *Budget {
 	b := &Budget{Total: total}
-	b.Task = int(float64(total) * getOrDefault(alloc, "task", 0.25))
-	b.Files = int(float64(total) * getOrDefault(alloc, "files", 0.33))
-	b.Project = int(float64(total) * getOrDefault(alloc, "project", 0.16))
+	b.Task = int(float64(total) * getOrDefault(alloc, "task", 0.20))
+	b.Files = int(float64(total) * getOrDefault(alloc, "files", 0.35))
+	b.Project = int(float64(total) * getOrDefault(alloc, "project", 0.15))
 	b.History = int(float64(total) * getOrDefault(alloc, "history", 0.12))
 	b.Memory = int(float64(total) * getOrDefault(alloc, "memory", 0.12))
 	b.Errors = int(float64(total) * getOrDefault(alloc, "errors", 0.06))

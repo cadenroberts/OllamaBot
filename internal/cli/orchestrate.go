@@ -11,11 +11,14 @@ import (
 	"time"
 
 	"github.com/croberts/obot/internal/agent"
+	"github.com/croberts/obot/internal/consultation"
 	"github.com/croberts/obot/internal/model"
 	"github.com/croberts/obot/internal/ollama"
 	"github.com/croberts/obot/internal/orchestrate"
+	"github.com/croberts/obot/internal/planner"
 	"github.com/croberts/obot/internal/resource"
 	"github.com/croberts/obot/internal/router"
+	"github.com/croberts/obot/internal/schedule"
 	orchsession "github.com/croberts/obot/internal/session"
 	"github.com/croberts/obot/internal/ui"
 	"github.com/spf13/cobra"
@@ -181,7 +184,7 @@ func runOrchestrate(cmd *cobra.Command, args []string) error {
 	modelCoord := model.NewCoordinator(ollamaClient)
 
 	// Initialize agent
-	ag := agent.NewAgent(ollamaClient)
+	ag := agent.NewAgent(modelCoord)
 
 	// Create status display
 	statusDisplay := ui.NewStatusDisplay(os.Stdout, 80, 250*time.Millisecond)
@@ -220,6 +223,33 @@ func runOrchestrate(cmd *cobra.Command, args []string) error {
 
 	// Draw initial status display
 	fmt.Print(ui.FormatLabelBold("Orchestrator") + ui.FormatBullet() + ui.FormatValue("Begin") + "\n")
+
+	// Run pre-orchestration planning (Merges item 278 Planner Integration)
+	fmt.Printf("%s %s\n", ui.FormatLabelBold("Planner"), ui.FormatBullet()+ui.FormatValue("Building pre-schedule plan..."))
+	plan, err := planner.BuildPlan(ctx, ".", initialPrompt, planner.DefaultOptions())
+	if err != nil {
+		fmt.Printf("%s %s\n", ui.FormatWarning("⚠"), "Planning failed, continuing with heuristic: "+err.Error())
+	} else if plan != nil && len(plan.Tasks) > 0 {
+		fmt.Println(ui.FormatValueMuted("  Pre-schedule analysis complete:"))
+		for i, task := range plan.Tasks {
+			if i >= 5 {
+				fmt.Printf("    %s %s\n", ui.FormatBullet(), ui.FormatValueMuted(fmt.Sprintf("... and %d more", len(plan.Tasks)-5)))
+				break
+			}
+			riskIcon := "🟢"
+			if task.Risk == planner.RiskHigh {
+				riskIcon = "🔴"
+			} else if task.Risk == planner.RiskModerate {
+				riskIcon = "🟡"
+			}
+			fmt.Printf("    %s %s %s\n", riskIcon, ui.FormatValue(task.ID), ui.FormatValueMuted(task.Message))
+
+			// Feed into orchestration notes (Merges item 278 Planner Integration)
+			orch.AddNote(fmt.Sprintf("Planned subtask [%s]: %s (Risk: %s, Rationale: %s)", task.ID, task.Message, task.Risk, task.Rationale), "planner")
+		}
+		fmt.Println()
+	}
+
 	fmt.Print(ui.FormatLabel("Schedule") + ui.FormatBullet() + ui.TextMuted + "..." + ui.Reset + "\n")
 	fmt.Print(ui.FormatLabel("Process") + ui.FormatBullet() + ui.TextMuted + "..." + ui.Reset + "\n")
 	fmt.Print(ui.FormatLabel("Agent") + ui.FormatBullet() + ui.TextMuted + "..." + ui.Reset + "\n")
@@ -230,7 +260,7 @@ func runOrchestrate(cmd *cobra.Command, args []string) error {
 	defer statusDisplay.StopAnimations()
 
 	// Run the orchestration loop
-	err := runOrchestrationLoop(ctx, orch, modelCoord, ag, resMon, sess, statusDisplay)
+	err = runOrchestrationLoop(ctx, orch, modelCoord, ag, resMon, sess, statusDisplay)
 	if err != nil && err != context.Canceled {
 		return err
 	}
@@ -289,16 +319,18 @@ func runOrchestrationLoop(
 
 	// Execute process function - runs the agent
 	executeProcessFn := func(ctx context.Context, schedID orchestrate.ScheduleID, procID orchestrate.ProcessID) error {
-		// Get the model for this schedule
-		modelName := modelCoord.GetModelForSchedule(schedID)
-
-		// Check for human consultation
-		consultType := orchestrate.GetProcessConsultationType(schedID, procID)
-		if consultType != orchestrate.ConsultationNone {
-			handleHumanConsultation(ctx, orch, consultType, schedID, procID)
+		// Get the logic handler for this schedule
+		handler := schedule.GetLogicHandler(schedID)
+		if handler != nil {
+			// Execute using the logic handler
+			return handler.ExecuteProcess(ctx, procID, func(ctx context.Context, prompt string) error {
+				modelName := modelCoord.GetModelForSchedule(schedID)
+				return executeAgentProcess(ctx, ag, modelCoord, orch, schedID, procID, modelName, resMon, statusDisplay)
+			})
 		}
 
-		// Execute the process using the agent
+		// Fallback to direct execution if no handler
+		modelName := modelCoord.GetModelForSchedule(schedID)
 		return executeAgentProcess(ctx, ag, modelCoord, orch, schedID, procID, modelName, resMon, statusDisplay)
 	}
 
@@ -321,35 +353,32 @@ func executeAgentProcess(
 	processName := orchestrate.ProcessNames[schedID][procID]
 	prompt := orch.GetPrompt()
 
-	// Build the process-specific prompt
-	systemPrompt := modelCoord.GetSystemPrompt(schedID, procID)
-	
-	// Simulate agent actions based on process type
-	// In a full implementation, this would call the LLM and parse actions
-	
 	// Update agent action display
 	statusDisplay.SetAgentAction(fmt.Sprintf("Executing %s...", processName))
 
-	// Simulate some work
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(500 * time.Millisecond):
+	// Set agent context
+	ag.SetContext(schedID, procID)
+
+	// Set action callback to update UI
+	ag.SetActionCallback(func(a agent.Action) {
+		statusDisplay.SetAgentAction(a.ActionOutput())
+		printAgentAction(string(a.Type), a.Path)
+		resMon.RecordDiskWrite(int64(len(a.Content))) // Simple disk tracking
+	})
+
+	// Execute the process using the agent
+	// The agent will select the correct model based on schedule/process
+	err := ag.Execute(ctx, schedID, procID, prompt)
+	if err != nil {
+		return err
 	}
 
-	// Record action
-	printAgentAction("Analyzed", prompt[:min(50, len(prompt))]+"...")
-	
 	// Mark process completion
 	statusDisplay.SetAgentAction(fmt.Sprintf("%s Completed", processName))
 
-	// Record tokens (simulated)
-	orch.RecordTokens(int64(len(prompt) * 2))
-
-	// Update memory stats
-	resMon.RecordMemory()
-
-	_ = systemPrompt // Used in full LLM implementation
+	// Record stats
+	stats := ag.GetStats()
+	orch.RecordActions(stats.TotalActions)
 
 	return nil
 }
@@ -364,38 +393,35 @@ func handleHumanConsultation(
 ) {
 	processName := orchestrate.ProcessNames[schedID][procID]
 
+	// Initialize consultation handler
+	handler := consultation.NewHandler(os.Stdin, os.Stdout, nil)
+
+	req := consultation.Request{
+		Type:     consultation.ConsultationType(consultType),
+		Question: fmt.Sprintf("Consultation requested for %s process in %s schedule.", processName, orchestrate.ScheduleNames[schedID]),
+	}
+
 	if consultType == orchestrate.ConsultationOptional {
-		fmt.Printf("\n%s %s\n", ui.FormatLabel("Human Consultation"), 
+		fmt.Printf("\n%s %s\n", ui.FormatLabel("Human Consultation"),
 			ui.FormatBullet()+ui.FormatValueMuted("(Optional) "+processName))
 	} else {
 		fmt.Printf("\n%s %s\n", ui.FormatLabel("Human Consultation"),
 			ui.FormatBullet()+ui.FormatValue("(Required) "+processName))
 	}
 
-	// Show countdown and prompt
-	fmt.Printf("%s %s\n", ui.FormatValueMuted("Enter response within 60 seconds, or press Enter to skip:"), "")
-
-	// Simple input with timeout
-	inputChan := make(chan string, 1)
-	go func() {
-		reader := bufio.NewReader(os.Stdin)
-		input, _ := reader.ReadString('\n')
-		inputChan <- strings.TrimSpace(input)
-	}()
-
-	select {
-	case input := <-inputChan:
-		if input != "" {
-			orch.AddNote(input, "user")
-			fmt.Printf("%s %s\n", ui.FormatSuccess("✓"), "Response recorded")
-		}
-	case <-time.After(60 * time.Second):
-		fmt.Printf("%s %s\n", ui.FormatWarning("⏱"), "Timeout - AI substitute will be used")
-		orch.AddNote("[AI Substitute Response]", "ai-substitute")
-	case <-ctx.Done():
+	resp, err := handler.Request(ctx, req)
+	if err != nil {
+		fmt.Printf("%s %s\n", ui.FormatError("✗"), err.Error())
 		return
 	}
-	fmt.Println()
+
+	if resp.Source == consultation.ResponseSourceHuman {
+		orch.AddNote(resp.Content, "user")
+		fmt.Printf("%s %s\n", ui.FormatSuccess("✓"), "Response recorded")
+	} else {
+		fmt.Printf("%s %s\n", ui.FormatWarning("⏱"), "Timeout - AI substitute used: "+resp.Content)
+		orch.AddNote(resp.Content, "ai-substitute")
+	}
 }
 
 // OllamaBot ASCII Logo - Tokyo Blue themed

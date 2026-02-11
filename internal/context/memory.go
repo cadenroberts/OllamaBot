@@ -119,3 +119,5 @@ func (m *Memory) load() error {
 
 	return json.Unmarshal(data, &m.entries)
 }
+
+// End of memory management.

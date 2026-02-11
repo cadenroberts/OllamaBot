@@ -21,13 +21,13 @@ type StoredStats struct {
 	SlowestNs         int64  `json:"slowest_inference_ns"`
 }
 
-// getStatsPath returns the path to the stats file
+// getStatsPath returns the path to the stats file using the unified config directory.
 func getStatsPath() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		homeDir = "."
 	}
-	return filepath.Join(homeDir, ".config", "obot", "stats.json")
+	return filepath.Join(homeDir, ".config", "ollamabot", "stats.json")
 }
 
 // Save persists the tracker data to disk

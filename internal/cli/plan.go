@@ -36,7 +36,7 @@ No model calls are made. Useful for fast scoping before running fixes.`,
 			instruction = strings.Join(args[1:], " ")
 		}
 
-		plan, err := planner.BuildPlan(path, instruction, planner.Options{
+		plan, err := planner.BuildPlan(cmd.Context(), path, instruction, planner.Options{
 			MaxTasks:     planMaxTasks,
 			MaxFiles:     planMaxFiles,
 			MaxFileSize:  planMaxFileSize,

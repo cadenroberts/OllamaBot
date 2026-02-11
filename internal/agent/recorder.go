@@ -18,6 +18,7 @@ type Recorder struct {
 	fileCreates   []Action
 	fileDeletes   []Action
 	dirOperations []Action
+	delegations   []Action
 
 	startTime time.Time
 }
@@ -31,6 +32,7 @@ func NewRecorder() *Recorder {
 		fileCreates:   make([]Action, 0),
 		fileDeletes:   make([]Action, 0),
 		dirOperations: make([]Action, 0),
+		delegations:   make([]Action, 0),
 		startTime:     time.Now(),
 	}
 }
@@ -53,6 +55,8 @@ func (r *Recorder) Record(action Action) {
 		r.fileDeletes = append(r.fileDeletes, action)
 	case ActionCreateDir, ActionDeleteDir, ActionRenameDir, ActionMoveDir, ActionCopyDir:
 		r.dirOperations = append(r.dirOperations, action)
+	case ActionDelegate:
+		r.delegations = append(r.delegations, action)
 	}
 }
 
