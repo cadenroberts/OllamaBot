@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/croberts/obot/internal/ollama"
 )
 
@@ -564,7 +567,7 @@ func RenderTLDR(tldr *TLDR) string {
 	for expert, score := range tldr.ExpertConsensus.PromptAdherence {
 		quality := tldr.ExpertConsensus.ProjectQuality[expert]
 		sb.WriteString(fmt.Sprintf("│   %-10s: Adherence %.1f%%, Quality %.1f%%\n", 
-			strings.Title(string(expert)), score, quality))
+			cases.Title(language.English).String(string(expert)), score, quality))
 	}
 	sb.WriteString("│                                                                     │\n")
 

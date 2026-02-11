@@ -4,7 +4,7 @@ The Unified Configuration protocol defines the shared configuration schema used 
 
 ## 1. Schema (YAML)
 
-The configuration is stored in `ollamabot.config.yaml` (typically in `~/.config/ollamabot/`).
+The configuration is stored in `config.yaml` (typically in `~/.config/ollamabot/`).
 
 ```yaml
 version: "2.0"

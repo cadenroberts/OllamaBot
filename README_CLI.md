@@ -37,15 +37,6 @@ obot -i                          # Start interactive session for the current dir
 - Use `/undo` to revert the last applied change.
 - Use `/exit` or `Ctrl+C` to quit.
 
-### New: Structured External Tools
-Run project-aware linters, formatters, and tests.
-
-```bash
-obot lint path/to/file.go        # Run linter (e.g., go vet)
-obot format path/to/file.go      # Run formatter (e.g., go fmt)
-obot test path/to/file_test.go   # Run tests (e.g., go test)
-```
-
 ### Advanced Orchestration
 Launch the full 5-schedule autonomous orchestration engine.
 
@@ -94,6 +85,65 @@ Save and restore the entire state of your workspace.
 obot checkpoint save             # Create a new checkpoint
 obot checkpoint list             # List available checkpoints
 obot checkpoint restore <id>     # Restore workspace to a previous state
+```
+
+## 🩺 Health Scan
+
+Run a diagnostic health check of the OllamaBot environment (configuration, model availability, Ollama connectivity, system resources).
+
+```bash
+obot scan
+```
+
+## 🏗️ Project Initialization
+
+Scaffold a new OllamaBot project in the current directory with configuration and rules templates.
+
+```bash
+obot init
+```
+
+This creates a `.obot/` directory with a `rules.obotrules` template and a `cache/` directory.
+
+## 📇 Code Index
+
+Build and manage a local code index for fast search and symbol lookup.
+
+```bash
+obot index build [path]           # Build or update the code index
+```
+
+## 🔍 Search & Symbols
+
+Search indexed files, symbols, and content across the project.
+
+```bash
+obot search <query>               # Search file paths and symbol names
+obot search <query> --type func   # Filter by symbol type (function|class|struct|interface|method)
+obot search <query> --lang go     # Filter by programming language
+obot search <query> --files       # Search only in file paths
+obot search <query> --uses        # Search for usages in file contents
+obot symbols <query>              # Search indexed symbols specifically
+```
+
+## 📂 Filesystem Helpers
+
+Filesystem utilities for scripted workflows and automation pipelines.
+
+```bash
+echo "content" | obot fs write <path>               # Write stdin to file
+echo "extra" | obot fs write <path> --append         # Append to file
+echo "#!/bin/sh" | obot fs write <path> --mode 0755  # Write with permissions
+obot fs delete <path>                                # Delete a file
+obot fs delete <path> --force                        # Delete a directory recursively
+```
+
+## 📦 Models
+
+List all available Ollama models and show the currently active model.
+
+```bash
+obot models
 ```
 
 ## ⚙️ Configuration

@@ -292,8 +292,8 @@ open build/OllamaBot.app
 ### Development Mode
 
 ```bash
-swift run OllamaBot   # Run from source
-open Package.swift    # Open in Xcode
+xcodebuild -scheme OllamaBot build   # Build from source
+open OllamaBot.xcodeproj             # Open in Xcode (if using Xcode project)
 ```
 
 ### obot CLI (Go)
@@ -326,9 +326,23 @@ obot checkpoint list             # List all available checkpoints
 obot config migrate              # Migrate legacy JSON config to unified YAML
 obot config unified              # View active unified configuration
 obot stats --saved               # View accumulated cost savings vs GPT-4/Claude
+
+# Project Setup & Diagnostics
+obot init                        # Scaffold .obot/ directory with rules templates
+obot scan                        # Health check: config, Ollama, models, resources
+obot models                      # List available Ollama models
+
+# Code Index & Search
+obot index build [path]          # Build local code index for fast lookup
+obot search <query>              # Search indexed files and symbols
+obot symbols <query>             # Search indexed symbols specifically
+
+# Filesystem Helpers (scripted workflows)
+echo "content" | obot fs write <path>   # Write stdin to file
+obot fs delete <path> --force           # Delete file or directory
 ```
 
-Build requires Go 1.21+ and a running Ollama instance. The CLI auto-detects system RAM to select the optimal model.
+Build requires Go 1.24+ and a running Ollama instance. The CLI auto-detects system RAM to select the optimal model.
 
 #### Quality Presets
 The CLI supports the same quality presets as the IDE via the `--quality` flag:
@@ -412,20 +426,20 @@ Type in the chat panel on the right. The model auto-selects based on your questi
 
 ```
 OllamaBot/
-├── Sources/                             # Swift macOS IDE (73 files)
+├── Sources/                             # Swift macOS IDE (77 files)
 │   ├── OllamaBotApp.swift               # App entry, state management
-│   ├── Agent/                           # 6 files
+│   ├── Agent/                           # 9 files
 │   │   ├── AgentExecutor.swift          # Infinite Mode engine
 │   │   ├── AgentTools.swift             # 18 tool definitions
 │   │   ├── AdvancedTools.swift          # Extended tool set (grep, glob, lint, etc.)
 │   │   ├── AdvancedToolExecutor.swift   # Executor for advanced tools
 │   │   ├── CycleAgentManager.swift      # Explore Mode cycle manager
 │   │   └── ExploreAgentExecutor.swift   # Explore Mode engine
-│   ├── Models/                          # 3 files
+│   ├── Models/                          # 4 files
 │   │   ├── ChatMessage.swift            # Chat data model (Codable)
 │   │   ├── FileItem.swift               # File tree model
 │   │   └── OllamaModel.swift           # Model enum + metadata
-│   ├── Services/                        # 29 files
+│   ├── Services/                        # 32 files
 │   │   ├── OllamaService.swift          # Ollama API client + streaming
 │   │   ├── ContextManager.swift         # Context budget + compression
 │   │   ├── IntentRouter.swift           # Model routing logic
@@ -461,7 +475,7 @@ OllamaBot/
 │   │   ├── SyntaxHighlighter.swift      # Code highlighting
 │   │   ├── DSScrollView.swift           # Custom scroll view
 │   │   └── Benchmarks.swift             # Performance testing
-│   └── Views/                           # 29 files
+│   └── Views/                           # 27 files
 │       ├── MainView.swift               # Main layout + overlay dialogs
 │       ├── AgentView.swift              # Infinite Mode UI
 │       ├── ChatView.swift               # Chat panel
@@ -480,9 +494,9 @@ OllamaBot/
 │       └── ...                          # +14 more views
 │
 ├── cmd/obot/                            # Go CLI entry point
-│   └── main.go
-├── internal/                            # Go CLI packages (79 files, 28 packages)
-│   ├── cli/                             # Commands (fix, plan, review, orchestrate, stats, checkpoint, session, config)
+│   └── main.go                         # Binary entrypoint, wires version + cli.Execute()
+├── internal/                            # Go CLI packages (38 packages)
+│   ├── cli/                             # Commands (fix, plan, review, orchestrate, stats, checkpoint, session, config, scan, init, index, search, symbols, fs, models)
 │   ├── ollama/                          # Ollama HTTP client + streaming
 │   ├── fixer/                           # Code fix engine + quality presets
 │   ├── orchestrate/                     # 5-schedule orchestration framework
@@ -518,7 +532,6 @@ OllamaBot/
 │   ├── rebuild.sh                       # Fast rebuild
 │   └── update.sh                        # Pull + rebuild + relaunch
 │
-├── Package.swift                        # Swift Package Manager
 ├── go.mod                               # Go module definition
 ├── Makefile                             # Go CLI build system
 └── README.md

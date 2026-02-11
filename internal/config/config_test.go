@@ -41,7 +41,18 @@ func TestGetConfigDir(t *testing.T) {
 	if dir == "" {
 		t.Fatal("GetConfigDir returned empty")
 	}
+	// Legacy config dir is ~/.config/obot (kept for backward compat)
 	if !strings.HasSuffix(dir, filepath.Join(".config", "obot")) {
-		t.Errorf("GetConfigDir should end with .config/obot, got %q", dir)
+		t.Errorf("GetConfigDir (legacy) should end with .config/obot, got %q", dir)
+	}
+}
+
+func TestUnifiedConfigDir(t *testing.T) {
+	dir := UnifiedConfigDir()
+	if dir == "" {
+		t.Fatal("UnifiedConfigDir returned empty")
+	}
+	if !strings.HasSuffix(dir, filepath.Join(".config", "ollamabot")) {
+		t.Errorf("UnifiedConfigDir should end with .config/ollamabot, got %q", dir)
 	}
 }

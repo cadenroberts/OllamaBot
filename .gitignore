@@ -61,7 +61,8 @@ benchmark_results/
 master/
 
 # Compiled CLI binary
-obot
+/bin/obot
+/obot
 
 # Python
 __pycache__/

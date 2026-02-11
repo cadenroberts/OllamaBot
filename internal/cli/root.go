@@ -43,9 +43,10 @@ var (
 
 )
 
-// SetVersion sets the version string
+// SetVersion sets the version string and updates the root command.
 func SetVersion(v string) {
 	version = v
+	rootCmd.Version = v
 }
 
 // rootCmd represents the base command
@@ -203,6 +204,9 @@ func init() {
 	rootCmd.AddCommand(fsCmd)
 	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(symbolsCmd)
+
+	// Interactive mode
+	rootCmd.AddCommand(interactiveCmd)
 
 	// Unified platform commands
 	rootCmd.AddCommand(checkpointCmd)

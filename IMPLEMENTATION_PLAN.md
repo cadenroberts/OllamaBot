@@ -1178,10 +1178,10 @@
 
 ### Keep These Documents ✅
 
-1. **plan.md** - Master consolidated plan (this document)
+1. **IMPLEMENTATION_SPEC.md** - Master consolidated plan (this document)
 2. **CLI_RULES.md** - CLI-specific rules and constraints
 3. **README.md** - User-facing documentation
-4. **ADDITIONS_ANALYSIS.md** - Analysis of SCALING_PLAN.md extraction (reference)
+4. ~~**ADDITIONS_ANALYSIS.md**~~ - Archived (no longer present in repo)
 
 ---
 
