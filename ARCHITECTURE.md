@@ -3,48 +3,42 @@
 ## Component Diagram
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          USER INTERFACES                                 │
-│                                                                          │
-│  ┌──────────────────────┐          ┌───────────────────────────────────┐ │
-│  │   SwiftUI IDE         │          │   Go CLI (obot)                  │ │
-│  │   Sources/Views/      │          │   cmd/obot/main.go               │ │
-│  │   - AgentView         │          │   internal/cli/root.go           │ │
-│  │   - ChatView          │          │   16 subcommands                 │ │
-│  │   - EditorView        │          │                                   │ │
-│  │   - OrchestrationView │          │                                   │ │
-│  └──────────┬───────────┘          └────────────┬──────────────────────┘ │
-│             │                                    │                        │
-└─────────────┼────────────────────────────────────┼────────────────────────┘
-              │                                    │
-              ▼                                    ▼
-┌──────────────────────────┐   ┌──────────────────────────────────────────┐
-│  IDE Agent Layer          │   │  CLI Agent Layer                         │
-│                            │   │                                          │
-│  Agent/AgentExecutor       │   │  internal/agent     (actions, types)     │
-│  Agent/ExploreAgentExecutor│   │  internal/fixer     (code fix engine)    │
-│  Agent/CycleAgentManager   │   │  internal/planner   (pre-orchestration)  │
-│  Agent/CoreToolExecutor    │   │  internal/tools     (git, web, core)     │
-│  Agent/AdvancedToolExecutor│   │  internal/delegation(multi-model)        │
-└──────────┬─────────────────┘   └───────────┬────────────────────────────┘
-           │                                  │
-           ▼                                  ▼
-┌──────────────────────────┐   ┌──────────────────────────────────────────┐
-│  IDE Orchestration        │   │  CLI Orchestration                       │
-│                            │   │                                          │
-│  Services/                 │   │  internal/orchestrate  (state machine)   │
-│    OrchestrationService    │   │  internal/schedule     (5 schedule types)│
-│    (UOP state machine,     │   │  internal/process      (P1/P2/P3)       │
-│     UserDefaults persist)  │   │  internal/model        (4-client coord) │
-│                            │   │  internal/consultation (human-in-loop)  │
-└──────────┬─────────────────┘   └───────────┬────────────────────────────┘
-           │                                  │
-           ▼                                  ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     USER INTERFACES                          │
+│  ┌──────────────────────┐┌──────────────────────────────────┐│
+│  │ SwiftUI IDE          ││ Go CLI (obot)                    ││
+│  │  Sources/Views/      ││   cmd/obot/main.go               ││
+│  │  - AgentView         ││   internal/cli/root.go           ││
+│  │  - ChatView          ││   16 subcommands                 ││
+│  │  - EditorView        ││                                  ││
+│  │  - OrchestrationView ││                                  ││
+│  └──────────┬───────────┘└─────────────────┬────────────────┘│
+└─────────────┼──────────────────────────────┼─────────────────┘
+┌─────────────┼───────────────┐┌─────────────┼───────────────────────────┐
+│             ▼               ││             ▼                           │
+│ IDE Agent Layer             ││ CLI Agent Layer                         │
+│  Agent/AgentExecutor        ││  internal/agent     (actions, types)    │
+│  Agent/ExploreAgentExecutor ││  internal/fixer     (code fix engine)   │
+│  Agent/CycleAgentManager    ││  internal/planner   (pre-orchestration) │
+│  Agent/CoreToolExecutor     ││  internal/tools     (git, web, core)    │
+│  Agent/AdvancedToolExecutor ││  internal/delegation(multi-model)       │
+└────────── ──┬───────────────┘└───────────────────┬─────────────────────┘
+┌─────────────┼─────────────┐┌─────────────────────┼─────────────────────┐
+│             ▼             ││                     ▼                     │
+│ IDE Orchestration         ││ CLI Orchestration                         │
+│  Services/                ││  internal/orchestrate  (state machine)    │
+│   OrchestrationService    ││  internal/schedule     (5 schedule types) │
+│   (UOP state machine,     ││  internal/process      (P1/P2/P3)         │
+│    UserDefaults persist)  ││  internal/model        (4-client coord)   │
+└────────────┬──────────────┘│  internal/consultation (human-in-loop)    │
+             │               └────────────────┬──────────────────────────┘
+             │                                │
+             ▼                                ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                          LLM CLIENT LAYER                                │
 │                                                                          │
 │  IDE: Services/OllamaService.swift       CLI: internal/ollama/client.go  │
-│    URLSession -> localhost:11434            net/http -> localhost:11434   │
+│    URLSession -> localhost:11434            net/http -> localhost:11434  │
 │    /api/chat (streaming)                   /api/chat, /api/generate      │
 │    /api/generate                           /api/tags, /api/embeddings    │
 │    /api/tags                                                             │
@@ -63,19 +57,19 @@
 │  .obot/rules.obotrules             (Project-level AI rules)              │
 │                                                                          │
 │  IDE reader: Services/SharedConfigService.swift (hot-reload via          │
-│              DispatchSource file watcher)                                 │
+│              DispatchSource file watcher)                                │
 │  CLI reader: internal/config/unified.go (load on startup)                │
 │                                                                          │
 └──────────────────────────────────────────────────────────────────────────┘
               │
               ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          OLLAMA RUNTIME                                   │
-│                                                                          │
-│  ollama serve (localhost:11434)                                           │
-│  Models: qwen3:32b, qwen2.5-coder:32b, command-r:35b, qwen3-vl:32b     │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                          OLLAMA RUNTIME                            │
+│                                                                    │
+│  ollama serve (localhost:11434)                                    │
+│  Models: qwen3:32b, qwen2.5-coder:32b, command-r:35b, qwen3-vl:32b │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Execution Flow
